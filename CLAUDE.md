@@ -1,0 +1,339 @@
+# CLAUDE.md — GDG Quantum
+
+This file is the single source of truth for building the GDG Quantum marketing site. Claude Code's **main session acts as the PM / Orchestrator** and operates strictly by the protocol in this file. It does not write feature code itself — it **delegates each phase to the specialist subagents** and **stops at every test gate for human (Gabe) verification** before proceeding.
+
+There are **two tracking files**:
+- **`CLAUDE.md` (this file) — the source of truth.** The full plan. Tasks live here as checkboxes and get ticked `[x]` as they complete, so live status is always visible at a glance. The plan text is never deleted.
+- **`PROGRESS.md` — the completion log / reference of what's been done.** Append-only. Every completed task and every approved phase gate is recorded here in detail (files touched, summary, verify steps, QA result, date). This is where the *record* of finished work lives so this file stays lean.
+
+---
+
+## 0. Orchestration protocol (read first, every session)
+
+**Roles** (each is a subagent in `.claude/agents/`, except the PM which is the main session):
+
+| Agent | Scope |
+|---|---|
+| **PM / Orchestrator** (main session) | Owns this plan + both tracking files. Delegates phases/steps, enforces gates, records approved gates to `PROGRESS.md`, never lets a phase start before the prior gate is human-approved. |
+| `frontend-engineer` | Next.js, TypeScript, Tailwind, GSAP snap engine, animations, hero, a11y, performance. |
+| `backend-engineer` | Prisma/Postgres, contact Server Action, Zod, email, env wiring, Vercel deploy + migrations. |
+| `security-engineer` | Validation hardening, bot/spam/rate-limit, security headers/CSP, secrets, email-injection defenses. |
+| `qa-reviewer` | After every phase, independently verifies the phase's exit criteria + that completed tasks are correctly checked off and logged. Read-only on app code and on both tracking files; may run builds/tests/scanners. |
+
+### Task tracking & the completion log (applies to every agent)
+
+1. **Checking off:** When an owning agent finishes a delegated **task**, it ticks that task's checkbox in this file (`[ ]` → `[x]`) **and** appends a task record to `PROGRESS.md` using the format in §5. Only the checkbox state and `PROGRESS.md` are edited — never the plan's wording or structure.
+2. **Verification before trust:** A ticked task is *claimed* done. `qa-reviewer` verifies it. If QA fails a ticked task, the owning agent reverts the checkbox to `[ ]`, fixes it, and re-logs on re-completion. QA never edits checkboxes or `PROGRESS.md` — it only reports.
+3. **Gate records:** After QA returns PASS **and** Gabe approves the phase's Human Test Gate, the **PM** confirms all that phase's task boxes are `[x]`, appends a "GATE APPROVED" record to `PROGRESS.md` (§5), and updates the Status block below.
+4. **Bootstrapping:** If `PROGRESS.md` does not exist at project start, the PM creates it from the header template in §5.
+5. **Source of truth:** When in doubt about scope or current plan, `CLAUDE.md` wins. `PROGRESS.md` is history/reference only and is never used to redefine scope.
+
+**Hard rules for the PM:**
+1. Work **one phase at a time, in order.** Never begin Phase N+1 until Phase N's gate is approved by Gabe.
+2. For each phase: delegate the tasks to the owning agent(s) → invoke `qa-reviewer` → present the **Human Test Gate** checklist to Gabe → **STOP and wait.**
+3. When delegating, hand the subagent only what it needs: the phase goal, the relevant section of this file, the acceptance criteria, and a reminder of the check-off + logging step.
+4. If `qa-reviewer` returns FAIL, route fixes back to the owning agent and re-run QA before showing Gabe the gate.
+5. On gate approval, record it to `PROGRESS.md` and update Status. Keep Status current (current phase, last approved gate, blockers).
+6. Never improvise scope. If something is ambiguous, ask Gabe rather than guessing.
+
+**Status** (PM keeps this current):
+```
+Current phase: Phase 3R — Cinematic Landing redesign (particle-tunnel hero + directional transitions). All 6 tasks BUILT + checked off; code/build QA PASS (tsc 0, lint 0, `npm run build` exit 0; `/` 137 kB First Load with the three.js/R3F/drei stack isolated in a 668 kB async chunk so `<h1>` stays LCP; no `scroll-snap-type`). PALETTE DECISION REVERSED by Gabe 2026-06-10 (after first gate presentation): now FULL-DARK site (was dark-Landing/light-rest) with the particle tunnel Landing-only — dark scope on `<body>`, all panels transparent over a site-wide dark gradient+grain backdrop, chrome dark on all panels, only the WebGL canvas fades by activeIndex; `color-scheme:dark`; tunnel density/speed/brightness nudged up (live-tunable). Directional deck (0↔1 down / 1↔2 side / 2↔3 up) preserving Observer/goToPanel/lock/keyboard/hash/focus + native fallback, unchanged this round. Human Test Gate 3R RE-PRESENTED to Gabe (full-dark) — awaiting visual/interaction approval; NOT yet approved. Spec: `C:\Users\User\.claude\plans\floating-popping-nygaard.md`.
+Last approved gate: Phase 2 — approved by Gabe 2026-06-09
+Blockers: none. The blocking `next dev` server (PIDs 12280/7240/15788) was stopped with Gabe's approval 2026-06-10; `.next` cleared; baseline + Phase-3R builds both exit 0. (Note: PM orchestration runs in the main session per §0; this harness exposes no Task/subagent tool, so the PM performed both the `frontend-engineer` implementation and the independent QA pass in-session — flagged on the record. Visual/interaction + real-device acceptance is inherently a Gabe gate item, not certifiable by static review.)
+```
+
+---
+
+## 1. Project facts (locked)
+
+- **Product:** GDG Quantum — single-page, scroll-snapped premium studio site.
+- **Experience:** Visitor lands on a hero, then **snaps panel-to-panel** through four full-viewport sections: `Landing → About → Systems → Contact`.
+- **Hosting:** Vercel. Custom domain already purchased (Gabe to provide).
+- **Aesthetic north stars:** the restraint of joffreyspitzer.com, the full-screen section transitions of mont-fort.com/trading, the percentage preloader + numbered nav of fame-estate.com. The supplied GDG comps are the source of truth where references disagree.
+
+### Design tokens (wire into Tailwind `theme.extend` + CSS vars — never hard-code)
+
+| Token | Value | Use |
+|---|---|---|
+| `--bg` | `#FAF9F6` | Canvas (warm off-white) |
+| `--ink` | `#0E1116` | Primary text |
+| `--accent` | `#2563EB` | Links, CTAs, focus rings |
+| `--muted` | `#6B7280` | Secondary text |
+| `--hairline` | `rgba(14,17,22,0.10)` | 1px rules / underlines |
+
+- **Display/headings:** Instrument Serif or Playfair Display — large, tight leading, regular weight.
+- **Body/UI:** Inter (variable). Self-host both via `next/font`; size-adjusted fallback to kill CLS.
+- **Motion language:** subtle, ease-out, 0.6–1.2s, no bounce/spin. Do less.
+
+### Panels
+
+| # | Panel | Hash | Notes |
+|---|---|---|---|
+| 01 | Landing | `#home` | Hero, brand, headline, sub, CTA, scroll cue, glass 3D object |
+| 02 | About | `#about` | Philosophy statement |
+| 03 | **Systems** | `#systems` | The "techy" panel — what GDG builds. Label is a single swappable constant. |
+| 04 | Contact | `#contact` | Contact form + footer |
+
+---
+
+## 2. Stack & locked technical decisions
+
+- **Next.js 14 (App Router)** + **TypeScript `strict: true`**.
+- **Tailwind CSS** with the tokens above.
+- **GSAP** for all motion and the snap engine. GSAP's full toolset (incl. ScrollTrigger, Observer, ScrollSmoother, SplitText) is **free** since the Webflow acquisition — no license needed.
+- **React Hook Form + Zod** for the form; the **Zod schema is shared between client and server** (one file, one source of truth).
+- **Backend:** Prisma + managed **PostgreSQL** (Supabase/Neon/Vercel Postgres) with a **pooled** connection string. Contact handled by a **Next.js Server Action** (no public JSON endpoint).
+- **Email:** **Resend** preferred (serverless-friendly). SMTP/Nodemailer is the documented fallback only if Gabe supplies SMTP creds.
+
+**Decisions that are easy to get wrong — enforce these:**
+- **Snap engine = GSAP `Observer` panel deck** (one gesture = one panel, input-locked during transition). **Do NOT use CSS `scroll-snap-type`** — it's janky and uncontrollable.
+- Any component touching `window`, WebGL, or GSAP **must** start with `"use client"`, and the hero 3D should be `dynamic(() => ..., { ssr: false })`.
+- `prefers-reduced-motion` **disables snapping/smoothing and the hero float**, falling back to native scroll + instant reveals. This is a correctness requirement, not a nice-to-have.
+- **Do not run `npx shadcn add <arbitrary-registry-url>`.** If a component is wanted, vendor it in manually after review.
+- Secrets live only in Vercel env vars; nothing sensitive is `NEXT_PUBLIC_`.
+
+### Conventions
+- ESLint + Prettier enforced; conventional commits; small, reviewable commits per task.
+- File layout: `app/`, `components/ui/` (hand-built primitives), `components/sections/`, `lib/` (zod schema, email, db), `prisma/`.
+- Provide `.env.example` + README updates as features land.
+
+---
+
+## 3. Phase plan
+
+Each phase lists **Tasks** (checkboxes the owning agent ticks + logs as they complete), **Exit criteria**, and a **Human Test Gate** Gabe runs. The PM delegates, runs QA, then presents the gate and **stops**.
+
+### Phase 0 — Foundation & design system
+**Owner:** `frontend-engineer`
+
+**Tasks**
+- [x] Scaffold Next.js 14 + TS strict + Tailwind + ESLint/Prettier.
+- [x] Wire design tokens into Tailwind + CSS vars; self-host fonts via `next/font`.
+- [x] Establish folder structure; commit `.env.example` skeleton.
+- [x] Add a single `siteConfig` (panel labels incl. the swappable "Systems").
+
+**Exit criteria:** app builds and runs; tokens + fonts render; lint passes; no TS errors.
+**Human Test Gate 0:**
+- [ ] `npm run dev` boots with no errors.
+- [ ] A test element using `bg-[--bg]`/`text-[--ink]`/accent shows correct colors.
+- [ ] Headings render in the serif, body in Inter; no font flash/shift.
+- [ ] `npm run lint` and `tsc --noEmit` are clean.
+
+### Phase 1 — Static panel shell + nav + preloader
+**Owner:** `frontend-engineer`
+
+**Tasks**
+- [x] Build the four panels as static, full-viewport (`100svh`) sections with real copy/layout (no snap yet).
+- [x] Top bar (hex mark + `GDG QUANTUM` + nav links).
+- [x] Numbered section nav (01–04) + progress indicator (visual only for now).
+- [x] Preloader overlay with real-progress percentage counter (fonts + key assets), tasteful min duration.
+
+**Exit criteria:** all four panels look right when scrolled normally; preloader shows then reveals; nav renders.
+**Human Test Gate 1:**
+- [ ] Scrolling normally shows all four panels with correct layout/copy.
+- [ ] Preloader counts 0→100 then clears to the hero.
+- [ ] Section nav lists 01 Landing · 02 About · 03 Systems · 04 Contact.
+- [ ] Responsive: nothing broken at mobile/tablet/desktop widths.
+
+### Phase 2 — GSAP snap engine
+**Owner:** `frontend-engineer`
+
+**Tasks**
+- [x] Implement the `Observer` panel deck: `goToPanel(index)` as the single entry point for wheel/touch, keyboard (`Arrow/PageUp/Down/Home/End`), nav clicks, and hash deep-links.
+- [x] Input lock during transitions (no double-skip); `100svh` handling; ScrollTrigger refresh on resize.
+- [x] `prefers-reduced-motion` fallback to native scroll.
+- [x] Mobile strategy: tuned Observer **or** documented fallback below ~768px. Document the choice.
+
+**Exit criteria:** crisp, reliable panel-to-panel snapping across all input methods; reduced-motion + mobile paths verified.
+**Human Test Gate 2:**
+- [ ] One scroll/swipe moves exactly one panel; never skips or traps.
+- [ ] Keyboard arrows, nav clicks, and `/#systems` deep-link all land on the right panel.
+- [ ] OS "reduce motion" on → normal scroll, no snapping, nothing broken.
+- [ ] Real iOS Safari + Android Chrome tested; address bar / scroll behave.
+
+### Phase 3 — Hero + entrance & reveal animations
+**Owner:** `frontend-engineer`
+
+**Tasks**
+- [x] Hero glass object: ship **Tier 1** (optimized `next/image` render + GSAP float + pointer parallax + soft shadow) with a static fallback. Spline/R3F only if explicitly approved later.
+- [x] Staggered hero reveal on preloader-complete (SplitText line reveal, CTA underline draw, object scale-in).
+- [x] Per-panel entrance reveals as each becomes active.
+
+**Exit criteria:** hero animates in cleanly; object renders/floats; reveals feel calm; LCP stays fast.
+**Human Test Gate 3:**
+- [ ] Hero headline reveals line-by-line; CTA underline draws; object floats subtly.
+- [ ] Each panel's content animates in on arrival, once, smoothly.
+- [ ] Hero image is the LCP element and paints fast (quick Lighthouse check, LCP < 2s).
+- [ ] Reduced-motion: object is static, reveals instant.
+
+### Phase 3R — Cinematic Landing redesign: particle-tunnel hero + directional transitions
+**Owner:** `frontend-engineer`
+
+> **Scope change, approved by Gabe 2026-06-10.** The Phase 3 hero glass object was removed entirely (see PROGRESS.md removal entry); this phase replaces it. It **reopens approved Phase 2** (the snap engine gains directional transitions) and **introduces a full-dark palette site-wide**. Full design detail lives in the approved plan file `C:\Users\User\.claude\plans\floating-popping-nygaard.md`. Locked decisions: minimal pinned 3D core (`three@0.169.0` + `@react-three/fiber@8.18.0` + `@react-three/drei@9.122.0`); **GSAP-only** motion (no framer-motion / react-spring); **full-dark site, particle tunnel Landing-only**; **system + Landing first** (other sections get only their transition direction now, polished later); **overlay grain + in-shader glow** (no `@react-three/postprocessing`).
+>
+> **Palette decision reversed by Gabe 2026-06-10 (after first gate presentation).** Was "dark Landing / light rest"; now **dark background everywhere, tunnel stays Landing-only**. About/Systems/Contact show the SAME dark atmospheric gradient + grain (no particles) and use the dark token scope. Implemented via `data-theme="dark"` on `<body>` (site-wide), every panel transparent over a site-wide dark backdrop, chrome dark on all panels, and only the WebGL tunnel canvas fading in/out by `activeIndex`. The "Dark Landing theming" task wording below predates this reversal; the dark scope is now applied site-wide, not Landing-only.
+
+**Tasks**
+- [x] Re-add the pinned React-18-line 3D core to `package.json` and install (`three@0.169.0`, `@react-three/fiber@8.18.0`, `@react-three/drei@9.122.0`); keep `gsap`.
+- [x] Dark Landing theming: add a `[data-theme="dark"]` token scope in `app/globals.css` (overrides `--bg/--ink/--muted/--hairline/--accent`); apply it to the Landing `Panel`; make `TopBar` + `SectionNav` adapt via `deck.activeIndex === 0` (light chrome on Landing, ink elsewhere); make `Preloader` dark so the reveal into the tunnel is seamless.
+- [x] Particle tunnel: recreate `lib/webgl.ts` probe; build `components/hero/tunnel/TunnelStage.tsx` (DOM host, no three import, gated lg+ + motion-on + WebGL + post-`onReveal`, `dynamic(import,{ssr:false})`, fixed `inset-0 pointer-events-none`, opacity tied to `activeIndex`); `components/hero/tunnel/TunnelCanvas.tsx` (R3F GPU `Points` flowing toward camera, recycling for an endless tunnel, additive in-shader glow, subtle cursor drift); soft-grain overlay; `components/hero/HeroBackdropFallback.tsx` (static dark gradient + grain).
+- [x] Directional transition engine: rework `PanelDeck` deck-mode from the vertical `yPercent` track to absolutely-stacked panels with per-pair GSAP timelines (**0↔1 down, 1↔2 side, 2↔3 up**); sync tunnel/background crossfade on the `0↔1` legs; handle non-adjacent nav/deep-link jumps; preserve Observer (1 gesture = 1 panel), `goToPanel` single entry, input-lock, keyboard, hash, focus mgmt, and the native-scroll fallback unchanged.
+- [x] Landing hero content: keep the single `<h1>` (LCP) + sub + CTA + scroll cue and the existing SplitText `onReveal` entrance; tune to minimal typography on dark with legible contrast over the tunnel; mount the tunnel host in the deck chrome.
+- [x] Fallbacks (correctness): `prefers-reduced-motion` OR mobile (<768px) OR no-WebGL OR pre-reveal → no canvas (static `HeroBackdropFallback`), native vertical scroll, instant section changes, no directional animation.
+
+**Exit criteria:** build/lint/tsc clean with three.js isolated in an async chunk (`<h1>` stays LCP); Landing renders a dark, flowing particle tunnel with soft grain; the dark atmospheric background (gradient + grain) is site-wide with the tunnel particles Landing-only; directional transitions (down/side/up) feel crisp with one-gesture-one-panel and no light flash between sections; chrome legible on every dark section; reduced-motion/mobile/no-WebGL fall back to a static dark backdrop + native scroll; LCP fast.
+**Human Test Gate 3R:**
+- [ ] Landing shows a flowing particle tunnel + soft grain on a dark atmospheric background; headline reveals and paints fast (LCP < 2s).
+- [ ] The whole site is dark: About/Systems/Contact show the same dark gradient + grain WITH NO particles; their content (incl. the Contact form fields/button and the Systems list) is legible on dark.
+- [ ] One scroll/swipe moves exactly one section; 0↔1 moves vertically (emerging from the Landing tunnel into About as the tunnel particles recede), 1↔2 slides sideways, 2↔3 moves vertically (up). Never skips or traps; no light flash between sections.
+- [ ] Nav clicks + `/#systems` deep-link land on the right section; keyboard arrows work.
+- [ ] Top bar + section nav stay legible on every dark section.
+- [ ] OS reduce-motion on (and on mobile / no-WebGL): static dark backdrop, normal scroll, instant section changes, nothing broken.
+
+### Phase 3R.1 — Landing tunnel feel (cinematic lighting) — PENDING GABE VISUAL CONFIRMATION
+**Owner:** `frontend-engineer` (being prototyped directly in the main session at Gabe's request; fold into the Gate 3R record once the look is approved).
+
+> All changes are confined to `components/hero/tunnel/TunnelCanvas.tsx` (shaders + geometry attributes) — no architecture change, no per-frame CPU work, all constants live-tunable. Prototyped in-session so Gabe can confirm the look before it is ratified into the Phase 3R gate.
+
+**Tasks**
+- [ ] Speed control: slow constant base per particle (`0.5 + aRand*0.55`) plus a SMALL, hard-bounded proximity lift toward the tunnel mouth (`+ uProximity*0.3`, max ~30% over base). Speed never depends on time, so it cannot creep up the longer you sit there (the original runaway bug), and the proximity term is capped tiny so the cursor-centre boost stays subtle and can never run away fast like the old `uProximity*2.6` version. Cursor proximity also adds a brightness glow.
+- [ ] Cinematic colour flashing: each particle drifts slowly through a cool cinematic palette (blue → teal → indigo → white), phase-offset by its per-particle random so the colours shimmer scattered across the field, never synchronised. Subtle.
+- [ ] Occasional coordinated sparks: particles are binned into small spatial clusters (`aGroup` = angular sector × depth slice). Each cluster rolls on its own desynced clock; ~10% fire per cycle, lighting their 2+ neighbours bright together for a brief instant (quick exp decay) → a spark between neighbours. Sparse and quick, never constant.
+
+**Exit criteria:** tunnel speed is visibly constant and slow across a long dwell (no creep-up, cursor position irrelevant to speed); particles softly shift colour over time; sparks fire occasionally between neighbouring particles; build/lint/tsc clean; no WebGL shader errors in the console.
+**Human Test Gate 3R.1:**
+- [ ] Cursor near centre eases the flow up subtly; away from centre it's slow. With the cursor parked dead-centre for a minute it stays only slightly quicker and calm — never the runaway fast from before, and it doesn't keep accelerating over time.
+- [ ] Particles subtly shift colour over time (cool cinematic palette, scattered not synchronised).
+- [ ] Every so often two or more neighbouring particles flash bright together (a spark), then fade.
+- [ ] No console shader/WebGL errors; reduced-motion / mobile / no-WebGL still fall back to the static dark backdrop.
+
+### Phase 3R.2 — Landing↔About "dive into the void" transition — PENDING GABE CONFIRMATION (decisions locked)
+**Owner:** `frontend-engineer` (prototyped directly in the main session at Gabe's request; fold into the Gate 3R record once approved).
+
+> Replaces ONLY the Landing↔About (0↔1) directional slide with a coordinated WebGL **warp dive**. The other legs (1↔2 side, 2↔3 up) are unchanged. **Locked decisions (Gabe, 2026-06-10):** (1) **Arrival = WARP STRAIGHT THROUGH** — continuous, no black gap; About fades up out of the receding starfield in one unbroken motion. (2) **Intensity = SUBTLE & CINEMATIC** — gentle acceleration / restrained streaking within the 0.6–1.2s calm motion language, no jolt.
+>
+> **CLARIFIED by Gabe (2026-06-10, after first build):** "the hero" = the particle ANIMATION, NOT the headline text. Three consequences, all confirmed visually in-session:
+> - **Tunnel is now SITE-WIDE** — calm particles visible on About/Systems/Contact too, not just Landing. This **REVERSES** the earlier "particle tunnel Landing-only" decision. Canvas is full-opacity and always running on every page; only the warp changes per-leg.
+> - **Warp is a transient PULSE** (`uWarp = sin(dive·π)`) on the Landing↔About leg only — peaks mid-dive, calm (0) at BOTH ends. Particles are never stuck at light-speed on the inner pages and **never warp on load** (fixes the "warp happens before page renders" report, incl. the dev stale-state case).
+> - **Panel hand-off is STAGGERED** (outgoing fades/scales out over the first ~55% as the warp builds; incoming fades in over the last ~60% as it settles) so the two panels never overlap at full opacity — fixes the muddy double-headline the first build showed. The headline text still belongs to Landing only; it is NOT persisted across pages.
+> - **Watch:** particle legibility behind the Contact form / Systems list on real displays — flag if a subtle scrim or dimmer particles are needed on inner pages.
+
+**Tasks**
+- [ ] Shared transition signal: expose a 0→1 "dive progress" from `PanelDeck`'s 0↔1 timeline (0 = Landing at rest, 1 = fully arrived at About) that the tunnel reads each frame; scrubbed in reverse on About→Landing.
+- [ ] Tunnel warp PULSE + site-wide persistence: `uWarp = sin(dive·π)` in `TunnelCanvas` — particles light-speed and streak radially mid-dive, calm at both ends. `TunnelStage` keeps the canvas full-opacity and always running on EVERY page (no active-index crossfade). Flow is CPU-integrated (`uFlow`) so a changing speed never teleports particles.
+- [ ] Deck timeline rework (0↔1 ONLY): replace the vertical `yPercent` slide with a STAGGERED hand-off — outgoing panel scales up + fades out over the first ~55% as the warp builds; incoming fades in over the last ~60% as it settles, so the panels never overlap at full opacity. Preserve Observer one-gesture-one-panel, `goToPanel` single entry, input lock, keyboard, hash deep-links, focus mgmt.
+- [ ] Fallbacks: reduced-motion OR mobile (<768px) OR no-WebGL OR pre-reveal → no warp, plain instant section change + native scroll (unchanged).
+
+**Exit criteria:** particles are visible (calm) on EVERY page; clicking 02 or scrolling Landing↔About pulses the tunnel to light-speed (radial streaks) and back while the panels hand off WITHOUT overlapping; the tunnel is calm on load and on the inner pages (never stuck at light-speed, never warps before render); one gesture = one section, never skips/traps; nav/deep-link/keyboard land correctly; other legs unchanged; build/lint/tsc clean (three.js still async-isolated, First Load ~138 kB); no shader errors; reduced-motion/mobile/no-WebGL fall back to the static dark backdrop + plain change.
+**Human Test Gate 3R.2:**
+- [ ] Particles are visible (calm) on About, Systems and Contact too — not only Landing.
+- [ ] Scroll/swipe down (or click 02) on Landing → the tunnel pulses to a light-speed streak and back as About replaces Landing, with the two panels NOT overlapping. No black flash, no jolt.
+- [ ] Scroll/swipe back up → the opposite pulse; Landing returns cleanly.
+- [ ] On first load and while sitting on any page, the tunnel is CALM — no warp/streaks appear except during a Landing↔About scroll.
+- [ ] Still exactly one section per gesture; nav 02/01, the `/#about` deep-link, and keyboard arrows all land on the right section.
+- [ ] About↔Systems and Systems↔Contact transitions are unchanged.
+- [ ] Reduced-motion / mobile / no-WebGL: plain instant change, native scroll, nothing broken.
+
+### Phase 4 — Backend: data + contact pipeline
+**Owner:** `backend-engineer`
+
+**Tasks**
+- [ ] Prisma `ContactSubmission` model + migration; pooled + direct URLs.
+- [ ] Shared Zod schema (`lib/schema.ts`); React Hook Form wired to it client-side.
+- [ ] Server Action: validate → (security gate placeholder) → persist → email owner → confirm to sender → typed result.
+- [ ] In-place success/error states on the Contact panel.
+
+**Exit criteria:** valid submissions persist and send both emails; invalid ones show field errors; no secrets client-side.
+**Human Test Gate 4:**
+- [ ] Submitting a valid form writes a row to the DB (verify in DB).
+- [ ] Owner notification email **and** sender confirmation email both arrive.
+- [ ] Bad input (missing fields, bad email, over-long message) shows inline errors, no submit.
+- [ ] Success state renders in place (no navigation away).
+
+### Phase 5 — Security hardening
+**Owner:** `security-engineer`
+
+**Tasks**
+- [ ] Honeypot field + (optional) time-trap; Cloudflare Turnstile verified server-side.
+- [ ] Rate limiting (Upstash Redis sliding window, ~3–5 / 10 min), fail-closed.
+- [ ] Email-injection defenses: escape user values in HTML mail, strip CR/LF from header-bound fields, length caps.
+- [ ] Security headers + CSP (locked allowlist), HSTS, nosniff, frame-ancestors none, Referrer-Policy, Permissions-Policy.
+- [ ] Hash IPs at rest (salted); confirm no secrets in client bundle; privacy note near form.
+
+**Exit criteria:** spam/bot/rate controls live; scanners pass; injection vectors closed.
+**Human Test Gate 5:**
+- [ ] Rapid repeat submissions get rate-limited with a polite message.
+- [ ] Form with the honeypot filled / failed Turnstile is silently rejected.
+- [ ] securityheaders.com / Mozilla Observatory pass; CSP has no `unsafe-inline` script.
+- [ ] A name/message containing HTML or newlines does not break or inject into emails.
+
+### Phase 6 — Performance, a11y & SEO polish
+**Owner:** `frontend-engineer` (PM invokes `qa-reviewer` to audit)
+
+**Tasks**
+- [ ] CWV pass; code-split GSAP/hero; AVIF/WebP; defer non-critical JS.
+- [ ] WCAG 2.1 AA: landmarks, single h1, focus management on snap, `aria-current` nav, contrast, labelled form.
+- [ ] SEO: metadata, OG/Twitter (hero render as OG image), sitemap, robots.
+
+**Exit criteria:** Lighthouse green across the board; axe clean; focus never stranded.
+**Human Test Gate 6:**
+- [ ] Lighthouse (mobile + desktop): Performance / A11y / Best Practices / SEO all green.
+- [ ] Tab through the whole site by keyboard only — focus is visible and sensible on snap.
+- [ ] Screen-reader pass on nav + form (labels, errors announced).
+- [ ] OG image + meta preview correctly (e.g. in a link unfurl).
+
+### Phase 7 — Deploy: Vercel + domain
+**Owner:** `backend-engineer` (PM coordinates; `security-engineer` re-verifies headers in prod)
+
+**Tasks**
+- [ ] Connect repo to Vercel; env vars per environment; `prisma migrate deploy` in release.
+- [ ] Add custom domain + DNS; TLS; choose apex-vs-www canonical with 301.
+- [ ] Production smoke test.
+
+**Exit criteria:** live on the domain over HTTPS; prod form works end-to-end; headers verified in prod.
+**Human Test Gate 7 (final):**
+- [ ] Site loads on the real domain over HTTPS (valid cert).
+- [ ] Production contact form persists + sends both emails.
+- [ ] Security headers still present in production.
+- [ ] Final Lighthouse on the live URL is green; deep-links (`/#systems`) work in prod.
+
+---
+
+## 4. Definition of done
+All seven Human Test Gates approved by Gabe and recorded in `PROGRESS.md`; every task checked off here; source in a clean repo with README + `.env.example`; live production deployment on the custom domain meeting the design, performance, accessibility, and security criteria above.
+
+---
+
+## 5. `PROGRESS.md` format (the completion log)
+
+If `PROGRESS.md` doesn't exist, the PM creates it with this header, then agents append entries below it.
+
+````md
+# PROGRESS.md — GDG Quantum (Completion Log)
+
+Append-only record of completed work. CLAUDE.md is the source of truth for the plan;
+this file is the reference for what has been done. Newest entries at the bottom of each phase.
+
+---
+````
+
+**Task entry** (appended by the owning agent when it ticks a task in CLAUDE.md):
+````md
+## Phase <N> — <phase name>
+- [x] <task text> — `@<agent-name>` — <YYYY-MM-DD>
+  - Files: <paths changed/created>
+  - Summary: <1–2 lines on what was done>
+  - Verify: <command or steps to confirm>
+  - QA: pending
+````
+(When QA verifies, the owning agent updates that entry's `QA:` line to `PASS` — or reverts the CLAUDE.md checkbox and logs the fix on FAIL.)
+
+**Gate record** (appended by the PM after Gabe approves a Human Test Gate):
+````md
+### ✅ GATE APPROVED — Phase <N> — approved by Gabe — <YYYY-MM-DD>
+- QA result: PASS
+- Notes: <anything Gabe flagged, follow-ups, deferred items>
+````
+
+Agents may obtain the date with the `date` Bash command. Only checkbox state in CLAUDE.md and appends to PROGRESS.md are edited by this mechanism — never the plan text.

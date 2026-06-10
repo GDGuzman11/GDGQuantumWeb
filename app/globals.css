@@ -1,0 +1,120 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    /* Design tokens — single source of truth. Tailwind maps these in
+       tailwind.config.ts; never hard-code these hex values elsewhere. */
+    --bg: #faf9f6;
+    --ink: #0e1116;
+    --accent: #2563eb;
+    --muted: #6b7280;
+    --hairline: rgba(14, 17, 22, 0.1);
+  }
+
+  /* Dark token scope (Phase 3R) — the SAME five semantic tokens, re-valued for
+     the cinematic dark palette. Decision reversed 2026-06-10: the site is now
+     FULL-DARK (not "dark Landing / light rest"). Applied via `data-theme="dark"`
+     on <body> (site-wide base), every panel, the tunnel/backdrop host, the
+     chrome, and the Preloader. Everything inside the scope keeps using semantic
+     classes (text-ink, bg-bg, text-muted, …) and inherits these values — no
+     hard-coded hex in components. Custom properties inherit through
+     `display:contents` wrappers too. The particle tunnel stays Landing-only;
+     About/Systems/Contact show the same dark gradient + grain, no particles. */
+  [data-theme='dark'] {
+    --bg: #06070a; /* deep near-black void */
+    --ink: #eaecf2; /* primary text on dark */
+    --accent: #6ea8ff; /* brighter blue glow for links/CTAs/focus */
+    --muted: #8b93a7; /* dim cool grey secondary text */
+    --hairline: rgba(234, 236, 242, 0.14); /* light-alpha hairline on dark */
+    /* Native form controls, scrollbars, caret render dark within the scope
+       (Phase 3R full-dark — Contact form fields, etc.). */
+    color-scheme: dark;
+  }
+
+  html {
+    /* Phase 3R full-dark — root color-scheme is dark so the root scrollbar /
+       overscroll gutter never flash light. The light :root tokens above remain
+       the canonical design tokens (CLAUDE.md §1) but are overridden site-wide by
+       the dark scope applied on <body>. */
+    color-scheme: dark;
+    /* Native smooth scroll for hash links in Phase 1. The GSAP Observer deck
+       (Phase 2) takes over scrolling entirely and this becomes inert. */
+    scroll-behavior: smooth;
+  }
+
+  /* prefers-reduced-motion is a correctness requirement (CLAUDE.md §2):
+     kill smooth scroll, transitions, and animations for users who opt out.
+     The snap engine + hero float honour this in their own logic too. */
+  @media (prefers-reduced-motion: reduce) {
+    html {
+      scroll-behavior: auto;
+    }
+
+    *,
+    *::before,
+    *::after {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+      scroll-behavior: auto !important;
+    }
+  }
+
+  body {
+    background-color: var(--bg);
+    color: var(--ink);
+    font-family: var(--font-inter), system-ui, sans-serif;
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+  }
+
+  h1,
+  h2,
+  h3 {
+    font-family: var(--font-serif), Georgia, serif;
+    font-weight: 400;
+    line-height: 1.05;
+  }
+}
+
+/* Soft-grain overlay animation (Phase 3R). A cheap, GPU-friendly background-
+   position shuffle on a tiled noise layer — no canvas, no postprocessing. The
+   global prefers-reduced-motion guard above forces animation-duration to ~0,
+   so reduced-motion users get a static grain. */
+@keyframes gdg-grain-shift {
+  0% {
+    transform: translate3d(0, 0, 0);
+  }
+  10% {
+    transform: translate3d(-5%, -5%, 0);
+  }
+  20% {
+    transform: translate3d(-10%, 5%, 0);
+  }
+  30% {
+    transform: translate3d(5%, -10%, 0);
+  }
+  40% {
+    transform: translate3d(-5%, 12%, 0);
+  }
+  50% {
+    transform: translate3d(-12%, 5%, 0);
+  }
+  60% {
+    transform: translate3d(8%, 0, 0);
+  }
+  70% {
+    transform: translate3d(0, 8%, 0);
+  }
+  80% {
+    transform: translate3d(-8%, -8%, 0);
+  }
+  90% {
+    transform: translate3d(5%, 5%, 0);
+  }
+  100% {
+    transform: translate3d(0, 0, 0);
+  }
+}
