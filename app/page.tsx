@@ -4,16 +4,16 @@ import { SectionNav } from '@/components/chrome/SectionNav';
 import { PanelDeck } from '@/components/deck/PanelDeck';
 import { TunnelStage } from '@/components/hero/tunnel/TunnelStage';
 import { Landing } from '@/components/sections/Landing';
-import { About } from '@/components/sections/About';
 import { Systems } from '@/components/sections/Systems';
 import { Contact } from '@/components/sections/Contact';
 
 /**
- * Phase 3R — cinematic Landing + directional deck.
+ * Phase 3R — cinematic Welcome + warp-dive deck.
  *
- * The four panels are passed to `PanelDeck`, which owns the snap engine: one
- * gesture moves exactly one panel through a per-pair directional transition
- * (0↔1 down, 1↔2 side, 2↔3 up), all funnelled through `goToPanel(index)`.
+ * The three panels (Welcome → Projects → Contact) are passed to `PanelDeck`,
+ * which owns the snap engine: one gesture moves exactly one panel through the
+ * cinematic light-speed "dive into the void" warp on EVERY leg (0↔1 and 1↔2),
+ * all funnelled through `goToPanel(index)`.
  *
  * Two layers are handed to the deck so they live INSIDE the DeckProvider (and
  * thus read the active index) but OUTSIDE the transformed content:
@@ -39,7 +39,6 @@ export default function Home() {
         backdrop={<TunnelStage />}
         panels={[
           <Landing key="home" />,
-          <About key="about" />,
           <Systems key="systems" />,
           <Contact key="contact" />,
         ]}

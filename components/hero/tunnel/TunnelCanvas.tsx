@@ -247,12 +247,12 @@ function Tunnel() {
     u.uProximity.value +=
       (targetProx.current - u.uProximity.value) * Math.min(1, dt * 2.5);
 
-    // Dive warp (Phase 3R.2): getDive() is 0 at Landing rest and 1 at About
-    // (and stays 1 across Systems/Contact). The warp is a PULSE — sin() peaks
-    // mid-dive and is 0 at BOTH ends — so particles light-speed only THROUGH the
-    // Landing↔About transition and settle to calm on every page. Consequences:
-    // the tunnel is never stuck at light-speed on the inner pages, and never
-    // warps on load (dive 0 → warp 0; even a stale dive of 1 → sin(π) ≈ 0).
+    // Dive warp (Phase 3R.2): getDive() is 0 at rest on any panel and ramps 0→1
+    // across a transition. The warp is a PULSE — sin() peaks mid-dive and is 0 at
+    // BOTH ends — so particles light-speed only THROUGH a transition (every leg)
+    // and settle to calm on every page. Consequences: the tunnel is never stuck
+    // at light-speed on the inner pages, and never warps on load (dive 0 → warp
+    // 0; even a stale dive of 1 → sin(π) ≈ 0).
     const dive = Math.min(1, Math.max(0, getDive()));
     const warp = Math.sin(dive * Math.PI);
     u.uWarp.value = warp;

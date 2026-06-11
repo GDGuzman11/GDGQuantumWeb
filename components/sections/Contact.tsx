@@ -16,9 +16,9 @@ export function Contact() {
   const year = 2026;
 
   return (
-    <Panel id="contact" index="04" ariaLabel="Contact" className="justify-between" theme="dark" transparent>
+    <Panel id="contact" index="03" ariaLabel="Contact" className="justify-between" theme="dark" transparent>
       <div className="mx-auto flex w-full max-w-6xl flex-1 flex-col justify-center">
-        <PanelReveal index={3} className="w-full max-w-2xl">
+        <PanelReveal index={2} className="w-full max-w-2xl">
           <div data-reveal>
             <h2 className="font-sans text-xs uppercase tracking-[0.28em] text-muted">
               Contact

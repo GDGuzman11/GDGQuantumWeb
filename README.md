@@ -1,13 +1,13 @@
 # GDG Quantum
 
-A premium, single‑page, scroll‑snapped marketing site for **GDG Quantum** — a studio that builds considered digital systems. The visitor lands on a cinematic hero and then snaps panel‑to‑panel through four full‑viewport sections:
+A premium, single‑page, scroll‑snapped marketing site for **GDG Quantum** — a studio that builds considered digital systems. The visitor lands on a cinematic hero and then snaps panel‑to‑panel through three full‑viewport sections:
 
 ```
-01 Landing  →  02 About  →  03 Systems  →  04 Contact
-   #home        #about        #systems       #contact
+01 Welcome  →  02 Projects  →  03 Contact
+   #home         #systems        #contact
 ```
 
-The experience is built around a custom **GSAP Observer “panel deck”** (one gesture = one panel, fully input‑locked during transitions — not CSS `scroll-snap`), a **GPU particle tunnel** that runs site‑wide, and a signature **“dive into the void” warp** transition between Landing and About.
+The experience is built around a custom **GSAP Observer “panel deck”** (one gesture = one panel, fully input‑locked during transitions — not CSS `scroll-snap`), a **GPU particle tunnel** that runs site‑wide, and a signature **“dive into the void” warp** that carries you between every section at light‑speed.
 
 > **Status:** Front‑end experience is built through **Phase 3R.2**. The backend (database + contact pipeline), security hardening, final performance/SEO/a11y polish, and production deployment are **not yet built** — see [Roadmap](#roadmap). The contact form is currently **visual‑only**.
 
@@ -39,9 +39,10 @@ The experience is built around a custom **GSAP Observer “panel deck”** (one 
 ## Highlights
 
 - **Custom snap engine** — GSAP `Observer` deck where one wheel/trackpad/touch gesture, arrow key, nav click, or hash deep‑link moves exactly one panel, with the input locked during the transition so it can never skip or trap.
-- **Directional transitions** — each adjacent pair animates along its own axis (`0↔1` vertical dive · `1↔2` horizontal · `2↔3` vertical), not a single uniform slide.
+- **Warp‑dive transitions** — every adjacent move (Welcome↔Projects and Projects↔Contact) is the cinematic light‑speed dive, in either direction, with a staggered panel hand‑off so the two panels never overlap.
 - **Site‑wide GPU particle tunnel** — a ~1,900‑point R3F/three.js starfield flowing toward the camera on a recycling cylinder, with in‑shader twinkle, cinematic colour drift, and occasional coordinated “sparks” between neighbouring particles.
-- **“Dive into the void” warp** — scrolling Landing → About pulses the tunnel to a radial **light‑speed streak** and back; the particles persist calmly on every other section.
+- **“Dive into the void” warp** — scrolling between sections pulses the tunnel to a radial **light‑speed streak** and back; the particles persist calmly while at rest on every section.
+- **Hero social marks** — themed monochrome GitHub + LinkedIn links sit under the hero sub‑line and brighten to the accent on hover.
 - **Real‑progress preloader** — a percentage counter driven by genuine load signals (`document.fonts.ready` + window `load`), choreographed into the hero’s entrance reveal.
 - **Performance‑minded** — the heavy three.js/R3F stack is isolated in an async chunk so it stays **out of the route’s First Load JS** (≈138 kB) and the `<h1>` remains the LCP element.
 - **Correctness‑first fallbacks** — `prefers-reduced-motion`, mobile (`<768px`), and no‑WebGL paths all degrade to native scroll + a static dark backdrop, with no animation.
@@ -115,19 +116,19 @@ Nothing is required to run the front‑end today. The variables below are the **
 ```
 app/
   layout.tsx            Root layout — fonts, metadata, full-dark <body> scope, skip link
-  page.tsx              Composes Preloader + PanelDeck (chrome, backdrop, 4 panels)
+  page.tsx              Composes Preloader + PanelDeck (chrome, backdrop, 3 panels)
   globals.css           Tokens, dark theme scope, grain keyframes, base styles
 
 components/
   chrome/
     Preloader.tsx        Real-progress % preloader, scroll lock, fires the reveal
     TopBar.tsx           Hex mark + wordmark + primary nav (routes through the deck)
-    SectionNav.tsx       Numbered 01–04 rail + progress indicator
+    SectionNav.tsx       Numbered 01–03 rail + progress indicator
   deck/
     DeckContext.tsx      Shared deck state (activeIndex, goToPanel, deckMode)
-    PanelDeck.tsx        The GSAP Observer snap engine + directional/dive transitions
+    PanelDeck.tsx        The GSAP Observer snap engine + warp-dive transitions
   hero/
-    HeroContent.tsx      The single <h1> (LCP) + sub + CTA + SplitText entrance reveal
+    HeroContent.tsx      The single <h1> (LCP) + sub + social marks + CTA + SplitText reveal
     HeroBackdropFallback.tsx  Static dark gradient + grain (the always-on backdrop)
     tunnel/
       TunnelStage.tsx    DOM host: gates + mounts the canvas site-wide (no three import)
@@ -136,12 +137,12 @@ components/
   sections/
     Panel.tsx            Full-viewport (100svh) panel shell, focus target
     PanelReveal.tsx      Per-panel entrance reveal (deck-active OR IntersectionObserver)
-    Landing.tsx · About.tsx · Systems.tsx · Contact.tsx
+    Landing.tsx (Welcome) · Systems.tsx (Projects, placeholder) · Contact.tsx
   ui/
     CtaLink.tsx · Field.tsx   Hand-built primitives
 
 lib/
-  site-config.ts        Brand + panel metadata (the swappable "Systems" label lives here)
+  site-config.ts        Brand + panel metadata (the swappable "Projects" label lives here)
   fonts.ts              next/font setup (Instrument Serif + Inter, size-adjusted fallback)
   reveal.ts             Latched pub/sub linking the preloader → hero entrance
   warp.ts               Shared "dive progress" scalar linking the deck → tunnel warp
@@ -179,13 +180,12 @@ A `[data-theme="dark"]` scope re‑values these tokens for the full‑dark site 
 
 `components/deck/PanelDeck.tsx` owns the snap experience. A GSAP `Observer` translates wheel/trackpad/touch into a single `goToPanel(index)` call — the **one entry point** also used by keyboard (`Arrow`/`Page`/`Home`/`End`/`Space`), nav clicks, and hash deep‑links. During a transition the input is locked (no double‑skip), with a belt‑and‑braces timeout in case `onComplete` is ever pre‑empted.
 
-Panels are absolutely stacked and each adjacent pair animates along its own axis:
+Panels are absolutely stacked and **every** adjacent pair animates with the cinematic “dive into the void” warp (see below):
 
-- `0↔1` (Landing↔About) — **vertical dive** (see below)
-- `1↔2` (About↔Systems) — **horizontal** slide
-- `2↔3` (Systems↔Contact) — **vertical** slide (up)
+- `0↔1` (Welcome↔Projects) — **warp dive**
+- `1↔2` (Projects↔Contact) — **warp dive**
 
-Non‑adjacent jumps (e.g. nav from Landing straight to Contact) animate as fast **chained legs**, each still reading in its own direction, with the total duration capped.
+Non‑adjacent jumps (e.g. nav from Welcome straight to Contact) animate as fast **chained warp legs**, with the total duration capped.
 
 The deck‑vs‑native decision is recomputed on resize/orientation and on live reduced‑motion toggles, rebuilding cleanly across the `768px` breakpoint.
 
@@ -202,12 +202,12 @@ The time‑varying flow (proximity + warp) is **integrated on the CPU** into a s
 
 ### The “dive into the void” warp
 
-Scrolling between Landing and About triggers a coordinated warp:
+Scrolling between any two sections triggers a coordinated warp:
 
-- `lib/warp.ts` holds a shared **dive progress** scalar (`0` = Landing at rest, `1` = at About). `PanelDeck` scrubs it from the `0↔1` GSAP timeline; the tunnel reads it every frame.
-- The shader turns it into a **pulse** — `uWarp = sin(dive·π)` — which peaks mid‑transition and is `0` at both ends. So the particles light‑speed (and stretch into radial streaks) **only during the scroll**, then settle to calm. They are never stuck at light‑speed on the inner pages, and never warp on load.
+- `lib/warp.ts` holds a shared **dive progress** scalar (`0` = at rest on any panel, ramping `0→1` across a transition). `PanelDeck` scrubs it from each leg’s GSAP timeline; the tunnel reads it every frame.
+- The shader turns it into a **pulse** — `uWarp = sin(dive·π)` — which peaks mid‑transition and is `0` at both ends. Because it’s a symmetric pulse, the same `0→1` scrub serves both forward and reverse on every leg, so the particles light‑speed (and stretch into radial streaks) **only during the scroll**, then settle to calm. They are never stuck at light‑speed on the inner pages, and never warp on load.
 - The panel content **hand‑off is staggered** (outgoing scales up + fades out over the first ~55% as the warp builds; incoming fades in over the last ~60% as it settles) so the two panels never overlap at full opacity. The bright mid‑dive particles cover the gap.
-- The particle tunnel itself is **site‑wide** — calm particles are visible behind every section, not just Landing.
+- The particle tunnel itself is **site‑wide** — calm particles are visible behind every section.
 
 ### Preloader & reveal choreography
 
@@ -234,7 +234,8 @@ The site is dark on every section. `[data-theme="dark"]` is applied on `<body>`,
 - **Phase 2 — GSAP snap engine.** `Observer` panel deck with `goToPanel` as the single entry point; input lock; `100svh` handling; reduced‑motion + mobile native‑scroll fallbacks.
 - **Phase 3 → 3R — Cinematic Landing redesign.** Replaced the original hero object with the **particle tunnel**; reworked the deck into **directional transitions**; introduced the **full‑dark** palette site‑wide.
 - **Phase 3R.1 — Landing tunnel feel (cinematic lighting).** Constant slow flow with a subtle bounded proximity lift; per‑particle cinematic colour flashing; occasional coordinated sparks between neighbouring particles. Also fixed a shader **precision‑mismatch bug** that had stopped the tunnel from rendering at all.
-- **Phase 3R.2 — “Dive into the void” warp.** Site‑wide particle persistence; a transient light‑speed **warp pulse** on the Landing↔About leg; CPU‑integrated flow (no teleport on speed change); staggered panel hand‑off (no overlap).
+- **Phase 3R.2 — “Dive into the void” warp.** Site‑wide particle persistence; a transient light‑speed **warp pulse** on the dive leg; CPU‑integrated flow (no teleport on speed change); staggered panel hand‑off (no overlap).
+- **Structure update — three‑panel flow.** Removed the About panel; the flow is now **Welcome → Projects → Contact**. The warp dive is now the transition on **every** leg (in both directions). “Landing” is relabelled **Welcome**; “Systems” is relabelled **Projects** (a placeholder until the work showcase is designed; internal hash stays `#systems`). Added themed **GitHub + LinkedIn** social marks to the hero.
 
 All of the above pass `tsc`, `next lint`, and `next build` with three.js isolated in an async chunk. Visual/interaction acceptance is reviewed per‑phase.
 

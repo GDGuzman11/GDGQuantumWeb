@@ -17,7 +17,7 @@ import { HeroContent } from '@/components/hero/HeroContent';
  */
 export function Landing() {
   return (
-    <Panel id="home" index="01" ariaLabel="Landing" theme="dark" transparent>
+    <Panel id="home" index="01" ariaLabel="Welcome" theme="dark" transparent>
       <HeroContent />
     </Panel>
   );

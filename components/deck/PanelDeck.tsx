@@ -30,15 +30,12 @@ const useIsoLayoutEffect =
  * single entry point (wheel/trackpad/touch via Observer, keyboard, nav clicks,
  * hash deep-links). What changed: the deck-mode layout is no longer a single
  * vertical translated track — panels are ABSOLUTELY STACKED (`absolute inset-0`)
- * and each transition is a GSAP timeline that slides the outgoing panel out and
- * the incoming panel in along that pair's axis:
- *
- *   0↔1 vertical (down) · 1↔2 horizontal (side) · 2↔3 vertical (up)
- *
- * The visual direction comes from the PAIR, not the gesture (a wheel-down/Up
- * Observer event maps to "next panel", whose direction is looked up). Non-
- * adjacent jumps (nav/deep-link, e.g. 0→3) animate as fast CHAINED legs so each
- * leg still reads in its own direction, with the total duration capped.
+ * and EVERY transition is the cinematic light-speed "dive into the void" warp
+ * (see `addDiveLeg`): the outgoing panel scales up + fades into the void while
+ * the incoming panel settles in, and the WebGL particle tunnel pulses to
+ * light-speed in lock-step. This applies to every leg (Welcome↔Projects and
+ * Projects↔Contact). Non-adjacent jumps (nav/deep-link, e.g. 0→2) animate as
+ * fast CHAINED warp legs, with the total duration capped.
  *
  * Two fallbacks remain first-class (unchanged behaviour):
  *  1. prefers-reduced-motion → deck DISABLED: panels in normal document flow,
@@ -53,34 +50,7 @@ const useIsoLayoutEffect =
 const MOBILE_BP = 768; // px — below this we use native scroll (see header)
 const TRANSITION = 0.9; // s — within the 0.6–1.2s motion language
 const JUMP_CAP = 1.15; // s — total cap for chained non-adjacent jumps
-const EASE = 'power2.inOut'; // ease, no bounce/spin
 const LOCK_BUFFER = 120; // ms added to the lock window after the tween
-
-type Axis = 'x' | 'y';
-
-/**
- * Per-adjacent-pair transition geometry. `fwdSign` is the percent sign the
- * INCOMING panel enters from when travelling FORWARD (increasing index):
- *   down → +y (incoming from below), side → +x (incoming from the right),
- *   up   → −y (incoming from above). Reverse travel flips the sign.
- */
-const PAIR: Record<string, { axis: Axis; fwdSign: number }> = {
-  '0-1': { axis: 'y', fwdSign: 1 }, // down
-  '1-2': { axis: 'x', fwdSign: 1 }, // side
-  '2-3': { axis: 'y', fwdSign: -1 }, // up
-};
-
-function axisProp(axis: Axis): 'xPercent' | 'yPercent' {
-  return axis === 'x' ? 'xPercent' : 'yPercent';
-}
-
-function legGeometry(from: number, to: number) {
-  const lo = Math.min(from, to);
-  const pair = PAIR[`${lo}-${lo + 1}`] ?? { axis: 'y' as Axis, fwdSign: 1 };
-  const forward = to > from;
-  const enter = (forward ? pair.fwdSign : -pair.fwdSign) * 100;
-  return { axis: pair.axis, enter, exit: -enter };
-}
 
 type PanelDeckProps = {
   /** The panels (one per section), rendered in deck-index order. */
@@ -180,11 +150,14 @@ export function PanelDeck({ panels, chrome, backdrop }: PanelDeckProps) {
     document.getElementById(id)?.focus({ preventScroll: true });
   }, []);
 
-  // Phase 3R.2 — the Landing↔About (0↔1) "dive into the void". Replaces that
-  // pair's slide with a coordinated dive: the Landing panel flies INTO the void
-  // (scale up + fade) while About settles in — and the reverse on the way back —
-  // and a proxy tween scrubs the shared dive signal 0→1 (or 1→0) so the WebGL
-  // tunnel warps to light-speed in lock-step. Other pairs keep their slides.
+  // The cinematic "dive into the void" warp — now the transition for EVERY leg
+  // (Welcome↔Projects and Projects↔Contact), in either direction. The outgoing
+  // panel (`els[a]`) flies INTO the void (scale up + fade) while the incoming
+  // panel (`els[b]`) settles in, and a proxy tween scrubs the shared dive signal
+  // 0→1 so the WebGL tunnel pulses to light-speed in lock-step. Because the
+  // shader reads the pulse as `sin(dive·π)`, a 0→1 scrub gives a clean
+  // calm→light-speed→calm pulse REGARDLESS of travel direction — symmetric, so
+  // the same scrub serves both forward and reverse.
   const addDiveLeg = useCallback(
     (
       tl: gsap.core.Timeline,
@@ -195,31 +168,28 @@ export function PanelDeck({ panels, chrome, backdrop }: PanelDeckProps) {
       zBase: number,
     ) => {
       const els = panelEls();
-      const landing = els[0];
-      const about = els[1];
-      if (!landing || !about) return;
-      const forward = b > a; // 0→1 dive in; 1→0 pull back out
-      const outEl = forward ? landing : about; // the panel we're leaving
-      const inEl = forward ? about : landing; // the panel we're arriving at
+      const outEl = els[a]; // the panel we're leaving
+      const inEl = els[b]; // the panel we're arriving at
+      if (!outEl || !inEl) return;
 
-      // The "dive into the void" is carried by the particle WARP (the tunnel
-      // pulses to light-speed); the panels just hand off cleanly underneath it.
-      // STAGGER them so they're NEVER both at full opacity (which read as a muddy
-      // double-exposure of both headlines): the outgoing panel scales + fades out
-      // over the first ~55% as the warp builds, the incoming fades in over the
-      // last ~60% as it settles. The bright mid-dive particles cover the gap.
+      // The dive is carried by the particle WARP (the tunnel pulses to
+      // light-speed); the panels just hand off cleanly underneath it. STAGGER
+      // them so they're NEVER both at full opacity (which reads as a muddy
+      // double-exposure): the outgoing panel scales + fades out over the first
+      // ~55% as the warp builds, the incoming fades in over the last ~60% as it
+      // settles. The bright mid-dive particles cover the gap.
       tl.set(outEl, { xPercent: 0, yPercent: 0, scale: 1, autoAlpha: 1, zIndex: zBase + 1 }, at);
       tl.set(inEl, { xPercent: 0, yPercent: 0, scale: 1.08, autoAlpha: 0, zIndex: zBase }, at);
       tl.to(outEl, { scale: 1.35, autoAlpha: 0, duration: dur * 0.55, ease: 'power2.in' }, at);
       tl.to(inEl, { scale: 1, autoAlpha: 1, duration: dur * 0.6, ease: 'power2.out' }, at + dur * 0.4);
 
-      // Scrub the shared dive signal in lock-step; the shader turns it into a
-      // light-speed PULSE (peaks mid-dive, calm at both ends).
-      const proxy = { d: forward ? 0 : 1 };
+      // Scrub the shared dive signal 0→1; the shader turns it into a light-speed
+      // PULSE (peaks mid-dive, calm at both ends). Reset to 0 (rest) on complete.
+      const proxy = { d: 0 };
       tl.to(
         proxy,
         {
-          d: forward ? 1 : 0,
+          d: 1,
           duration: dur,
           ease: 'power1.inOut',
           onUpdate: () => setDive(proxy.d),
@@ -243,7 +213,7 @@ export function PanelDeck({ panels, chrome, backdrop }: PanelDeckProps) {
         activeRef.current = target;
         setActiveIndex(target);
         writeHash(target);
-        setDive(target === 0 ? 0 : 1);
+        setDive(0);
         document
           .getElementById(siteConfig.panels[target].id)
           ?.scrollIntoView({ behavior: 'auto' });
@@ -264,7 +234,7 @@ export function PanelDeck({ panels, chrome, backdrop }: PanelDeckProps) {
       // Immediate (deep-link land): no animation, just park on target.
       if (opts?.immediate) {
         parkPanels(target);
-        setDive(target === 0 ? 0 : 1);
+        setDive(0);
         focusPanel(target);
         return;
       }
@@ -284,33 +254,14 @@ export function PanelDeck({ panels, chrome, backdrop }: PanelDeckProps) {
         onComplete: () => {
           lockedRef.current = false;
           parkPanels(target);
-          setDive(target === 0 ? 0 : 1);
+          setDive(0);
           focusPanel(target);
         },
       });
 
+      // Every leg is the cinematic warp dive; chained legs stack progressively.
       legs.forEach(([a, b], idx) => {
-        const els = panelEls();
-        const incoming = els[b];
-        const outgoing = els[a];
-        if (!incoming || !outgoing) return;
-        const at = idx * legDur;
-
-        // Landing↔About (0↔1) gets the cinematic dive instead of a slide.
-        if (Math.min(a, b) === 0 && Math.max(a, b) === 1) {
-          addDiveLeg(tl, a, b, at, legDur, 20 + idx);
-          return;
-        }
-
-        const { axis, enter, exit } = legGeometry(a, b);
-        const p = axisProp(axis);
-
-        // Place the incoming panel at its enter offset (other axis zeroed) and
-        // stack it above the outgoing one; each chained leg sits higher.
-        tl.set(incoming, { xPercent: 0, yPercent: 0, [p]: enter, zIndex: 20 + idx }, at);
-        tl.set(outgoing, { zIndex: 19 + idx }, at);
-        tl.to(incoming, { [p]: 0, duration: legDur, ease: EASE }, at);
-        tl.to(outgoing, { [p]: exit, duration: legDur, ease: EASE }, at);
+        addDiveLeg(tl, a, b, idx * legDur, legDur, 20 + idx);
       });
 
       // Belt-and-braces lock release in case onComplete is ever pre-empted.
@@ -321,7 +272,7 @@ export function PanelDeck({ panels, chrome, backdrop }: PanelDeckProps) {
         legs.length * legDur * 1000 + LOCK_BUFFER,
       );
     },
-    [panelCount, writeHash, focusPanel, parkPanels, panelEls, addDiveLeg],
+    [panelCount, writeHash, focusPanel, parkPanels, addDiveLeg],
   );
 
   const goToRef = useRef(goToPanel);
@@ -351,7 +302,7 @@ export function PanelDeck({ panels, chrome, backdrop }: PanelDeckProps) {
 
       ctx = gsap.context(() => {
         parkPanels(activeRef.current); // honours deep-link start panel
-        setDive(activeRef.current === 0 ? 0 : 1);
+        setDive(0);
 
         observer = Observer.create({
           target: window,

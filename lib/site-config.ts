@@ -4,9 +4,9 @@
  * SYSTEMS_LABEL here and it updates everywhere (nav, headings, etc.).
  */
 
-export const SYSTEMS_LABEL = 'Systems' as const;
+export const SYSTEMS_LABEL = 'Projects' as const;
 
-export type PanelId = 'home' | 'about' | 'systems' | 'contact';
+export type PanelId = 'home' | 'systems' | 'contact';
 
 export interface Panel {
   /** Two-digit display index, e.g. "01". */
@@ -24,10 +24,9 @@ export const siteConfig = {
   description:
     'GDG Quantum — a premium studio building considered digital systems.',
   panels: [
-    { index: '01', label: 'Landing', id: 'home', hash: 'home' },
-    { index: '02', label: 'About', id: 'about', hash: 'about' },
-    { index: '03', label: SYSTEMS_LABEL, id: 'systems', hash: 'systems' },
-    { index: '04', label: 'Contact', id: 'contact', hash: 'contact' },
+    { index: '01', label: 'Welcome', id: 'home', hash: 'home' },
+    { index: '02', label: SYSTEMS_LABEL, id: 'systems', hash: 'systems' },
+    { index: '03', label: 'Contact', id: 'contact', hash: 'contact' },
   ] satisfies Panel[],
 } as const;
 

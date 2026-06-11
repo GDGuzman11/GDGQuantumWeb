@@ -41,6 +41,8 @@ There are **two tracking files**:
 Current phase: Phase 3R — Cinematic Landing redesign (particle-tunnel hero + directional transitions). All 6 tasks BUILT + checked off; code/build QA PASS (tsc 0, lint 0, `npm run build` exit 0; `/` 137 kB First Load with the three.js/R3F/drei stack isolated in a 668 kB async chunk so `<h1>` stays LCP; no `scroll-snap-type`). PALETTE DECISION REVERSED by Gabe 2026-06-10 (after first gate presentation): now FULL-DARK site (was dark-Landing/light-rest) with the particle tunnel Landing-only — dark scope on `<body>`, all panels transparent over a site-wide dark gradient+grain backdrop, chrome dark on all panels, only the WebGL canvas fades by activeIndex; `color-scheme:dark`; tunnel density/speed/brightness nudged up (live-tunable). Directional deck (0↔1 down / 1↔2 side / 2↔3 up) preserving Observer/goToPanel/lock/keyboard/hash/focus + native fallback, unchanged this round. Human Test Gate 3R RE-PRESENTED to Gabe (full-dark) — awaiting visual/interaction approval; NOT yet approved. Spec: `C:\Users\User\.claude\plans\floating-popping-nygaard.md`.
 Last approved gate: Phase 2 — approved by Gabe 2026-06-09
 Blockers: none. The blocking `next dev` server (PIDs 12280/7240/15788) was stopped with Gabe's approval 2026-06-10; `.next` cleared; baseline + Phase-3R builds both exit 0. (Note: PM orchestration runs in the main session per §0; this harness exposes no Task/subagent tool, so the PM performed both the `frontend-engineer` implementation and the independent QA pass in-session — flagged on the record. Visual/interaction + real-device acceptance is inherently a Gabe gate item, not certifiable by static review.)
+
+STRUCTURE UPDATE (Gabe, in-session 2026-06-10, AFTER the Phase 3R work above): the site was reduced from FOUR panels to THREE — the **About** panel was removed, **Landing→Welcome**, **Systems→Projects** (placeholder copy "Selected work, coming soon."). The directional deck (0↔1 down / 1↔2 side / 2↔3 up) was REPLACED: the cinematic warp dive is now the transition on EVERY leg (Welcome↔Projects and Projects↔Contact), in both directions (the `lib/warp.ts` dive scalar is now "0 at rest, 0→1 pulse per leg", not "1 at About"). Added GitHub + LinkedIn social marks to the hero. Internal ids/hashes unchanged (`#home`/`#systems`/`#contact`); "Projects" still deep-links at `/#systems`. Verified: tsc 0, lint 0, `npm run build` exit 0, First Load 138 kB (three.js still async-isolated), headless WebGL render clean (no shader errors; warp confirmed on both legs; social links resolve). The repo is published at https://github.com/GDGuzman11/GDGQuantumWeb. NOTE: this is a Gabe-driven direct change outside the agent/gate flow; the Phase 3R/3R.x gates remain not-formally-approved and now describe the prior 4-panel/directional structure (kept as history).
 ```
 
 ---
@@ -48,7 +50,7 @@ Blockers: none. The blocking `next dev` server (PIDs 12280/7240/15788) was stopp
 ## 1. Project facts (locked)
 
 - **Product:** GDG Quantum — single-page, scroll-snapped premium studio site.
-- **Experience:** Visitor lands on a hero, then **snaps panel-to-panel** through four full-viewport sections: `Landing → About → Systems → Contact`.
+- **Experience:** Visitor lands on a hero, then **snaps panel-to-panel** through three full-viewport sections: `Welcome → Projects → Contact`. *(Updated 2026-06-10: the About panel was removed; "Landing" relabelled "Welcome"; "Systems" relabelled "Projects". See the Panels table + the §0 Status note.)*
 - **Hosting:** Vercel. Custom domain already purchased (Gabe to provide).
 - **Aesthetic north stars:** the restraint of joffreyspitzer.com, the full-screen section transitions of mont-fort.com/trading, the percentage preloader + numbered nav of fame-estate.com. The supplied GDG comps are the source of truth where references disagree.
 
@@ -68,12 +70,14 @@ Blockers: none. The blocking `next dev` server (PIDs 12280/7240/15788) was stopp
 
 ### Panels
 
+> **Updated 2026-06-10 (Gabe, in-session):** the four-panel layout below was reduced to **three**. The **About** panel was removed; **Landing → Welcome**; **Systems → Projects** (now a placeholder until the work showcase is designed). The warp dive is now the transition on **every** leg (Welcome↔Projects and Projects↔Contact), in both directions. Internal ids/hashes are unchanged (`#home`, `#systems`, `#contact`), so the "Projects" panel still deep-links at `/#systems`. The original table is kept below for history, struck through where it no longer applies.
+
 | # | Panel | Hash | Notes |
 |---|---|---|---|
-| 01 | Landing | `#home` | Hero, brand, headline, sub, CTA, scroll cue, glass 3D object |
-| 02 | About | `#about` | Philosophy statement |
-| 03 | **Systems** | `#systems` | The "techy" panel — what GDG builds. Label is a single swappable constant. |
-| 04 | Contact | `#contact` | Contact form + footer |
+| 01 | Welcome (was Landing) | `#home` | Hero, brand, headline, sub, CTA, scroll cue, particle tunnel + GitHub/LinkedIn social marks |
+| ~~02~~ | ~~About~~ — **removed** | ~~`#about`~~ | ~~Philosophy statement~~ |
+| 02 | **Projects** (was Systems) | `#systems` | Placeholder — "Selected work, coming soon." Label is a single swappable constant (`SYSTEMS_LABEL`). |
+| 03 | Contact | `#contact` | Contact form + footer |
 
 ---
 
