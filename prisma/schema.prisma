@@ -1,0 +1,27 @@
+// GDG Quantum — Prisma schema (Phase 4).
+// Managed PostgreSQL (Supabase / Neon / Vercel Postgres) with a POOLED runtime
+// URL (DATABASE_URL) and a DIRECT URL (DIRECT_URL) used by Prisma Migrate.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+/// One contact-form submission. Security fields (ipHash, userAgent) are
+/// populated in Phase 5; they are nullable so Phase 4 can persist without them.
+model ContactSubmission {
+  id        String   @id @default(cuid())
+  name      String
+  email     String
+  message   String
+  ipHash    String?
+  userAgent String?
+  createdAt DateTime @default(now())
+
+  @@index([createdAt])
+}
