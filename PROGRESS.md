@@ -288,3 +288,36 @@ this file is the reference for what has been done. Newest entries at the bottom 
   - Summary: A fresh load always opens on Welcome (index 0), clearing any stale `replaceState` hash, so reload never drops onto Projects/Contact. TRADE-OFF (Gabe-accepted): a shared `/#systems` deep-link no longer lands on Projects on FIRST load — it opens Welcome; in-session deep-links (nav/back-forward) still work. Narrows the Phase 3R/Phase 6 "/#systems deep-link" item — flag for Phase 6. Committed in `ceabd94`.
   - Verify: reload on any panel → opens Welcome, hash cleared; nav clicks + back/forward still land correctly.
   - QA: PASS (code/build). Real-device confirm = Gabe item.
+
+## Phase 5 — Security hardening (CODE-COMPLETE 2026-06-12; awaiting live Human Test Gate 5)
+> Owner `@security-engineer`. All tasks code-complete + static-QA PASS (tsc 0, lint 0, `npm run build`
+> exit 0; `/` First Load 175 kB, three.js still async-isolated, Middleware 26.8 kB). Design principle
+> mirrors Phase 4 email: every external control DEGRADES GRACEFULLY with no keys (dev), ENFORCES when
+> configured, FAILS CLOSED on error. Committed `c05a442`. The live gate (rate-limit + Turnstile reject)
+> needs Gabe's keys — see the PHASE 5 RESUME POINT in CLAUDE.md §0. Plan:
+> `C:\Users\User\.claude\plans\what-was-the-last-enchanted-bengio.md`.
+- [x] Honeypot + time-trap + Cloudflare Turnstile (server-verified) — `@security-engineer` (in-session) — 2026-06-12
+  - Files: components/sections/ContactForm.tsx, components/sections/Turnstile.tsx (new), app/actions/contact.ts, lib/security.ts (new)
+  - Summary: Off-screen honeypot `website` field (real users never fill) + a 2.5s mount-time time-trap; both checked first in `submitContact` and SILENTLY accepted (return ok:true, no persist/email) so bots get no signal. `Turnstile.tsx` renders the widget only when `NEXT_PUBLIC_TURNSTILE_SITE_KEY` is set; `verifyTurnstile` checks the token server-side (skips in dev when no secret; fails closed on error). Submit is gated on a token when a site key is present.
+  - Verify: tsc/lint/build clean; dev path (no keys) submits normally; widget host allow-listed in CSP.
+  - QA: PASS (code/build). Live bot-reject = Gate 5 (needs keys).
+- [x] Rate limiting (Upstash sliding window, fail-closed) — `@security-engineer` (in-session) — 2026-06-12
+  - Files: lib/security.ts, app/actions/contact.ts, package.json (+@upstash/ratelimit, @upstash/redis)
+  - Summary: `checkRateLimit` = Upstash `Ratelimit.slidingWindow(4, '10 m')` keyed by the salted IP hash, prefix `gdg:contact`. Skips (allows) when `UPSTASH_*` unset (dev); FAILS CLOSED (denies) when configured but the call throws. Over-limit returns a polite explicit message (not silent).
+  - Verify: tsc/lint/build clean.
+  - QA: PASS (code/build). Live rate-limit = Gate 5 (needs Upstash keys).
+- [x] Email-injection defenses — `@security-engineer` (in-session) — 2026-06-12
+  - Files: lib/email.ts, lib/security.ts
+  - Summary: Existing HTML `esc()` retained for all user values in the mail body; `stripHeaderChars` (char-code filter dropping C0 controls + DEL, keeps spaces/hyphens) applied to the name interpolated into the email SUBJECT (header), closing CR/LF header-injection. Length caps already enforced by the shared Zod schema; `to`/`replyTo` use the regex-validated email.
+  - Verify: tsc/lint/build clean; a name/message with HTML + newlines stays escaped and the subject can't be split.
+  - QA: PASS (code/build).
+- [x] Security headers + CSP (nonce, no unsafe-inline script) — `@security-engineer` (in-session) — 2026-06-12
+  - Files: middleware.ts (new), next.config.mjs, app/layout.tsx
+  - Summary: Static headers in `next.config.mjs` headers() for all routes — HSTS (max-age 2y, includeSubDomains, preload), X-Content-Type-Options nosniff, X-Frame-Options DENY, Referrer-Policy strict-origin-when-cross-origin, Permissions-Policy (camera/mic/geo/browsing-topics off). Per-request nonce CSP in `middleware.ts` (official Next pattern: nonce on request header → Next stamps its inline scripts → also on response): `script-src 'self' 'nonce-..' 'strict-dynamic' https://challenges.cloudflare.com` (+`'unsafe-eval'` DEV-ONLY) — NO unsafe-inline; `style-src 'self' 'unsafe-inline'` (inline style attrs + next/font; gate forbids only unsafe-inline SCRIPT); frame-ancestors none, base-uri/form-action self, object-src none, frame/connect-src allow Turnstile. `app/layout.tsx` set `export const dynamic='force-dynamic'` so the nonce is applied (static prerender would have no nonce → blocked scripts).
+  - Verify: prod headers inspected via `npm start` + curl — all present; CSP nonce MATCHES Next's 14 script tags (hydration works under the strict policy). TRADE-OFF: `/` now renders per-request (dynamic) — revisit with hash-based CSP in Phase 6/7 if caching matters.
+  - QA: PASS (code/build/header-inspection). securityheaders.com/Observatory pass against PROD = Gate 5/Phase 7.
+- [x] Salted IP hashing at rest + no client secrets + privacy note — `@security-engineer` (in-session) — 2026-06-12
+  - Files: lib/security.ts, app/actions/contact.ts, components/sections/Contact.tsx
+  - Summary: `hashIp` = salted SHA-256 (`IP_HASH_SALT`); the action stores `ipHash` + `userAgent` on the row and NEVER the raw IP (the same hash is the rate-limit key). `lib/security.ts` is `import 'server-only'`. Verified no server secret leaks into the client bundle (grep over `.next/static` for TURNSTILE_SECRET/UPSTASH_*/IP_HASH_SALT/RESEND_API_KEY/DATABASE_URL → 0). Privacy note added beneath the contact form. No Prisma migration needed — `ipHash`/`userAgent` columns already exist from the Phase 4 init migration.
+  - Verify: tsc/lint/build clean; `.next/static` secret scan clean.
+  - QA: PASS (code/build/scan). A valid submit persisting ipHash+UA (no raw IP) = confirm at Gate 5.
