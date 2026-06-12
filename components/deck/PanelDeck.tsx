@@ -92,6 +92,13 @@ export function PanelDeck({ panels, chrome, backdrop }: PanelDeckProps) {
   const lockedRef = useRef(false);
   const lockTimer = useRef<number | null>(null);
 
+  // The live GSAP Observer (deck mode only). Held in a ref so `lockDeck` can
+  // disable/enable it from outside the build effect (e.g. when the Projects
+  // case study expands full-screen and needs to trap its own scroll).
+  const observerRef = useRef<Observer | null>(null);
+  // True while a full-screen overlay has frozen section navigation.
+  const expandedRef = useRef(false);
+
   // "deck mode" = controlled GSAP transitions. When false we're in native
   // scroll mode (reduced-motion or mobile). null until measured so SSR markup
   // is mode-agnostic and we don't flash the wrong layout.
@@ -206,6 +213,8 @@ export function PanelDeck({ panels, chrome, backdrop }: PanelDeckProps) {
    */
   const goToPanel = useCallback(
     (index: number, opts?: { immediate?: boolean }) => {
+      // A full-screen overlay (Projects case study) has frozen navigation.
+      if (expandedRef.current) return;
       const target = Math.max(0, Math.min(panelCount - 1, index));
 
       // Native mode (reduced-motion or mobile): instant scrollIntoView, no lock.
@@ -278,6 +287,19 @@ export function PanelDeck({ panels, chrome, backdrop }: PanelDeckProps) {
   const goToRef = useRef(goToPanel);
   goToRef.current = goToPanel;
 
+  // Freeze/unfreeze section navigation for a full-screen overlay (the Projects
+  // case study). Disabling the Observer is essential: it captures wheel/touch
+  // on `window` with preventDefault, so without this the overlay couldn't
+  // scroll internally. The `<html>` overflow lock covers native-scroll mode
+  // (mobile / reduced-motion) where there's no Observer to disable.
+  const lockDeck = useCallback((locked: boolean) => {
+    expandedRef.current = locked;
+    if (locked) observerRef.current?.disable();
+    else observerRef.current?.enable();
+    document.documentElement.style.overflow = locked ? 'hidden' : '';
+    setDive(0);
+  }, []);
+
   // ---- Mode setup + GSAP Observer lifecycle ----------------------------------
   useIsoLayoutEffect(() => {
     const root = rootRef.current;
@@ -292,6 +314,7 @@ export function PanelDeck({ panels, chrome, backdrop }: PanelDeckProps) {
     const teardown = () => {
       observer?.kill();
       observer = null;
+      observerRef.current = null;
       ctx?.revert(); // clears inline transforms GSAP set on the panels
       ctx = null;
     };
@@ -314,6 +337,10 @@ export function PanelDeck({ panels, chrome, backdrop }: PanelDeckProps) {
           preventDefault: true,
           lockAxis: true,
         });
+        observerRef.current = observer;
+        // A rebuild (resize across the breakpoint) while an overlay is open must
+        // keep navigation frozen — re-apply the lock to the fresh Observer.
+        if (expandedRef.current) observer.disable();
       }, root);
     };
 
@@ -375,6 +402,9 @@ export function PanelDeck({ panels, chrome, backdrop }: PanelDeckProps) {
   // ---- Keyboard --------------------------------------------------------------
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
+      // Navigation is frozen while a full-screen overlay is open (its own Esc
+      // handler runs independently).
+      if (expandedRef.current) return;
       const t = e.target as HTMLElement | null;
       if (
         t &&
@@ -418,6 +448,7 @@ export function PanelDeck({ panels, chrome, backdrop }: PanelDeckProps) {
   // ---- Hash deep-links + back/forward ---------------------------------------
   useEffect(() => {
     const onHashOrPop = () => {
+      if (expandedRef.current) return;
       const i = indexFromHash();
       if (i !== activeRef.current) goToRef.current(i);
     };
@@ -430,8 +461,8 @@ export function PanelDeck({ panels, chrome, backdrop }: PanelDeckProps) {
   }, [indexFromHash]);
 
   const ctxValue = useMemo(
-    () => ({ activeIndex, goToPanel, panelCount, deckMode }),
-    [activeIndex, goToPanel, panelCount, deckMode],
+    () => ({ activeIndex, goToPanel, panelCount, deckMode, lockDeck }),
+    [activeIndex, goToPanel, panelCount, deckMode, lockDeck],
   );
 
   const isDeck = deckMode === true;

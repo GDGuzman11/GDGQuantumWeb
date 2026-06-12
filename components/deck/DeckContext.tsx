@@ -31,6 +31,16 @@ export interface DeckContextValue {
    * doesn't update the active index).
    */
   deckMode: boolean | null;
+  /**
+   * Globally freeze/unfreeze section navigation. While locked the deck's GSAP
+   * Observer is disabled (it captures wheel/touch on `window` with
+   * preventDefault, which would otherwise eat an overlay's internal scroll),
+   * and keyboard / hash / goToPanel section changes are inert. In native-scroll
+   * mode it locks page scroll via `overflow:hidden` on `<html>`. Used by the
+   * full-screen Projects case study so it can trap scroll inside itself; pass
+   * `false` on exit to restore normal section scrolling instantly.
+   */
+  lockDeck: (locked: boolean) => void;
 }
 
 const DeckContext = createContext<DeckContextValue | null>(null);

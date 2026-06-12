@@ -1,0 +1,6 @@
+# Drop project media here — the Projects case study auto-upgrades from placeholders.
+# Per project id (see lib/projects.ts), expected filenames, e.g. for "neural-engine":
+#   neural-engine.webm          (looping product video)
+#   neural-engine-poster.jpg    (video poster frame)
+#   neural-engine-01.jpg ...    (gallery stills)
+# Missing files fall back to a clean gradient placeholder (never a broken asset).
