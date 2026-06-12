@@ -262,3 +262,29 @@ this file is the reference for what has been done. Newest entries at the bottom 
   - [x] Success state renders in place (no navigation away) — `ContactForm` in-place success/error.
 - Notes: Live runtime verification performed by Gabe with the real `.env` (secrets never pasted into chat); the PM recorded the gate from Gabe's confirmation. Pipeline order is validate → persist → email, so confirmed email delivery implies the row was written (persist precedes email and a persist failure returns before emailing). `scripts/contact-smoke.ts` is a non-shipped Gate-4 harness kept in the repo. Phase-6 follow-up carried: `/` First Load is ~165 kB (react-hook-form + zod now client-side) — code-split candidate. Security is intentionally still a placeholder in `app/actions/contact.ts` — that is Phase 5. Next: Phase 5 — Security hardening, on Gabe's go-ahead (do NOT start before Gabe approves).
 
+
+## Projects showcase + galaxy removal (post-Phase-4, Gabe-driven 2026-06-12)
+> Outside the formal phase/gate flow (the Projects panel was a "coming soon" placeholder; the
+> galaxy was an abandoned experiment). Recorded here at Gabe's request. Build/QA PASS each step
+> (tsc 0, lint 0, `npm run build` exit 0; `/` First Load 171 kB, three.js still async-isolated).
+> Real-device / visual acceptance remains a Gabe item. Plan: `C:\Users\User\.claude\plans\what-was-the-last-enchanted-bengio.md`.
+- [x] Remove the spiral-galaxy particle experiment — `@frontend-engineer` (in-session) — 2026-06-12
+  - Files: components/hero/tunnel/TunnelCanvas.tsx, components/hero/tunnel/TunnelStage.tsx (both restored to the gate-approved base-tunnel state), References/{GALAXY.jpg,ANDROID.png,TREX.png} (deleted)
+  - Summary: The galaxy "forming" (uForm/GAL_*/scatter/spin/click-to-reform + the formActive wiring) was removed by restoring both tunnel files to commit `41bbb1a`; the plain site-wide tunnel (flow + bounded proximity + colour drift + sparks + warp dive) is back exactly as approved. Reference art for the abandoned "particle images" idea was deleted. Committed `4428956`.
+  - Verify: `git grep -i "galaxy|formActive"` over `*.ts(x)` → no matches; tsc 0, lint 0, build exit 0.
+  - QA: PASS (code/build). Visual confirm = Gabe item.
+- [x] Build the Projects showcase — terminal cards → cinematic scroll-locked case studies — `@frontend-engineer` (in-session) — 2026-06-12
+  - Files: lib/projects.ts (new, typed 3-project placeholder data + TYPING_SCRIPT + asset-path docs); components/sections/projects/{TypingTerminal,ProjectCard,ProjectCaseStudy,ProjectsShowcase,NeuralField}.tsx (new); components/sections/Systems.tsx (placeholder body → <ProjectsShowcase/>); app/globals.css (+@keyframes gdg-scanline, gdg-blink); public/projects/.gitkeep (new)
+  - Summary: Three glassmorphic terminal cards — cursor 3D tilt, hover-accelerated cyan scan-line, a typing terminal that holds at the `[SYSTEM]` line and RESUMES on hover (the hovered card grows; all three rest equal-height via a clamped 2-line tagline). Clicking a card opens a full-screen scroll-locked case study (ProjectCaseStudy, portaled to document.body to escape the deck's transformed/clipped subtree): cinematic GSAP zoom out of the card's rect → Command Center (live latency dashboard + glowing `[ ⤺ ESCAPE_SYSTEM ]`), JSON-log brief, video + 3D-tilted gallery (graceful placeholders, auto-upgrade from public/projects/), read-only copy-able log terminal, neon CTAs; Esc + the button reverse the zoom. NeuralField is a canvas bg (16 nodes, ~20 white neurons travelling the lines, flashing colour where paths cross). Reduced-motion / mobile → static + instant + native scroll. Header + blurb sit atop in the existing Projects typography. Committed `c749ea2` + refinements `ceabd94`, `407daf9`.
+  - Verify: tsc 0, lint 0, `npm run build` exit 0 (First Load 171 kB; three.js async-isolated). `npm run dev` → cards type/tilt/scan; open → wheel/arrows no longer change sections, scroll trapped; Esc/button exit restores snapping.
+  - QA: PASS (code/build). Visual/interaction + real-device = Gabe item.
+- [x] Snap engine: deck lock for the full-screen overlay (reopens approved Phase 2) — `@frontend-engineer` (in-session) — 2026-06-12
+  - Files: components/deck/DeckContext.tsx (+lockDeck), components/deck/PanelDeck.tsx (observerRef + expandedRef; lockDeck disables the GSAP Observer, gates keyboard/hash/goToPanel, locks <html> overflow in native mode; re-applies on resize-rebuild)
+  - Summary: The case study traps its own scroll by disabling the GSAP Observer (which captures wheel/touch on `window` with preventDefault and would otherwise eat internal scroll); navigation behind the overlay is inert; restored instantly on exit. Committed in `c749ea2`.
+  - Verify: tsc 0, lint 0, build exit 0; open overlay → sections don't move on wheel/arrows; exit → snapping resumes.
+  - QA: PASS (code/build).
+- [x] Landing-first on load — `@frontend-engineer` (in-session) — 2026-06-12
+  - Files: components/deck/PanelDeck.tsx (init() forces index 0 + clears stale hash)
+  - Summary: A fresh load always opens on Welcome (index 0), clearing any stale `replaceState` hash, so reload never drops onto Projects/Contact. TRADE-OFF (Gabe-accepted): a shared `/#systems` deep-link no longer lands on Projects on FIRST load — it opens Welcome; in-session deep-links (nav/back-forward) still work. Narrows the Phase 3R/Phase 6 "/#systems deep-link" item — flag for Phase 6. Committed in `ceabd94`.
+  - Verify: reload on any panel → opens Welcome, hash cleared; nav clicks + back/forward still land correctly.
+  - QA: PASS (code/build). Real-device confirm = Gabe item.
