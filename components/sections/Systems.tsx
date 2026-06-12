@@ -1,6 +1,5 @@
 import { Panel } from './Panel';
 import { PanelReveal } from './PanelReveal';
-import { ProjectsSceneStage } from './projects/ProjectsSceneStage';
 import { SYSTEMS_LABEL } from '@/lib/site-config';
 
 /**
@@ -16,14 +15,7 @@ import { SYSTEMS_LABEL } from '@/lib/site-config';
  */
 export function Systems() {
   return (
-    <Panel
-      id="systems"
-      index="02"
-      ariaLabel={SYSTEMS_LABEL}
-      theme="dark"
-      transparent
-      layer={<ProjectsSceneStage />}
-    >
+    <Panel id="systems" index="02" ariaLabel={SYSTEMS_LABEL} theme="dark" transparent>
       <div className="mx-auto w-full max-w-6xl">
         <PanelReveal index={1} className="max-w-2xl">
           <h2

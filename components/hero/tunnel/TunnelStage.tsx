@@ -5,6 +5,7 @@ import dynamic from 'next/dynamic';
 import { useReducedMotion } from '@/lib/use-reduced-motion';
 import { isWebGLAvailable } from '@/lib/webgl';
 import { isRevealStarted, onReveal } from '@/lib/reveal';
+import { useDeck } from '@/components/deck/DeckContext';
 import { HeroBackdropFallback } from '../HeroBackdropFallback';
 import { Grain } from './Grain';
 
@@ -29,8 +30,11 @@ import { Grain } from './Grain';
 
 const TunnelCanvas = dynamic(() => import('./TunnelCanvas'), { ssr: false });
 
+const PROJECTS_INDEX = 1; // Welcome 0 · Projects 1 · Contact 2
+
 export function TunnelStage() {
   const reduced = useReducedMotion(); // null until measured
+  const deck = useDeck();
 
   const [lgUp, setLgUp] = useState(false);
   const [revealed, setRevealed] = useState(isRevealStarted());
@@ -65,7 +69,7 @@ export function TunnelStage() {
           the warp pulse (Landing↔About) lives inside the canvas, not here. */}
       {canRenderCanvas ? (
         <div className="absolute inset-0">
-          <TunnelCanvas active />
+          <TunnelCanvas active formActive={deck?.activeIndex === PROJECTS_INDEX} />
         </div>
       ) : null}
 

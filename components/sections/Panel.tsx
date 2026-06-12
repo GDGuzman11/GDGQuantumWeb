@@ -22,13 +22,6 @@ type PanelProps = {
    * and read as a clean wipe during the directional transitions.
    */
   transparent?: boolean;
-  /**
-   * Optional full-panel background layer rendered BEHIND the content (z-0, the
-   * content sits at z-10), `pointer-events-none` so it never blocks the copy or
-   * any controls. Used by Projects to host its particle-scene centerpiece above
-   * the fixed site-wide tunnel but under the text.
-   */
-  layer?: ReactNode;
 };
 
 /**
@@ -51,7 +44,6 @@ export function Panel({
   className = '',
   theme,
   transparent = false,
-  layer,
 }: PanelProps) {
   return (
     <section
@@ -67,16 +59,13 @@ export function Panel({
         className,
       ].join(' ')}
     >
-      {layer ? (
-        <div className="pointer-events-none absolute inset-0 z-0">{layer}</div>
-      ) : null}
       <span
         aria-hidden
-        className="pointer-events-none absolute left-6 top-24 z-10 font-sans text-xs tracking-[0.3em] text-muted sm:left-10 lg:left-16"
+        className="pointer-events-none absolute left-6 top-24 font-sans text-xs tracking-[0.3em] text-muted sm:left-10 lg:left-16"
       >
         {index}
       </span>
-      <div className="relative z-10 flex min-h-[100svh] w-full flex-col justify-center py-28">
+      <div className="flex min-h-[100svh] w-full flex-col justify-center py-28">
         {children}
       </div>
     </section>
