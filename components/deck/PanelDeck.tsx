@@ -354,8 +354,19 @@ export function PanelDeck({ panels, chrome, backdrop }: PanelDeckProps) {
     };
 
     const init = () => {
-      activeRef.current = indexFromHash();
-      setActiveIndex(activeRef.current);
+      // Always open on the Landing/Welcome panel on a fresh load, regardless of
+      // any stale hash a prior navigation left in the URL (we replaceState the
+      // hash on every move). Deep-links still work WITHIN a session via the
+      // hashchange/popstate listeners below and nav clicks.
+      activeRef.current = 0;
+      setActiveIndex(0);
+      if (window.location.hash) {
+        window.history.replaceState(
+          null,
+          '',
+          window.location.pathname + window.location.search,
+        );
+      }
       if (computeMode()) buildDeck();
       else buildNative();
     };

@@ -70,7 +70,7 @@ export function ProjectsShowcase() {
         </div>
 
         {/* Three terminal cards */}
-        <div className="mt-12 grid grid-cols-1 gap-5 md:grid-cols-3">
+        <div className="mt-12 grid grid-cols-1 items-start gap-5 md:grid-cols-3">
           {projects.map((project, i) => (
             <ProjectCard
               key={project.id}

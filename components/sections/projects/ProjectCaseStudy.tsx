@@ -11,6 +11,7 @@ import {
 import { createPortal } from 'react-dom';
 import gsap from 'gsap';
 import type { Project } from '@/lib/projects';
+import { NeuralField } from './NeuralField';
 
 /**
  * Full-screen case study for one project. Mounts when a card is opened and owns
@@ -168,18 +169,11 @@ export function ProjectCaseStudy({
         ref={surfaceRef}
         className="absolute inset-0 overflow-y-auto overflow-x-hidden overscroll-contain bg-[rgba(6,8,12,0.96)]"
       >
-        {/* Tech grid wash */}
-        <div
-          aria-hidden
-          className="pointer-events-none fixed inset-0 opacity-[0.06]"
-          style={{
-            backgroundImage:
-              'linear-gradient(rgba(126,223,255,0.5) 1px, transparent 1px), linear-gradient(90deg, rgba(126,223,255,0.5) 1px, transparent 1px)',
-            backgroundSize: '48px 48px',
-          }}
-        />
+        {/* Animated neural network — nodes + lines with ~20 white neurons that
+            flash colour where their paths intersect. */}
+        <NeuralField />
 
-        <div ref={contentRef} className="relative mx-auto w-full max-w-6xl px-6 py-16 sm:px-10 lg:py-20">
+        <div ref={contentRef} className="relative z-10 mx-auto w-full max-w-6xl px-6 py-16 sm:px-10 lg:py-20">
           <EscapeButton ref={closeBtnRef} onClick={requestClose} />
           <CommandCenter project={project} />
           <TacticalBrief project={project} />

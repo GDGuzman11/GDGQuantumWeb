@@ -74,18 +74,8 @@ export function ProjectCard({ project, index, onOpen }: ProjectCardProps) {
     >
       <div
         ref={cardRef}
-        className="relative h-full overflow-hidden rounded-xl border border-hairline bg-[rgba(12,16,24,0.55)] p-5 backdrop-blur-md transition-[transform,box-shadow,border-color] duration-300 ease-out [transform-style:preserve-3d] group-hover:border-[rgba(126,223,255,0.45)] group-hover:shadow-[0_0_40px_-12px_rgba(110,168,255,0.5)] group-focus-visible:border-[rgba(126,223,255,0.7)] group-focus-visible:shadow-[0_0_44px_-10px_rgba(110,168,255,0.6)]"
+        className="relative overflow-hidden rounded-xl border border-hairline bg-[rgba(12,16,24,0.55)] p-5 backdrop-blur-md transition-[transform,box-shadow,border-color] duration-300 ease-out [transform-style:preserve-3d] group-hover:border-[rgba(126,223,255,0.45)] group-hover:shadow-[0_0_40px_-12px_rgba(110,168,255,0.5)] group-focus-visible:border-[rgba(126,223,255,0.7)] group-focus-visible:shadow-[0_0_44px_-10px_rgba(110,168,255,0.6)]"
       >
-        {/* Faint tech grid */}
-        <div
-          aria-hidden
-          className="pointer-events-none absolute inset-0 opacity-[0.14]"
-          style={{
-            backgroundImage:
-              'linear-gradient(rgba(126,223,255,0.6) 1px, transparent 1px), linear-gradient(90deg, rgba(126,223,255,0.6) 1px, transparent 1px)',
-            backgroundSize: '34px 34px',
-          }}
-        />
         {/* Glowing cyan scan-line — accelerates on hover */}
         <div
           aria-hidden
@@ -98,7 +88,7 @@ export function ProjectCard({ project, index, onOpen }: ProjectCardProps) {
           }}
         />
 
-        <div className="relative flex h-full flex-col">
+        <div className="relative flex flex-col">
           {/* Header: codename + index + status dot */}
           <div className="flex items-center justify-between font-mono text-[10px] uppercase tracking-[0.2em] text-muted">
             <span>{project.codename}</span>
@@ -116,9 +106,10 @@ export function ProjectCard({ project, index, onOpen }: ProjectCardProps) {
             {project.tagline}
           </p>
 
-          {/* Looping compilation console */}
-          <div className="mt-4 min-h-[112px] flex-1 rounded-md border border-hairline bg-[rgba(4,6,10,0.6)] p-3">
-            <TypingTerminal lines={TYPING_SCRIPT} />
+          {/* Compilation console — holds at the [SYSTEM] line; types the rest
+              while hovered, and the card grows to accommodate. */}
+          <div className="mt-4 rounded-md border border-hairline bg-[rgba(4,6,10,0.6)] p-3">
+            <TypingTerminal lines={TYPING_SCRIPT} active={hovered} />
           </div>
 
           {/* Expand affordance */}

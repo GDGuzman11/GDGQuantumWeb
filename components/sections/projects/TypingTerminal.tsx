@@ -3,19 +3,26 @@
 import { useEffect, useRef, useState } from 'react';
 
 /**
- * Looping monospace "live AI compilation" terminal. Types each line character
- * by character, holds the finished block briefly, then clears and repeats —
- * simulating an agent endlessly recompiling. A blinking caret trails the text.
+ * Monospace "live AI compilation" terminal.
+ *
+ * IDLE (active=false): holds at just the first line (the `[SYSTEM]` line) with a
+ * blinking caret — frozen, no progression.
+ * ACTIVE (active=true, i.e. the card is hovered): resumes typing the remaining
+ * lines character by character, holds the finished block, then loops (keeping
+ * the first line) for as long as it stays active. On de-activation it snaps back
+ * to the idle first-line state.
  *
  * Reduced-motion (CLAUDE.md §2): no loop, no caret animation — every line is
  * shown in full immediately so the content is still legible and stable.
  *
  * Self-contained timers (no GSAP) keyed off a single recursive timeout, so it's
- * cheap and pauses cleanly on unmount.
+ * cheap and pauses cleanly on unmount / de-activation.
  */
 
 type TypingTerminalProps = {
   lines: readonly string[];
+  /** Hovered → resume typing the rest. Idle holds at the first line. */
+  active?: boolean;
   /** ms per character while typing. */
   speed?: number;
   /** ms to hold the completed block before clearing. */
@@ -37,17 +44,22 @@ function lineSpans(text: string) {
 
 export function TypingTerminal({
   lines,
+  active = false,
   speed = 26,
   hold = 1400,
   className = '',
 }: TypingTerminalProps) {
   // Completed lines + the line currently being typed.
   const [done, setDone] = useState<string[]>([]);
-  const [partial, setPartial] = useState('');
+  const [partial, setPartial] = useState(lines[0] ?? '');
   const [reduced, setReduced] = useState(false);
   const timer = useRef<number | null>(null);
 
   useEffect(() => {
+    const clear = () => {
+      if (timer.current) window.clearTimeout(timer.current);
+    };
+
     if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
       setReduced(true);
       setDone([...lines]);
@@ -55,11 +67,35 @@ export function TypingTerminal({
       return;
     }
 
-    let li = 0; // line index
+    // Idle: hold at the first line with a blinking caret, no progression.
+    if (!active) {
+      clear();
+      setDone([]);
+      setPartial(lines[0] ?? '');
+      return;
+    }
+
+    // Active: keep the first line, type lines 1..n, hold, then loop.
+    const first = lines[0] ?? '';
+    let li = 1; // line index (line 0 already shown)
     let ci = 0; // char index within current line
-    const completed: string[] = [];
+    const completed: string[] = [first];
+    setDone([first]);
+    setPartial('');
 
     const tick = () => {
+      if (li >= lines.length) {
+        // Whole block typed → hold, then restart from line 1 (keep line 0).
+        timer.current = window.setTimeout(() => {
+          completed.length = 1; // keep the first line only
+          li = 1;
+          ci = 0;
+          setDone([first]);
+          setPartial('');
+          timer.current = window.setTimeout(tick, speed * 2);
+        }, hold);
+        return;
+      }
       const line = lines[li] ?? '';
       if (ci <= line.length) {
         setPartial(line.slice(0, ci));
@@ -73,26 +109,12 @@ export function TypingTerminal({
       setPartial('');
       li += 1;
       ci = 0;
-      if (li < lines.length) {
-        timer.current = window.setTimeout(tick, speed * 2);
-      } else {
-        // Whole block typed → hold, then clear and loop.
-        timer.current = window.setTimeout(() => {
-          completed.length = 0;
-          li = 0;
-          ci = 0;
-          setDone([]);
-          setPartial('');
-          timer.current = window.setTimeout(tick, speed * 4);
-        }, hold);
-      }
+      timer.current = window.setTimeout(tick, speed * 2);
     };
 
-    timer.current = window.setTimeout(tick, speed * 4);
-    return () => {
-      if (timer.current) window.clearTimeout(timer.current);
-    };
-  }, [lines, speed, hold]);
+    timer.current = window.setTimeout(tick, speed * 2);
+    return clear;
+  }, [lines, active, speed, hold]);
 
   return (
     <pre
