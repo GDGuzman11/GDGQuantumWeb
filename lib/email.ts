@@ -1,5 +1,6 @@
 import { Resend } from 'resend';
 import type { ContactInput } from './schema';
+import { stripHeaderChars } from './security';
 
 /**
  * Transactional email (Resend). Sends two messages on a valid submission:
@@ -39,13 +40,15 @@ export async function sendContactEmails(data: ContactInput): Promise<SendResult>
   const name = esc(data.name);
   const email = esc(data.email);
   const message = esc(data.message).replace(/\n/g, '<br />');
+  // Header-bound value: strip CR/LF/control chars to prevent header injection.
+  const subjectName = stripHeaderChars(data.name);
 
   // 1. Owner notification
   await resend.emails.send({
     from: FROM,
     to: OWNER,
     replyTo: data.email,
-    subject: `New enquiry from ${name}`,
+    subject: `New enquiry from ${subjectName}`,
     html: `
       <div style="font-family:system-ui,sans-serif;line-height:1.6;color:#0E1116">
         <h2 style="margin:0 0 12px">New contact submission</h2>

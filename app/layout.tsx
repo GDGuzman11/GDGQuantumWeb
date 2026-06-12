@@ -8,6 +8,15 @@ export const metadata: Metadata = {
   description: siteConfig.description,
 };
 
+/**
+ * Render dynamically so the per-request CSP nonce (set in middleware.ts) is
+ * stamped onto Next's inline bootstrap scripts. Without this the page would be
+ * statically prerendered with no nonce, and the strict `script-src` (no
+ * unsafe-inline) would block hydration in production. The heavy work is in
+ * static, CDN-cacheable client chunks; only this small HTML shell is per-request.
+ */
+export const dynamic = 'force-dynamic';
+
 export default function RootLayout({
   children,
 }: {

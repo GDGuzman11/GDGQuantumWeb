@@ -7,10 +7,10 @@ import { siteConfig } from '@/lib/site-config';
  * Panel 03 — Contact + footer (#contact).
  * The intro + form sit in a single column; the footer pins to the bottom.
  *
- * Phase 4 wires the real submit pipeline: the `ContactForm` client component
- * uses React Hook Form + the shared Zod schema and submits to the
- * `submitContact` Server Action (validate → persist → email). The spam/security
- * layer is Phase 5.
+ * The `ContactForm` client component uses React Hook Form + the shared Zod
+ * schema and submits to the `submitContact` Server Action (security gate →
+ * validate → persist → email). Phase 5 added the abuse defenses (honeypot,
+ * time-trap, Turnstile, rate limiting) + the privacy note below.
  */
 export function Contact() {
   const year = 2026;
@@ -32,9 +32,14 @@ export function Contact() {
             </p>
           </div>
 
-          {/* Live form (Phase 4): RHF + shared Zod schema → submitContact action. */}
+          {/* Live form: RHF + shared Zod schema → submitContact action. */}
           <div data-reveal>
             <ContactForm />
+            <p className="mt-6 max-w-md font-sans text-xs leading-relaxed text-muted">
+              Your details are stored securely and used only to reply to your
+              enquiry &mdash; never shared or sold. This form is protected from
+              spam.
+            </p>
           </div>
         </PanelReveal>
       </div>

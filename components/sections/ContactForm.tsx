@@ -1,19 +1,29 @@
 'use client';
 
-import { useState } from 'react';
+import { useCallback, useRef, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { Field } from '@/components/ui/Field';
+import { Turnstile } from '@/components/sections/Turnstile';
 import { contactSchema, type ContactInput } from '@/lib/schema';
 import { submitContact } from '@/app/actions/contact';
 
 /**
- * Contact form (Phase 4) — React Hook Form wired to the SHARED Zod schema
- * (client validation) and submitting to the `submitContact` Server Action
- * (which re-validates, persists, and emails). Success/error render IN PLACE on
- * the panel — no navigation away. Server-side field errors (belt-and-braces)
- * are mapped back onto the fields.
+ * Contact form — React Hook Form wired to the SHARED Zod schema (client
+ * validation) and submitting to the `submitContact` Server Action (which
+ * re-validates, runs the security gate, persists, and emails). Success/error
+ * render IN PLACE — no navigation away.
+ *
+ * Phase 5 abuse defenses layered on top of the content fields:
+ *  - honeypot: a hidden `website` input real users never fill;
+ *  - time-trap: the mount timestamp, sent so the server can reject instant bots;
+ *  - Cloudflare Turnstile: rendered only when the public site key is set; its
+ *    token is sent and verified server-side.
+ * None are part of the shared content schema — they ride alongside the payload.
  */
+
+const TURNSTILE_SITE_KEY = process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY;
+
 export function ContactForm() {
   const {
     register,
@@ -29,12 +39,37 @@ export function ContactForm() {
   const [status, setStatus] = useState<'idle' | 'success' | 'error'>('idle');
   const [formError, setFormError] = useState<string | null>(null);
 
+  // Abuse defenses.
+  const honeypotRef = useRef<HTMLInputElement>(null);
+  const renderedAt = useRef<number>(Date.now());
+  const [token, setToken] = useState<string | null>(null);
+  // Bumping this remounts the Turnstile widget to get a fresh token after a send.
+  const [turnstileKey, setTurnstileKey] = useState(0);
+  const handleToken = useCallback((t: string | null) => setToken(t), []);
+
+  const needsToken = Boolean(TURNSTILE_SITE_KEY);
+
   const onSubmit = handleSubmit(async (values) => {
     setFormError(null);
-    const result = await submitContact(values);
+
+    if (needsToken && !token) {
+      setStatus('error');
+      setFormError('Please complete the verification check.');
+      return;
+    }
+
+    const result = await submitContact({
+      ...values,
+      website: honeypotRef.current?.value ?? '',
+      renderedAt: renderedAt.current,
+      turnstileToken: token ?? undefined,
+    });
 
     if (result.ok) {
       reset();
+      setToken(null);
+      setTurnstileKey((k) => k + 1); // fresh widget for the next send
+      renderedAt.current = Date.now();
       setStatus('success');
       return;
     }
@@ -47,6 +82,9 @@ export function ContactForm() {
         }
       }
     }
+    // A new token is single-use; force a fresh challenge after a failed attempt.
+    setToken(null);
+    setTurnstileKey((k) => k + 1);
     setStatus('error');
     setFormError(result.error);
   });
@@ -81,7 +119,7 @@ export function ContactForm() {
       noValidate
       onSubmit={onSubmit}
       aria-label="Contact form"
-      className="mt-10 space-y-6"
+      className="relative mt-10 space-y-6"
     >
       <div className="grid grid-cols-1 gap-6 sm:grid-cols-2">
         <Field
@@ -113,10 +151,33 @@ export function ContactForm() {
         {...register('message')}
       />
 
+      {/* Honeypot — visually hidden, off the tab order; bots fill it, humans
+          don't. Off-screen (not display:none) so naive bots still see it. */}
+      <div aria-hidden className="absolute -left-[5000px] h-0 w-0 overflow-hidden">
+        <label htmlFor="contact-website">Company website (leave blank)</label>
+        <input
+          ref={honeypotRef}
+          id="contact-website"
+          name="website"
+          type="text"
+          tabIndex={-1}
+          autoComplete="off"
+        />
+      </div>
+
+      {/* Cloudflare Turnstile — only when configured (skipped in dev). */}
+      {TURNSTILE_SITE_KEY ? (
+        <Turnstile
+          key={turnstileKey}
+          siteKey={TURNSTILE_SITE_KEY}
+          onToken={handleToken}
+        />
+      ) : null}
+
       <div className="flex flex-wrap items-center gap-4">
         <button
           type="submit"
-          disabled={isSubmitting}
+          disabled={isSubmitting || (needsToken && !token)}
           className="inline-flex items-center gap-2 border border-hairline px-7 py-3 font-sans text-xs uppercase tracking-[0.18em] text-ink transition-colors duration-300 ease-out hover:border-accent hover:text-accent disabled:cursor-not-allowed disabled:opacity-60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-4 focus-visible:ring-offset-bg"
         >
           {isSubmitting ? 'Sending…' : 'Send message'}

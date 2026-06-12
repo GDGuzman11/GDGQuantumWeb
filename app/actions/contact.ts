@@ -3,21 +3,78 @@
 import { contactSchema, type ContactFieldErrors } from '@/lib/schema';
 import { prisma } from '@/lib/db';
 import { sendContactEmails } from '@/lib/email';
+import {
+  checkRateLimit,
+  getClientInfo,
+  hashIp,
+  verifyTurnstile,
+} from '@/lib/security';
 
 /**
- * Contact Server Action (Phase 4). No public JSON endpoint — invoked directly
- * from the client form. Flow: re-validate (never trust the client) → [security
- * gate placeholder, Phase 5] → persist → email owner + sender → typed result.
+ * Contact Server Action. No public JSON endpoint — invoked directly from the
+ * client form. Flow: bot gate (honeypot + time-trap) → Turnstile → rate limit →
+ * re-validate (never trust the client) → persist (with salted ipHash + UA) →
+ * email owner + sender → typed result.
+ *
+ * Bot rejections are SILENT: they return `{ ok: true }` without persisting or
+ * emailing, so an automated client gets the same response as success and learns
+ * nothing. Rate-limited humans get a polite, explicit message.
  */
 
 export type ContactResult =
   | { ok: true }
   | { ok: false; error: string; fieldErrors?: ContactFieldErrors };
 
-export async function submitContact(
-  raw: unknown,
-): Promise<ContactResult> {
-  // 1. Validate against the SHARED schema (authoritative on the server).
+// Submissions faster than this after the form mounted are treated as bots.
+const MIN_FILL_MS = 2500;
+
+/** Pull the security envelope (non-content fields) off the raw payload. */
+function readEnvelope(raw: unknown): {
+  website: string;
+  renderedAt: number;
+  turnstileToken: string | undefined;
+} {
+  const r = (raw ?? {}) as Record<string, unknown>;
+  return {
+    website: typeof r.website === 'string' ? r.website : '',
+    renderedAt: typeof r.renderedAt === 'number' ? r.renderedAt : 0,
+    turnstileToken:
+      typeof r.turnstileToken === 'string' ? r.turnstileToken : undefined,
+  };
+}
+
+export async function submitContact(raw: unknown): Promise<ContactResult> {
+  const { website, renderedAt, turnstileToken } = readEnvelope(raw);
+  const { ip, userAgent } = getClientInfo();
+
+  // 1. Honeypot — a real user never fills the hidden `website` field.
+  if (website.trim() !== '') {
+    return { ok: true }; // silent accept; do nothing
+  }
+
+  // 2. Time-trap — submitted implausibly fast after mount → bot.
+  if (renderedAt > 0 && Date.now() - renderedAt < MIN_FILL_MS) {
+    return { ok: true }; // silent accept; do nothing
+  }
+
+  // 3. Cloudflare Turnstile (skipped in dev when no secret configured).
+  const human = await verifyTurnstile(turnstileToken, ip);
+  if (!human) {
+    return { ok: true }; // silent reject; do nothing
+  }
+
+  // 4. Rate limit per hashed IP (skipped in dev; fails closed when configured).
+  const ipHash = hashIp(ip);
+  const allowed = await checkRateLimit(ipHash);
+  if (!allowed) {
+    return {
+      ok: false,
+      error:
+        "You've sent a few messages already — please try again in a few minutes.",
+    };
+  }
+
+  // 5. Validate against the SHARED schema (authoritative on the server).
   const parsed = contactSchema.safeParse(raw);
   if (!parsed.success) {
     const fieldErrors: ContactFieldErrors = {};
@@ -34,14 +91,16 @@ export async function submitContact(
 
   const data = parsed.data;
 
-  // 2. SECURITY GATE PLACEHOLDER — Phase 5 fills this in (honeypot/time-trap,
-  //    Cloudflare Turnstile verification, rate limiting, salted IP hashing).
-  //    Until then the pipeline runs straight through.
-
-  // 3. Persist.
+  // 6. Persist (store the salted IP hash + UA, never the raw IP).
   try {
     await prisma.contactSubmission.create({
-      data: { name: data.name, email: data.email, message: data.message },
+      data: {
+        name: data.name,
+        email: data.email,
+        message: data.message,
+        ipHash,
+        userAgent,
+      },
     });
   } catch (err) {
     console.error('[contact] failed to persist submission:', err);
@@ -51,7 +110,7 @@ export async function submitContact(
     };
   }
 
-  // 4. Email (owner notification + sender confirmation). The row is already
+  // 7. Email (owner notification + sender confirmation). The row is already
   //    saved, so an email failure logs but does not fail the user's submit.
   try {
     await sendContactEmails(data);
