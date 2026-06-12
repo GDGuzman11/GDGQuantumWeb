@@ -102,7 +102,9 @@ export function ProjectCard({ project, index, onOpen }: ProjectCardProps) {
           <h3 className="mt-4 font-serif text-2xl leading-tight text-ink">
             {project.name}
           </h3>
-          <p className="mt-2 font-sans text-xs leading-relaxed text-muted">
+          {/* Fixed two-line block so all three cards rest at the same height
+              (only the hovered card grows, via the console below). */}
+          <p className="mt-2 line-clamp-2 min-h-[2.5rem] font-sans text-xs leading-relaxed text-muted">
             {project.tagline}
           </p>
 
