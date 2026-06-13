@@ -53,6 +53,9 @@ const ROT_SPEED = 0.08; // idle rotation
 
 const COLOR_A = new THREE.Color('#1f3a7a'); // deep indigo body
 const COLOR_B = new THREE.Color('#7fd4ff'); // cool cyan rim
+// HDR (values >1) so it blooms — the colour that emits OUT of the white-world
+// ferrofluid from inside.
+const INNER_COLOR = new THREE.Color(0.25, 0.55, 1.6); // electric blue glow
 
 // Ashima 3D simplex noise (GLSL) — public domain. Used for the morph + ridges.
 const SIMPLEX = /* glsl */ `
@@ -118,8 +121,7 @@ const VERT = /* glsl */ `
   uniform float uChaos;
   uniform float uAmp;
   uniform float uFreq;
-  uniform float uWorld;   // 0 crystal … 1 black ferrofluid
-  uniform vec3 uMagnet;   // object-space "magnet" direction (from the cursor)
+  uniform float uWorld;   // 0 crystal … 1 black spiky ferrofluid
   varying float vFres;
   varying float vDisp;
   varying float vSpike;
@@ -132,16 +134,17 @@ const VERT = /* glsl */ `
     q += 0.4 * vec3(snoise(q + 11.0), snoise(q + 23.0), snoise(q + 37.0));
     float smoothD = fbm(q);
     float sharpD  = ridged(q * 1.6);
-    float disp = mix(smoothD, sharpD, uChaos);
+    float crystalDisp = mix(smoothD, sharpD, uChaos);
 
-    // Ferrofluid spikes (white world): faces pointing toward the magnet (cursor)
-    // pull out into sharp peaks, like iron sand following a magnet. The spike
-    // term sharpens with a high power and grows with uWorld.
-    float align = max(dot(normalize(normal), uMagnet), 0.0);
-    float spike = pow(align, 5.0);
-    vSpike = spike;
-    disp += spike * uWorld * 1.1;
+    // White-world ferrofluid: pronounced SHARP spikes everywhere (no cursor) —
+    // high-frequency ridged noise raised to a power makes distinct peaks, not a
+    // blob. Drifts through time so the spikes shift, giving it real dimension.
+    float spikeN = ridged(pos * 2.7 + vec3(0.0, 0.0, uTime * 0.6));
+    float peak = pow(max(spikeN, 0.0), 2.2);
+    vSpike = peak;
+    float ferroDisp = peak * 1.9 - 0.12;
 
+    float disp = mix(crystalDisp, ferroDisp, uWorld);
     pos += normal * disp * uAmp;
     vDisp = disp;
 
@@ -162,6 +165,7 @@ const FRAG = /* glsl */ `
   uniform float uWorld;    // 0 crystal … 1 black ferrofluid
   uniform vec3 uColorA;
   uniform vec3 uColorB;
+  uniform vec3 uInnerColor; // colour that emits OUT from inside the ferrofluid
   varying float vFres;
   varying float vDisp;
   varying float vSpike;
@@ -188,14 +192,17 @@ const FRAG = /* glsl */ `
     col += vFres * 1.6;                       // bright rim (cyan→white)
     col += uIgnite * vec3(0.55, 0.8, 1.1);    // warp flare
 
-    // ---- White world: matte BLACK ferrofluid -------------------------------
-    // A near-black body that reads on the white page via a soft dark rim, a
-    // crisp white spec glint on the facets, and brightening spike tips (the
-    // iron-sand peaks catch the light). High contrast against white.
+    // ---- White world: black spiky ferrofluid with inner emission -----------
+    // A near-black dimensional body that reads on the white page, with a colour
+    // that EMITS OUT from inside: the broad faces glow from within (pulsing),
+    // and the sharp spike tips burn brightest with that inner colour.
     vec3 ferro = vec3(0.015, 0.02, 0.035);
-    ferro += pow(vFres, 2.5) * vec3(0.06, 0.07, 0.10);     // faint dark rim
-    ferro += g2 * 0.7;                                      // crisp white glint
-    ferro += pow(vSpike, 1.5) * 0.25;                       // bright spike tips
+    ferro += pow(vFres, 2.5) * vec3(0.05, 0.06, 0.09);     // faint dark rim
+    ferro += g2 * 0.6;                                      // crisp white glint
+    float pulse = 0.5 + 0.5 * sin(uTime * 1.2);
+    float emit = 1.0 - vFres;                               // emits from the faces
+    ferro += uInnerColor * emit * (0.35 + 0.55 * pulse);    // inner glow out
+    ferro += pow(vSpike, 1.1) * uInnerColor * 0.7;          // glowing spike tips
     col = mix(col, ferro, uWorld);
 
     // Translucent luminous glass (dark world) → opaque solid (white world).
@@ -241,9 +248,9 @@ export function QuantumCore({ welcomeActive, onSunReady }: QuantumCoreProps) {
           uOpacity: { value: 0 },
           uIgnite: { value: 0 },
           uWorld: { value: 0 },
-          uMagnet: { value: new THREE.Vector3(0, 0, 1) },
           uColorA: { value: COLOR_A },
           uColorB: { value: COLOR_B },
+          uInnerColor: { value: INNER_COLOR },
         },
         vertexShader: VERT,
         fragmentShader: FRAG,
@@ -316,10 +323,8 @@ export function QuantumCore({ welcomeActive, onSunReady }: QuantumCoreProps) {
     );
     // Ferrofluid is sharper/spikier — bias chaos toward ridged in the white world.
     u.uChaos.value = baseChaos * (1 - w) + 0.95 * w;
-    // Spikes swell during the dive / on click / in the white world.
-    u.uAmp.value = DISP_AMP * (1 + warp * 0.9 + click * 0.7 + w * 0.3);
-    // The "magnet" the ferrofluid spikes toward = the cursor direction.
-    (u.uMagnet.value as THREE.Vector3).set(p.x, p.y, 0.6).normalize();
+    // Spikes swell during the dive / on click, and grow tall in the white world.
+    u.uAmp.value = DISP_AMP * (1 + warp * 0.9 + click * 0.7 + w * 0.6);
 
     // Welcome-only presence eases in after reveal, out on inner pages.
     const target = welcomeActive && revealed.current ? 1 : 0;
@@ -328,10 +333,16 @@ export function QuantumCore({ welcomeActive, onSunReady }: QuantumCoreProps) {
 
     const g = groupRef.current;
     if (g) {
-      g.rotation.y += dt * ROT_SPEED * (1 + click * 8); // spin kicks on click
-      // Lean toward the cursor (x/z) over a slow idle bob — feels handled.
-      const leanX = Math.sin(u.uTime.value * 0.05) * 0.1 - p.y * 0.3;
-      const leanZ = p.x * 0.2;
+      // Spin kicks on click; spins faster in the white world to show the spiky
+      // form's dimension from all sides.
+      g.rotation.y += dt * ROT_SPEED * (1 + click * 8) * (1 + w * 1.6);
+      // Lean toward the cursor (x/z) over a slow idle bob — faded OUT in the
+      // white world (the ferrofluid no longer follows the cursor); a slow tumble
+      // takes over instead.
+      const leanX =
+        (Math.sin(u.uTime.value * 0.05) * 0.1 - p.y * 0.3) * (1 - w) +
+        Math.sin(u.uTime.value * 0.13) * 0.35 * w;
+      const leanZ = p.x * 0.2 * (1 - w);
       const lk = Math.min(1, dt * 2);
       g.rotation.x += (leanX - g.rotation.x) * lk;
       g.rotation.z += (leanZ - g.rotation.z) * lk;
