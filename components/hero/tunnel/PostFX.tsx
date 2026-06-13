@@ -35,12 +35,15 @@ import { getDive } from '@/lib/warp';
  */
 
 // ── Bold tuning constants ────────────────────────────────────────────────────
-const BLOOM_INTENSITY = 1.25;
-const BLOOM_THRESHOLD = 0.15; // low → the bright sparks/Core energy bloom
-const BLOOM_SMOOTHING = 0.9;
+// Bloom is confined to the bright orb/sparks (HDR values >1) by a HIGH
+// luminance threshold — the dim particle field falls below it, so it stays
+// crisp instead of blooming into a soft haze (the "blurry particles" report).
+const BLOOM_INTENSITY = 1.1;
+const BLOOM_THRESHOLD = 0.75; // only the orb core + bright sparks glow
+const BLOOM_SMOOTHING = 0.6;
 
-const CA_BASE = 0.0009; // resting chromatic fringe
-const CA_WARP_GAIN = 0.0042; // extra fringe at peak warp
+const CA_BASE = 0.0003; // faint resting chromatic fringe (kept subtle)
+const CA_WARP_GAIN = 0.003; // extra fringe at peak warp
 
 const GODRAYS_WEIGHT = 0.5; // resting shaft strength
 const GODRAYS_WARP_GAIN = 0.5; // extra strength at peak warp

@@ -3,6 +3,7 @@ import { TopBar } from '@/components/chrome/TopBar';
 import { SectionNav } from '@/components/chrome/SectionNav';
 import { PanelDeck } from '@/components/deck/PanelDeck';
 import { TunnelStage } from '@/components/hero/tunnel/TunnelStage';
+import { WorldController } from '@/components/hero/WorldController';
 import { Landing } from '@/components/sections/Landing';
 import { Systems } from '@/components/sections/Systems';
 import { Contact } from '@/components/sections/Contact';
@@ -28,6 +29,7 @@ export default function Home() {
   return (
     <>
       <Preloader />
+      <WorldController />
 
       <PanelDeck
         chrome={

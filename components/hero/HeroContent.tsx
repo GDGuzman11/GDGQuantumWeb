@@ -160,6 +160,7 @@ export function HeroContent() {
           over the brightest tunnel particles, without darkening the whole panel. */}
       <div
         aria-hidden
+        style={{ opacity: 'calc(1 - var(--world, 0))' }}
         className="pointer-events-none absolute -inset-x-6 inset-y-0 max-w-3xl bg-[radial-gradient(70%_60%_at_25%_50%,rgba(6,7,10,0.55)_0%,rgba(6,7,10,0)_72%)] sm:-inset-x-10 lg:-inset-x-16"
       />
 

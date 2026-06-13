@@ -42,7 +42,7 @@ import { isRevealStarted, onReveal } from '@/lib/reveal';
 // front of it. Kept on-axis and sized to stay within that empty tube.
 const POSITION: [number, number, number] = [0.0, 0.0, -4.2];
 const RADIUS = 1.2;
-const BASE_SCALE = 0.5; // overall size — small + set deep = reads as far away
+const BASE_SCALE = 0.42; // overall size — small + set deep = reads as far away
 const DETAIL = 5; // icosahedron subdivisions → 10,242 verts (smooth morph)
 const DISP_AMP = 0.42; // displacement amplitude
 const NOISE_FREQ = 1.15; // base spatial frequency of the morph

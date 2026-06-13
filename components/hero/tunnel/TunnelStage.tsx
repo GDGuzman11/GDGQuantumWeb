@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import dynamic from 'next/dynamic';
 import { useDeck } from '@/components/deck/DeckContext';
+import { toggleWorld } from '@/lib/world';
 import { useReducedMotion } from '@/lib/use-reduced-motion';
 import { isWebGLAvailable } from '@/lib/webgl';
 import { isRevealStarted, onReveal } from '@/lib/reveal';
@@ -63,20 +64,40 @@ export function TunnelStage() {
   const canRenderCanvas = reduced === false && lgUp && webgl && revealed;
 
   return (
-    <div aria-hidden className="pointer-events-none fixed inset-0 z-0">
-      {/* SITE-WIDE dark gradient + grain — the constant backdrop behind it all. */}
-      <HeroBackdropFallback />
-
-      {/* SITE-WIDE particle tunnel — full opacity on every page, always running;
-          the warp pulse (Landing↔About) lives inside the canvas, not here. */}
-      {canRenderCanvas ? (
-        <div className="absolute inset-0">
-          <TunnelCanvas active welcomeActive={welcomeActive} />
+    <>
+      <div aria-hidden className="pointer-events-none fixed inset-0 z-0">
+        {/* SITE-WIDE dark gradient + grain — the dark "artwork" fades out as the
+            world turns white (var(--world): 0 dark → 1 white), revealing the
+            light body background beneath. */}
+        <div style={{ opacity: 'calc(1 - var(--world, 0))' }}>
+          <HeroBackdropFallback />
         </div>
-      ) : null}
 
-      {/* Animated soft grain on top of both backdrop + canvas. */}
-      <Grain animate opacity={0.07} />
-    </div>
+        {/* SITE-WIDE particle tunnel — full opacity on every page, always running;
+            the warp pulse (Landing↔About) lives inside the canvas, not here. */}
+        {canRenderCanvas ? (
+          <div className="absolute inset-0">
+            <TunnelCanvas active welcomeActive={welcomeActive} />
+          </div>
+        ) : null}
+
+        {/* Animated soft grain on top of both backdrop + canvas. */}
+        <div style={{ opacity: 'calc(1 - var(--world, 0))' }}>
+          <Grain animate opacity={0.07} />
+        </div>
+      </div>
+
+      {/* Orb hotspot — clicking the Core toggles the dark⇄white world. A focusable
+          DOM target over the orb (the canvas is pointer-events-none). Welcome-only
+          and only when the orb is actually rendered. */}
+      {canRenderCanvas && welcomeActive ? (
+        <button
+          type="button"
+          onClick={() => toggleWorld()}
+          aria-label="Activate the core — toggle light mode"
+          className="pointer-events-auto fixed left-1/2 top-1/2 z-40 h-40 w-40 -translate-x-1/2 -translate-y-1/2 rounded-full bg-transparent outline-none focus-visible:ring-2 focus-visible:ring-accent"
+        />
+      ) : null}
+    </>
   );
 }

@@ -153,7 +153,12 @@ const FRAG = /* glsl */ `
     float d = length(vec2(along / stretch, perp));
     if (d > 0.5) discard;
 
-    float glow = pow(smoothstep(0.5, 0.0, d), 1.6); // soft core / streak
+    // Sharper sprite: a tighter halo (higher exponent) PLUS a crisp bright
+    // centre, so each particle reads as a defined point with only a little glow
+    // — not a soft blur.
+    float halo = pow(smoothstep(0.5, 0.0, d), 2.6);
+    float core = smoothstep(0.16, 0.0, d);
+    float glow = halo + core * 0.6;
     float tw = 0.6 + 0.4 * sin(uTime * (1.4 + vRand * 3.0) + vRand * 6.2831);
 
     // ---- Cinematic colour flashing ----------------------------------------
