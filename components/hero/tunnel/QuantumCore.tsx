@@ -40,8 +40,9 @@ import { isRevealStarted, onReveal } from '@/lib/reveal';
 // hollow — nothing inside ~2.3 world-radius of the axis), so the Core sits
 // INSIDE the void with particles streaming past it, rather than transposed in
 // front of it. Kept on-axis and sized to stay within that empty tube.
-const POSITION: [number, number, number] = [0.0, 0.0, -3.6];
+const POSITION: [number, number, number] = [0.0, 0.0, -4.2];
 const RADIUS = 1.2;
+const BASE_SCALE = 0.5; // overall size — small + set deep = reads as far away
 const DETAIL = 5; // icosahedron subdivisions → 10,242 verts (smooth morph)
 const DISP_AMP = 0.42; // displacement amplitude
 const NOISE_FREQ = 1.15; // base spatial frequency of the morph
@@ -296,7 +297,9 @@ export function QuantumCore({ welcomeActive, onSunReady }: QuantumCoreProps) {
       const lk = Math.min(1, dt * 2);
       g.rotation.x += (leanX - g.rotation.x) * lk;
       g.rotation.z += (leanZ - g.rotation.z) * lk;
-      const s = (0.6 + present.current * 0.4) * (1 + click * 0.14); // pop on click
+      // BASE_SCALE shrinks the whole orb (proportions intact); eases in on
+      // reveal and pops on click.
+      const s = BASE_SCALE * (0.6 + present.current * 0.4) * (1 + click * 0.14);
       g.scale.setScalar(s);
       g.visible = present.current > 0.003;
     }
