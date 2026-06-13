@@ -1,0 +1,1 @@
+- [Repo auto-commits edits](project_repo-autocommit.md) — file edits land as commits before you stage; verify with git log/show, never push unless asked

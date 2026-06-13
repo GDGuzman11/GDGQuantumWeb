@@ -1,10 +1,13 @@
 'use client';
 
-import { useEffect, useMemo, useRef } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { Canvas, useFrame, useThree } from '@react-three/fiber';
 import { AdaptiveDpr } from '@react-three/drei';
 import * as THREE from 'three';
 import { getDive } from '@/lib/warp';
+import { setPointer, getPointer } from '@/lib/pointer';
+import { PostFX } from './PostFX';
+import { QuantumCore } from './QuantumCore';
 
 /**
  * Particle tunnel — the heavy three.js/R3F chunk (Phase 3R).
@@ -222,6 +225,8 @@ function Tunnel() {
       mouse.current.y = my;
       const dist = Math.min(1, Math.hypot(mx, my));
       targetProx.current = 1 - dist;
+      // Publish to the shared singleton for the camera rig + Core (Layer ③).
+      setPointer(mx, my, 1 - dist);
     };
     window.addEventListener('pointermove', onMove, { passive: true });
     return () => window.removeEventListener('pointermove', onMove);
@@ -271,13 +276,42 @@ function Tunnel() {
   );
 }
 
+/**
+ * Cursor-driven camera parallax (Layer ③) — the whole scene leans toward the
+ * pointer so it "follows you," giving the Core depth against the tunnel. Damped
+ * and bold but bounded; the lean eases OUT during the warp (mirrors the vertex
+ * shader's `(1.0 - uWarp)` parallax fade) so the dive reads as a straight plunge.
+ */
+function CameraRig() {
+  const { camera } = useThree();
+  useFrame((_s, delta) => {
+    const dt = Math.min(delta, 0.05);
+    const p = getPointer();
+    const dive = Math.min(1, Math.max(0, getDive()));
+    const ease = 1 - Math.sin(dive * Math.PI);
+    const tx = p.x * 0.5 * ease;
+    const ty = p.y * 0.35 * ease;
+    const k = Math.min(1, dt * 2);
+    camera.position.x += (tx - camera.position.x) * k;
+    camera.position.y += (ty - camera.position.y) * k;
+    camera.lookAt(0, 0, -4);
+  });
+  return null;
+}
+
 type TunnelCanvasProps = {
   /** Render only while the Landing backdrop is visible; freezes (frameloop
    *  "never") otherwise so an off-screen tunnel costs no GPU. */
   active: boolean;
+  /** True only while the Welcome panel (index 0) is active — gates the Core. */
+  welcomeActive: boolean;
 };
 
-export default function TunnelCanvas({ active }: TunnelCanvasProps) {
+export default function TunnelCanvas({ active, welcomeActive }: TunnelCanvasProps) {
+  // The Core's emissive inner mesh, lifted to state so the EffectComposer
+  // rebuilds with a real god-rays source once the Core has mounted.
+  const [sun, setSun] = useState<THREE.Mesh | null>(null);
+
   return (
     <Canvas
       className="!absolute !inset-0"
@@ -287,6 +321,9 @@ export default function TunnelCanvas({ active }: TunnelCanvasProps) {
       frameloop={active ? 'always' : 'never'}
     >
       <Tunnel />
+      <CameraRig />
+      <QuantumCore welcomeActive={welcomeActive} onSunReady={setSun} />
+      <PostFX sun={sun} />
       <AdaptiveDpr pixelated={false} />
     </Canvas>
   );

@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import dynamic from 'next/dynamic';
+import { useDeck } from '@/components/deck/DeckContext';
 import { useReducedMotion } from '@/lib/use-reduced-motion';
 import { isWebGLAvailable } from '@/lib/webgl';
 import { isRevealStarted, onReveal } from '@/lib/reveal';
@@ -31,6 +32,11 @@ const TunnelCanvas = dynamic(() => import('./TunnelCanvas'), { ssr: false });
 
 export function TunnelStage() {
   const reduced = useReducedMotion(); // null until measured
+  const deck = useDeck();
+  // The morphing Core is Welcome-only. On lg+ desktop with motion (the only
+  // path where the canvas mounts) the controlled GSAP deck keeps activeIndex
+  // reliable; default to Welcome (0) if the deck isn't measured yet.
+  const welcomeActive = (deck?.activeIndex ?? 0) === 0;
 
   const [lgUp, setLgUp] = useState(false);
   const [revealed, setRevealed] = useState(isRevealStarted());
@@ -65,7 +71,7 @@ export function TunnelStage() {
           the warp pulse (Landing↔About) lives inside the canvas, not here. */}
       {canRenderCanvas ? (
         <div className="absolute inset-0">
-          <TunnelCanvas active />
+          <TunnelCanvas active welcomeActive={welcomeActive} />
         </div>
       ) : null}
 
