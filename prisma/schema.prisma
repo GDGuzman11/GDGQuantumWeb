@@ -4,6 +4,12 @@
 
 generator client {
   provider = "prisma-client-js"
+  // binaryTargets: "native" builds the engine for the local dev OS (Windows),
+  // "rhel-openssl-3.0.x" builds the engine Vercel's serverless functions need
+  // (Amazon Linux 2 / RHEL on OpenSSL 3.0). Without the rhel target the
+  // generated client throws at runtime on Vercel ("Query engine library not
+  // found"). Prisma 6.19.x ships both engines for these targets.
+  binaryTargets = ["native", "rhel-openssl-3.0.x"]
 }
 
 datasource db {
