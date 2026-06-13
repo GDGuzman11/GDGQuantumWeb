@@ -6,6 +6,7 @@ import { AdaptiveDpr } from '@react-three/drei';
 import * as THREE from 'three';
 import { getDive } from '@/lib/warp';
 import { setPointer, getPointer } from '@/lib/pointer';
+import { firePulse } from '@/lib/pulse';
 import { PostFX } from './PostFX';
 import { QuantumCore } from './QuantumCore';
 
@@ -228,8 +229,15 @@ function Tunnel() {
       // Publish to the shared singleton for the camera rig + Core (Layer ③).
       setPointer(mx, my, 1 - dist);
     };
+    // A click anywhere fires a pulse the Core reacts to (canvas is
+    // pointer-events-none, so the click also passes through to the page).
+    const onDown = () => firePulse();
     window.addEventListener('pointermove', onMove, { passive: true });
-    return () => window.removeEventListener('pointermove', onMove);
+    window.addEventListener('pointerdown', onDown, { passive: true });
+    return () => {
+      window.removeEventListener('pointermove', onMove);
+      window.removeEventListener('pointerdown', onDown);
+    };
   }, []);
 
   // Dispose GPU resources on unmount (created outside JSX, so not auto-managed).

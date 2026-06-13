@@ -5,7 +5,6 @@ import { useFrame } from '@react-three/fiber';
 import {
   EffectComposer,
   Bloom,
-  DepthOfField,
   ChromaticAberration,
   Vignette,
   GodRays,
@@ -24,20 +23,21 @@ import { getDive } from '@/lib/warp';
  * post-processing.
  *
  * Bold & cinematic tuning lives in the constants block so it's one-line tunable
- * after a real-display review. The warp-reactive modulation (focus pull +
- * chromatic spike on the dive) is driven per-frame from `getDive()` — the same
+ * after a real-display review. The warp-reactive modulation (chromatic spike +
+ * god-ray flare on the dive) is driven per-frame from `getDive()` — the same
  * 0→1 pulse the tunnel shader reads — so the grade ignites WITH the warp and
  * settles calm on every page.
+ *
+ * NOTE: depth-of-field was intentionally removed — it blurred the background
+ * particles while the Core stayed sharp; the tunnel and the Core are kept at
+ * equal sharpness per design feedback. Bloom does NOT blur the scene (it only
+ * adds a glow from bright pixels), so particles stay crisp.
  */
 
 // ── Bold tuning constants ────────────────────────────────────────────────────
 const BLOOM_INTENSITY = 1.25;
 const BLOOM_THRESHOLD = 0.15; // low → the bright sparks/Core energy bloom
 const BLOOM_SMOOTHING = 0.9;
-
-const DOF_FOCUS = 0.015; // normalized focus distance (camera→far)
-const DOF_FOCAL_LENGTH = 0.04;
-const DOF_BOKEH = 4.0; // bold bokeh on out-of-focus particles
 
 const CA_BASE = 0.0009; // resting chromatic fringe
 const CA_WARP_GAIN = 0.0042; // extra fringe at peak warp
@@ -52,7 +52,6 @@ type PostFXProps = {
 };
 
 export function PostFX({ sun }: PostFXProps) {
-  const dofRef = useRef<any>(null);
   const godRaysRef = useRef<any>(null);
 
   // Stable Vector2 the ChromaticAberration effect reads; mutated in useFrame.
@@ -67,12 +66,6 @@ export function PostFX({ sun }: PostFXProps) {
     const ca = CA_BASE + warp * CA_WARP_GAIN;
     caVec.set(ca, ca);
 
-    // Pull focus tighter as we dive so the streaks crisp up through the tunnel.
-    const dof = dofRef.current;
-    if (dof?.cocMaterial?.uniforms?.focusDistance) {
-      dof.cocMaterial.uniforms.focusDistance.value = DOF_FOCUS * (1 - warp * 0.6);
-    }
-
     // God-rays flare with the warp so the Core projects light into the void.
     const gr = godRaysRef.current;
     if (gr?.godRaysMaterial?.uniforms?.weight) {
@@ -84,13 +77,6 @@ export function PostFX({ sun }: PostFXProps) {
   // EffectComposer's children type rejects `null`, so assemble the passes as a
   // filtered array — GodRays only joins once the Core (sun) exists.
   const effects = [
-    <DepthOfField
-      key="dof"
-      ref={dofRef}
-      focusDistance={DOF_FOCUS}
-      focalLength={DOF_FOCAL_LENGTH}
-      bokehScale={DOF_BOKEH}
-    />,
     sun ? (
       <GodRays
         key="godrays"

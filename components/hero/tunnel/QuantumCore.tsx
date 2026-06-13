@@ -5,6 +5,7 @@ import { useFrame } from '@react-three/fiber';
 import * as THREE from 'three';
 import { getDive } from '@/lib/warp';
 import { getPointer } from '@/lib/pointer';
+import { getPulse } from '@/lib/pulse';
 import { isRevealStarted, onReveal } from '@/lib/reveal';
 
 /**
@@ -35,8 +36,12 @@ import { isRevealStarted, onReveal } from '@/lib/reveal';
  */
 
 // ── Bold tuning constants ────────────────────────────────────────────────────
-const POSITION: [number, number, number] = [0.9, 0.15, -1.0]; // centre-ish, in the void
-const RADIUS = 1.35;
+// Set BACK into the tunnel's empty central tube (the particle distribution is
+// hollow — nothing inside ~2.3 world-radius of the axis), so the Core sits
+// INSIDE the void with particles streaming past it, rather than transposed in
+// front of it. Kept on-axis and sized to stay within that empty tube.
+const POSITION: [number, number, number] = [0.0, 0.0, -3.6];
+const RADIUS = 1.2;
 const DETAIL = 5; // icosahedron subdivisions → 10,242 verts (smooth morph)
 const DISP_AMP = 0.42; // displacement amplitude
 const NOISE_FREQ = 1.15; // base spatial frequency of the morph
@@ -261,18 +266,21 @@ export function QuantumCore({ welcomeActive, onSunReady }: QuantumCoreProps) {
     const u = material.uniforms;
     u.uTime.value += dt * FLOW_SPEED * 10.0;
 
-    // Warp ignite — calm at rest on every page; flares mid-transition.
+    // Warp ignite — calm at rest on every page; flares mid-transition. A CLICK
+    // anywhere adds its own decaying flare so the Core visibly reacts on click.
     const dive = Math.min(1, Math.max(0, getDive()));
     const warp = Math.sin(dive * Math.PI);
-    u.uIgnite.value = warp;
+    const click = getPulse();
+    const flare = Math.max(warp, click);
+    u.uIgnite.value = flare;
 
     // Idle morph breathes between smooth and sharp so it never rests on a blob;
-    // the cursor (proximity to centre) makes it churn/spike harder → reactive.
+    // the cursor (proximity to centre) and clicks make it churn/spike harder.
     const p = getPointer();
     const breathe = 0.5 + 0.5 * Math.sin(u.uTime.value * CHAOS_SPEED);
-    u.uChaos.value = Math.min(1, 0.18 + breathe * 0.58 + p.prox * 0.22);
-    // Spikes swell during the dive so it shatters into facets, then settles.
-    u.uAmp.value = DISP_AMP * (1 + warp * 0.9);
+    u.uChaos.value = Math.min(1, 0.18 + breathe * 0.58 + p.prox * 0.22 + click * 0.4);
+    // Spikes swell during the dive / on click, so it shatters into facets.
+    u.uAmp.value = DISP_AMP * (1 + warp * 0.9 + click * 0.7);
 
     // Welcome-only presence eases in after reveal, out on inner pages.
     const target = welcomeActive && revealed.current ? 1 : 0;
@@ -281,14 +289,14 @@ export function QuantumCore({ welcomeActive, onSunReady }: QuantumCoreProps) {
 
     const g = groupRef.current;
     if (g) {
-      g.rotation.y += dt * ROT_SPEED; // steady idle spin
+      g.rotation.y += dt * ROT_SPEED * (1 + click * 8); // spin kicks on click
       // Lean toward the cursor (x/z) over a slow idle bob — feels handled.
       const leanX = Math.sin(u.uTime.value * 0.05) * 0.1 - p.y * 0.3;
       const leanZ = p.x * 0.2;
       const lk = Math.min(1, dt * 2);
       g.rotation.x += (leanX - g.rotation.x) * lk;
       g.rotation.z += (leanZ - g.rotation.z) * lk;
-      const s = 0.6 + present.current * 0.4; // scales up as it appears
+      const s = (0.6 + present.current * 0.4) * (1 + click * 0.14); // pop on click
       g.scale.setScalar(s);
       g.visible = present.current > 0.003;
     }
@@ -296,8 +304,8 @@ export function QuantumCore({ welcomeActive, onSunReady }: QuantumCoreProps) {
     // Inner "mind" pulse → bloom hotspot + god-rays source.
     const inner = innerRef.current;
     if (inner) {
-      const pulse = 0.85 + 0.15 * Math.sin(u.uTime.value * 0.9);
-      inner.scale.setScalar((0.9 + warp * 0.8) * pulse);
+      const bob = 0.85 + 0.15 * Math.sin(u.uTime.value * 0.9);
+      inner.scale.setScalar((0.9 + flare * 0.8) * bob);
     }
   });
 
