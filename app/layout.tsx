@@ -1,11 +1,73 @@
-import type { Metadata } from 'next';
+import type { Metadata, Viewport } from 'next';
 import { inter, instrumentSerif } from '@/lib/fonts';
 import { siteConfig } from '@/lib/site-config';
+import { siteUrl } from '@/lib/site-url';
 import './globals.css';
 
+const title = `${siteConfig.brand} — Considered digital systems`;
+
 export const metadata: Metadata = {
-  title: siteConfig.brand,
+  // metadataBase makes the relative OG/Twitter image + canonical URLs absolute.
+  metadataBase: new URL(siteUrl),
+  title: {
+    default: title,
+    template: `%s · ${siteConfig.brand}`,
+  },
   description: siteConfig.description,
+  applicationName: siteConfig.brand,
+  keywords: [
+    'GDG Quantum',
+    'digital studio',
+    'web design',
+    'product engineering',
+    'design systems',
+    'creative development',
+  ],
+  authors: [{ name: 'Gabe De Guzman' }],
+  creator: 'Gabe De Guzman',
+  alternates: {
+    canonical: '/',
+  },
+  openGraph: {
+    type: 'website',
+    url: '/',
+    siteName: siteConfig.brand,
+    title,
+    description: siteConfig.description,
+    // app/opengraph-image.tsx is picked up automatically; declaring it here is
+    // not required, but locale + type are.
+    locale: 'en_US',
+  },
+  twitter: {
+    card: 'summary_large_image',
+    title,
+    description: siteConfig.description,
+  },
+  robots: {
+    index: true,
+    follow: true,
+    googleBot: {
+      index: true,
+      follow: true,
+      'max-image-preview': 'large',
+      'max-snippet': -1,
+    },
+  },
+  icons: {
+    icon: [{ url: '/icon.svg', type: 'image/svg+xml' }],
+    apple: [{ url: '/icon.svg' }],
+  },
+  manifest: '/manifest.webmanifest',
+};
+
+/**
+ * Dark theme-color so the mobile browser chrome (address bar) matches the
+ * full-dark site instead of flashing white. viewport is the Next 14 home for
+ * themeColor (moved out of metadata).
+ */
+export const viewport: Viewport = {
+  themeColor: '#06070a',
+  colorScheme: 'dark',
 };
 
 /**

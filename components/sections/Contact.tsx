@@ -1,6 +1,6 @@
 import { Panel } from './Panel';
 import { PanelReveal } from './PanelReveal';
-import { ContactForm } from './ContactForm';
+import { ContactFormLazy } from './ContactFormLazy';
 import { siteConfig } from '@/lib/site-config';
 
 /**
@@ -34,7 +34,7 @@ export function Contact() {
 
           {/* Live form: RHF + shared Zod schema → submitContact action. */}
           <div data-reveal>
-            <ContactForm />
+            <ContactFormLazy />
             <p className="mt-6 max-w-md font-sans text-xs leading-relaxed text-muted">
               Your details are stored securely and used only to reply to your
               enquiry &mdash; never shared or sold. This form is protected from
