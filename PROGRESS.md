@@ -321,3 +321,11 @@ this file is the reference for what has been done. Newest entries at the bottom 
   - Summary: `hashIp` = salted SHA-256 (`IP_HASH_SALT`); the action stores `ipHash` + `userAgent` on the row and NEVER the raw IP (the same hash is the rate-limit key). `lib/security.ts` is `import 'server-only'`. Verified no server secret leaks into the client bundle (grep over `.next/static` for TURNSTILE_SECRET/UPSTASH_*/IP_HASH_SALT/RESEND_API_KEY/DATABASE_URL → 0). Privacy note added beneath the contact form. No Prisma migration needed — `ipHash`/`userAgent` columns already exist from the Phase 4 init migration.
   - Verify: tsc/lint/build clean; `.next/static` secret scan clean.
   - QA: PASS (code/build/scan). A valid submit persisting ipHash+UA (no raw IP) = confirm at Gate 5.
+
+### ✅ GATE APPROVED — Phase 5 — Security hardening — approved by Gabe — 2026-06-13
+- QA result: PASS (static: tsc 0, lint 0, `npm run build` exit 0, `.next/static` secret-leak scan clean, prod CSP nonce verified). Live Human Test Gate run by Gabe with real keys (Cloudflare Turnstile + Upstash Redis + IP_HASH_SALT) — clean pass on all four items:
+  - Rate limiting: 5th rapid submit within the 10-min window returned the polite message ("You've sent a few messages already — please try again in a few minutes."); first 4 persisted, 5th did not.
+  - Honeypot + Turnstile: a filled `website` honeypot and a missing/invalid Turnstile token were SILENTLY rejected (success UI, but no DB row and no emails) — bots get no signal.
+  - Email-injection: a name+message containing HTML tags and newlines rendered escaped in both emails and did NOT split/inject the mail subject/headers (`stripHeaderChars` + HTML `esc()` held).
+  - Privacy at rest: a valid submit persisted a 64-char `ipHash` + `userAgent`; the raw IP was never stored.
+- Notes / deferred: the securityheaders.com / Mozilla Observatory scan is a PRODUCTION-URL check → deferred to Phase 7 (security-engineer re-verifies headers on the live domain). CSP "no unsafe-inline script" portion was verified statically against the prod build. Carry-over follow-up (noted at code-complete): the nonce CSP forces `/` to render per-request (dynamic) — revisit with a hash-based CSP in Phase 6/7 if page caching matters. NEXT: Phase 6 — Performance, a11y & SEO polish (`frontend-engineer`), on Gabe's go-ahead.
