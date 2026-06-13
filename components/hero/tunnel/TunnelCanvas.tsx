@@ -7,8 +7,10 @@ import * as THREE from 'three';
 import { getDive } from '@/lib/warp';
 import { setPointer, getPointer } from '@/lib/pointer';
 import { firePulse } from '@/lib/pulse';
+import { getWorld } from '@/lib/world';
 import { PostFX } from './PostFX';
 import { QuantumCore } from './QuantumCore';
+import { NeuronField } from './NeuronField';
 
 /**
  * Particle tunnel — the heavy three.js/R3F chunk (Phase 3R).
@@ -130,6 +132,7 @@ const FRAG = /* glsl */ `
   precision highp float;
   uniform float uTime;
   uniform float uProximity;
+  uniform float uWorld;       // 1 = white world → the flow particles fade out
   varying float vRand;
   varying float vGroup;
   varying float vFade;
@@ -187,6 +190,7 @@ const FRAG = /* glsl */ `
     // dive. Proximity affects LIGHT only — speed lives in uFlow.
     float alpha =
       glow * vFade * tw * (0.6 + uProximity * 0.4 + spark * 0.9 + vWarp * 0.8);
+    alpha *= (1.0 - uWorld);                          // gone in the white world
     if (alpha <= 0.001) discard;
     gl_FragColor = vec4(col, alpha);
   }
@@ -209,6 +213,7 @@ function Tunnel() {
           uMouse: { value: new THREE.Vector2(0, 0) },
           uDepth: { value: DEPTH },
           uPixelRatio: { value: 1 },
+          uWorld: { value: 0 },
         },
         vertexShader: VERT,
         fragmentShader: FRAG,
@@ -274,6 +279,7 @@ function Tunnel() {
     const dive = Math.min(1, Math.max(0, getDive()));
     const warp = Math.sin(dive * Math.PI);
     u.uWarp.value = warp;
+    u.uWorld.value = getWorld(); // fade the flow particles out in the white world
 
     // Integrate the time-VARYING flow (proximity lift + warp rush) so a changing
     // speed never teleports particles (see VERT). Kept wrapped to DEPTH so the
@@ -335,6 +341,7 @@ export default function TunnelCanvas({ active, welcomeActive }: TunnelCanvasProp
     >
       <Tunnel />
       <CameraRig />
+      <NeuronField />
       <QuantumCore welcomeActive={welcomeActive} onSunReady={setSun} />
       <PostFX sun={sun} />
       <AdaptiveDpr pixelated={false} />

@@ -6,6 +6,7 @@ import * as THREE from 'three';
 import { getDive } from '@/lib/warp';
 import { getPointer } from '@/lib/pointer';
 import { getPulse } from '@/lib/pulse';
+import { getWorld } from '@/lib/world';
 import { isRevealStarted, onReveal } from '@/lib/reveal';
 
 /**
@@ -117,8 +118,11 @@ const VERT = /* glsl */ `
   uniform float uChaos;
   uniform float uAmp;
   uniform float uFreq;
+  uniform float uWorld;   // 0 crystal … 1 black ferrofluid
+  uniform vec3 uMagnet;   // object-space "magnet" direction (from the cursor)
   varying float vFres;
   varying float vDisp;
+  varying float vSpike;
   varying vec3 vView;
   ${SIMPLEX}
   void main(){
@@ -129,6 +133,15 @@ const VERT = /* glsl */ `
     float smoothD = fbm(q);
     float sharpD  = ridged(q * 1.6);
     float disp = mix(smoothD, sharpD, uChaos);
+
+    // Ferrofluid spikes (white world): faces pointing toward the magnet (cursor)
+    // pull out into sharp peaks, like iron sand following a magnet. The spike
+    // term sharpens with a high power and grows with uWorld.
+    float align = max(dot(normalize(normal), uMagnet), 0.0);
+    float spike = pow(align, 5.0);
+    vSpike = spike;
+    disp += spike * uWorld * 1.1;
+
     pos += normal * disp * uAmp;
     vDisp = disp;
 
@@ -146,10 +159,12 @@ const FRAG = /* glsl */ `
   uniform float uTime;
   uniform float uOpacity;
   uniform float uIgnite;
+  uniform float uWorld;    // 0 crystal … 1 black ferrofluid
   uniform vec3 uColorA;
   uniform vec3 uColorB;
   varying float vFres;
   varying float vDisp;
+  varying float vSpike;
   varying vec3 vView;
   void main(){
     // Iridescent shimmer keyed off the morph displacement + fresnel + time, so
@@ -173,11 +188,21 @@ const FRAG = /* glsl */ `
     col += vFres * 1.6;                       // bright rim (cyan→white)
     col += uIgnite * vec3(0.55, 0.8, 1.1);    // warp flare
 
-    // Luminous translucent body with an opaque bright rim — the tunnel still
-    // shows THROUGH the centre, but the orb always contrasts the dark theme.
-    float alpha = clamp(
+    // ---- White world: matte BLACK ferrofluid -------------------------------
+    // A near-black body that reads on the white page via a soft dark rim, a
+    // crisp white spec glint on the facets, and brightening spike tips (the
+    // iron-sand peaks catch the light). High contrast against white.
+    vec3 ferro = vec3(0.015, 0.02, 0.035);
+    ferro += pow(vFres, 2.5) * vec3(0.06, 0.07, 0.10);     // faint dark rim
+    ferro += g2 * 0.7;                                      // crisp white glint
+    ferro += pow(vSpike, 1.5) * 0.25;                       // bright spike tips
+    col = mix(col, ferro, uWorld);
+
+    // Translucent luminous glass (dark world) → opaque solid (white world).
+    float glassA = clamp(
       uOpacity * (0.34 + vFres * 0.85 + interior * 0.12 + uIgnite * 0.45),
       0.0, 1.0);
+    float alpha = mix(glassA, uOpacity, uWorld);
     if (alpha <= 0.002) discard;
     gl_FragColor = vec4(col, alpha);
   }
@@ -215,6 +240,8 @@ export function QuantumCore({ welcomeActive, onSunReady }: QuantumCoreProps) {
           uFreq: { value: NOISE_FREQ },
           uOpacity: { value: 0 },
           uIgnite: { value: 0 },
+          uWorld: { value: 0 },
+          uMagnet: { value: new THREE.Vector3(0, 0, 1) },
           uColorA: { value: COLOR_A },
           uColorB: { value: COLOR_B },
         },
@@ -275,13 +302,24 @@ export function QuantumCore({ welcomeActive, onSunReady }: QuantumCoreProps) {
     const flare = Math.max(warp, click);
     u.uIgnite.value = flare;
 
+    // World morph: 0 = crystal (dark), 1 = black ferrofluid (white world).
+    const w = getWorld();
+    u.uWorld.value = w;
+
     // Idle morph breathes between smooth and sharp so it never rests on a blob;
     // the cursor (proximity to centre) and clicks make it churn/spike harder.
     const p = getPointer();
     const breathe = 0.5 + 0.5 * Math.sin(u.uTime.value * CHAOS_SPEED);
-    u.uChaos.value = Math.min(1, 0.18 + breathe * 0.58 + p.prox * 0.22 + click * 0.4);
-    // Spikes swell during the dive / on click, so it shatters into facets.
-    u.uAmp.value = DISP_AMP * (1 + warp * 0.9 + click * 0.7);
+    const baseChaos = Math.min(
+      1,
+      0.18 + breathe * 0.58 + p.prox * 0.22 + click * 0.4,
+    );
+    // Ferrofluid is sharper/spikier — bias chaos toward ridged in the white world.
+    u.uChaos.value = baseChaos * (1 - w) + 0.95 * w;
+    // Spikes swell during the dive / on click / in the white world.
+    u.uAmp.value = DISP_AMP * (1 + warp * 0.9 + click * 0.7 + w * 0.3);
+    // The "magnet" the ferrofluid spikes toward = the cursor direction.
+    (u.uMagnet.value as THREE.Vector3).set(p.x, p.y, 0.6).normalize();
 
     // Welcome-only presence eases in after reveal, out on inner pages.
     const target = welcomeActive && revealed.current ? 1 : 0;
@@ -304,11 +342,13 @@ export function QuantumCore({ welcomeActive, onSunReady }: QuantumCoreProps) {
       g.visible = present.current > 0.003;
     }
 
-    // Inner "mind" pulse → bloom hotspot + god-rays source.
+    // Inner "mind" pulse → bloom hotspot + god-rays source. Shrinks away in the
+    // white world (the ferrofluid is black — no inner light / god-rays there).
     const inner = innerRef.current;
     if (inner) {
       const bob = 0.85 + 0.15 * Math.sin(u.uTime.value * 0.9);
-      inner.scale.setScalar((0.9 + flare * 0.8) * bob);
+      inner.scale.setScalar((0.9 + flare * 0.8) * bob * (1 - w));
+      inner.visible = w < 0.98;
     }
   });
 
