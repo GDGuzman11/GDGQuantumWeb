@@ -36,6 +36,13 @@ const TARGET_HEIGHT = 5.4; // world units the bust is scaled to (~2× larger)
 const STAND_UP_X = Math.PI / 2;
 const FACE_YAW = 0;
 const DISP_AMP = 0.5; // blob displacement amplitude (local units)
+// Head-only gaze: vertices above the neck rotate to follow the cursor; shoulders
+// stay fixed. These are in the SCALED, centred local space (y ≈ -2.7..2.7).
+// Tune to your model: NECK_LOW/HIGH = the blend band across the neck, PIVOT_Y =
+// the point the head pivots around.
+const NECK_LOW = 0.1;
+const NECK_HIGH = 1.4;
+const PIVOT_Y = 0.5;
 const INNER = new THREE.Color(0.2, 0.5, 1.5); // HDR inner emission (blooms)
 // Fixed view-space key-light direction → one side of the face is lit, the other
 // falls into shadow (cinematic chiaroscuro on the chrome).
@@ -101,6 +108,8 @@ export function ChromeBust() {
       uTime: { value: 0 },
       uDisplace: { value: 1 }, // 1 = full blob, 0 = clean face
       uAmp: { value: DISP_AMP },
+      uYaw: { value: 0 }, // head gaze yaw (eased toward the cursor)
+      uPitch: { value: 0 }, // head gaze pitch
     }),
     [],
   );
@@ -142,15 +151,33 @@ export function ChromeBust() {
       shader.uniforms.uTime = uniforms.uTime;
       shader.uniforms.uDisplace = uniforms.uDisplace;
       shader.uniforms.uAmp = uniforms.uAmp;
+      shader.uniforms.uYaw = uniforms.uYaw;
+      shader.uniforms.uPitch = uniforms.uPitch;
       shader.uniforms.uLightDir = { value: LIGHT_DIR };
+      shader.uniforms.uNeckLow = { value: NECK_LOW };
+      shader.uniforms.uNeckHigh = { value: NECK_HIGH };
+      shader.uniforms.uPivotY = { value: PIVOT_Y };
 
-      // VERTEX — blob displacement (resolves to the clean face as world→white).
+      // VERTEX — blob displacement + HEAD-ONLY gaze (vertices above the neck
+      // rotate toward the cursor; shoulders stay fixed).
       shader.vertexShader = shader.vertexShader
         .replace(
           '#include <common>',
           `#include <common>
            uniform float uTime; uniform float uDisplace; uniform float uAmp;
+           uniform float uYaw; uniform float uPitch;
+           uniform float uNeckLow; uniform float uNeckHigh; uniform float uPivotY;
+           mat3 gzRotY(float a){ float c=cos(a),s=sin(a); return mat3(c,0.0,s, 0.0,1.0,0.0, -s,0.0,c); }
+           mat3 gzRotX(float a){ float c=cos(a),s=sin(a); return mat3(1.0,0.0,0.0, 0.0,c,-s, 0.0,s,c); }
            ${SIMPLEX}`,
+        )
+        .replace(
+          '#include <beginnormal_vertex>',
+          `#include <beginnormal_vertex>
+           {
+             float wN = smoothstep(uNeckLow, uNeckHigh, position.y);
+             objectNormal = gzRotX(uPitch * wN) * gzRotY(uYaw * wN) * objectNormal;
+           }`,
         )
         .replace(
           '#include <begin_vertex>',
@@ -158,7 +185,13 @@ export function ChromeBust() {
            float nA = snoise(position * 1.6 + vec3(0.0, 0.0, uTime * 0.25));
            float nB = snoise(position * 3.3 - vec3(0.0, 0.0, uTime * 0.18));
            float d = nA * 0.65 + nB * 0.35;
-           transformed += normal * d * uAmp * uDisplace;`,
+           transformed += normal * d * uAmp * uDisplace;
+           {
+             float wG = smoothstep(uNeckLow, uNeckHigh, position.y);
+             mat3 gz = gzRotX(uPitch * wG) * gzRotY(uYaw * wG);
+             vec3 pv = transformed - vec3(0.0, uPivotY, 0.0);
+             transformed = gz * pv + vec3(0.0, uPivotY, 0.0);
+           }`,
         );
 
       // FRAGMENT — directional side-shading (chiaroscuro) on the chrome.
@@ -211,19 +244,21 @@ export function ChromeBust() {
         present.current * (0.25 + 0.2 * Math.sin(uniforms.uTime.value * 1.3));
     }
 
+    // HEAD-ONLY GAZE: ease the gaze uniforms toward the cursor; the shader
+    // rotates only the head (above the neck), so the shoulders stay put. Tiny
+    // idle drift keeps it alive when the cursor is still.
+    const p = getPointer();
+    const yawT = p.x * 0.5 + Math.sin(uniforms.uTime.value * 0.12) * 0.04;
+    const pitchT = -p.y * 0.26 + Math.sin(uniforms.uTime.value * 0.17) * 0.025;
+    const k = Math.min(1, dt * 2.4);
+    uniforms.uYaw.value += (yawT - uniforms.uYaw.value) * k;
+    uniforms.uPitch.value += (pitchT - uniforms.uPitch.value) * k;
+
     const g = groupRef.current;
     if (g) {
       g.visible = present.current > 0.004;
       g.scale.setScalar(0.85 + present.current * 0.15);
-      // GAZE: the head turns to follow the cursor — subtle & premium, with a
-      // tiny idle drift so it stays alive when the cursor is still. Damped so the
-      // turn is smooth, never snappy.
-      const p = getPointer();
-      const yaw = p.x * 0.42 + Math.sin(uniforms.uTime.value * 0.12) * 0.04;
-      const pitch = -p.y * 0.2 + Math.sin(uniforms.uTime.value * 0.17) * 0.025;
-      const k = Math.min(1, dt * 2.4);
-      g.rotation.y += (yaw - g.rotation.y) * k;
-      g.rotation.x += (pitch - g.rotation.x) * k;
+      // Shoulders fixed — no group rotation (the head turns via the shader).
     }
     if (shadowRef.current) shadowRef.current.opacity = present.current * 0.4;
   });

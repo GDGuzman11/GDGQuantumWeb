@@ -92,6 +92,7 @@ export function TunnelStage() {
           and only when the orb is actually rendered. */}
       {canRenderCanvas && welcomeActive ? (
         <button
+          id="core-hotspot"
           type="button"
           onClick={() => toggleWorld()}
           aria-label="Activate the core — toggle light mode"
