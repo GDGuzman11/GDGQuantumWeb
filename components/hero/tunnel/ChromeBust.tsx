@@ -4,8 +4,52 @@ import { useEffect, useMemo, useRef } from 'react';
 import { useFrame } from '@react-three/fiber';
 import { useGLTF, Environment, Lightformer, ContactShadows } from '@react-three/drei';
 import * as THREE from 'three';
+import { mergeVertices } from 'three-stdlib';
 import { getWorld, isWhiteWorld } from '@/lib/world';
 import { getPointer } from '@/lib/pointer';
+
+/**
+ * Laplacian (umbrella) smoothing — averages each vertex toward its neighbours a
+ * few times to round off sharp features (e.g. the pointed crown of the low-poly
+ * model). Jacobi update so reads aren't contaminated mid-pass. Needs an indexed,
+ * welded geometry (run mergeVertices first).
+ */
+function smoothGeometry(
+  geo: THREE.BufferGeometry,
+  iterations: number,
+  lambda: number,
+): void {
+  const index = geo.getIndex();
+  if (!index) return;
+  const pos = geo.getAttribute('position') as THREE.BufferAttribute;
+  const count = pos.count;
+  const neighbors: Set<number>[] = Array.from({ length: count }, () => new Set());
+  const idx = index.array;
+  for (let i = 0; i < idx.length; i += 3) {
+    const a = idx[i], b = idx[i + 1], c = idx[i + 2];
+    neighbors[a].add(b); neighbors[a].add(c);
+    neighbors[b].add(a); neighbors[b].add(c);
+    neighbors[c].add(a); neighbors[c].add(b);
+  }
+  for (let it = 0; it < iterations; it++) {
+    const nx = new Float32Array(count);
+    const ny = new Float32Array(count);
+    const nz = new Float32Array(count);
+    for (let v = 0; v < count; v++) {
+      const vx = pos.getX(v), vy = pos.getY(v), vz = pos.getZ(v);
+      const nb = neighbors[v];
+      if (nb.size === 0) { nx[v] = vx; ny[v] = vy; nz[v] = vz; continue; }
+      let sx = 0, sy = 0, sz = 0;
+      nb.forEach((n) => { sx += pos.getX(n); sy += pos.getY(n); sz += pos.getZ(n); });
+      const inv = 1 / nb.size;
+      nx[v] = vx + (sx * inv - vx) * lambda;
+      ny[v] = vy + (sy * inv - vy) * lambda;
+      nz[v] = vz + (sz * inv - vz) * lambda;
+    }
+    for (let v = 0; v < count; v++) pos.setXYZ(v, nx[v], ny[v], nz[v]);
+  }
+  pos.needsUpdate = true;
+}
 
 /**
  * Chrome bust (white world) — the plain uploaded head/shoulders model
@@ -168,12 +212,15 @@ export function ChromeBust() {
     });
     if (!geo) return null;
 
-    const g = (geo as THREE.BufferGeometry).clone();
+    let g = (geo as THREE.BufferGeometry).clone();
     // Stand it upright + face the camera BEFORE measuring, so height/centre are
     // correct for the upright pose.
     g.rotateX(STAND_UP_X);
     g.rotateY(FACE_YAW);
-    g.computeVertexNormals(); // smooth the low-poly normals for clean chrome
+    // Weld duplicate verts, then smooth to round off the sharp crown / facets.
+    g = mergeVertices(g);
+    smoothGeometry(g, 4, 0.5);
+    g.computeVertexNormals(); // smooth normals for clean chrome
     g.computeBoundingBox();
     const box = g.boundingBox!;
     const size = new THREE.Vector3();
@@ -212,6 +259,7 @@ export function ChromeBust() {
            uniform float uTime; uniform float uDisplace; uniform float uAmp;
            uniform float uYaw; uniform float uPitch;
            uniform float uNeckLow; uniform float uNeckHigh; uniform float uPivotY;
+           varying vec3 vRest;
            mat3 gzRotY(float a){ float c=cos(a),s=sin(a); return mat3(c,0.0,s, 0.0,1.0,0.0, -s,0.0,c); }
            mat3 gzRotX(float a){ float c=cos(a),s=sin(a); return mat3(1.0,0.0,0.0, 0.0,c,-s, 0.0,s,c); }
            ${SIMPLEX}`,
@@ -219,6 +267,9 @@ export function ChromeBust() {
         .replace(
           '#include <beginnormal_vertex>',
           `#include <beginnormal_vertex>
+           // Rest-pose (face-fixed) normal for the side-shading, captured BEFORE
+           // the gaze rotation so the shadow doesn't swim when the head turns.
+           vRest = normalize(objectNormal);
            {
              float wN = smoothstep(uNeckLow, uNeckHigh, position.y);
              objectNormal = gzRotX(uPitch * wN) * gzRotY(uYaw * wN) * objectNormal;
@@ -244,13 +295,15 @@ export function ChromeBust() {
         .replace(
           '#include <common>',
           `#include <common>
-           uniform vec3 uLightDir;`,
+           uniform vec3 uLightDir;
+           varying vec3 vRest;`,
         )
         .replace(
           '#include <opaque_fragment>',
           `#include <opaque_fragment>
-           // Directional side-shading (chiaroscuro).
-           float sideShade = dot(normalize(normal), normalize(uLightDir)) * 0.5 + 0.5;
+           // Directional side-shading (chiaroscuro), anchored to the FACE via the
+           // rest-pose normal so it stays put as the head turns (no swimming).
+           float sideShade = dot(normalize(vRest), normalize(uLightDir)) * 0.5 + 0.5;
            gl_FragColor.rgb *= mix(0.36, 1.14, sideShade);
            // Fresnel edge-rim: a bright cool rim at grazing angles defines the
            // silhouette and feature edges of the low-poly face.
