@@ -1,9 +1,9 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import dynamic from 'next/dynamic';
 import { useDeck } from '@/components/deck/DeckContext';
-import { toggleWorld } from '@/lib/world';
+import { isWhiteWorld, onWorld, toggleWorld } from '@/lib/world';
 import { useReducedMotion } from '@/lib/use-reduced-motion';
 import { isWebGLAvailable } from '@/lib/webgl';
 import { isRevealStarted, onReveal } from '@/lib/reveal';
@@ -43,8 +43,23 @@ export function TunnelStage() {
   const [revealed, setRevealed] = useState(isRevealStarted());
   const [webgl, setWebgl] = useState(false);
 
+  // Live discrete world state for the orb's `aria-pressed` / label. `onWorld`
+  // fires on every eased step, but the WHITE↔dark intent flips at `toggleWorld`
+  // time, so we read the discrete `isWhiteWorld()` and only re-render on the
+  // enter/exit transition (ref-guarded) — never per eased frame.
+  const [inWhite, setInWhite] = useState(false);
+  const inWhiteRef = useRef(false);
+
   useEffect(() => {
     setWebgl(isWebGLAvailable());
+
+    const unsubWorld = onWorld(() => {
+      const white = isWhiteWorld();
+      if (white !== inWhiteRef.current) {
+        inWhiteRef.current = white;
+        setInWhite(white);
+      }
+    });
 
     const mq = window.matchMedia('(min-width: 1024px)');
     const onChange = () => setLgUp(mq.matches);
@@ -58,6 +73,7 @@ export function TunnelStage() {
       if (mq.removeEventListener) mq.removeEventListener('change', onChange);
       else mq.removeListener(onChange);
       unsub();
+      unsubWorld();
     };
   }, []);
 
@@ -103,7 +119,8 @@ export function TunnelStage() {
           id="core-hotspot"
           type="button"
           onClick={() => toggleWorld()}
-          aria-label="Activate the core — toggle light mode"
+          aria-pressed={inWhite}
+          aria-label={inWhite ? 'Return to the dark world' : 'Enter the chrome-bust world'}
           className="pointer-events-auto fixed left-1/2 top-1/2 z-40 h-40 w-40 -translate-x-1/2 -translate-y-1/2 rounded-full bg-transparent outline-none focus-visible:ring-2 focus-visible:ring-accent"
         />
       ) : null}
