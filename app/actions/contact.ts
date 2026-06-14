@@ -50,32 +50,19 @@ export async function submitContact(raw: unknown): Promise<ContactResult> {
 
   // 1. Honeypot — a real user never fills the hidden honeypot field.
   if (extraField.trim() !== '') {
-    console.warn('[contact][diag] honeypot fired — field length:', extraField.length);
     return { ok: true }; // silent accept; do nothing
   }
 
   // 2. Time-trap — submitted implausibly fast after mount → bot.
   if (renderedAt > 0 && Date.now() - renderedAt < MIN_FILL_MS) {
-    console.warn(
-      '[contact][diag] time-trap fired — elapsed ms:',
-      Date.now() - renderedAt,
-      'renderedAt:',
-      renderedAt,
-    );
     return { ok: true }; // silent accept; do nothing
   }
 
   // 3. Cloudflare Turnstile (skipped in dev when no secret configured).
   const human = await verifyTurnstile(turnstileToken, ip);
   if (!human) {
-    console.warn(
-      '[contact][diag] turnstile rejected — token present:',
-      Boolean(turnstileToken),
-    );
     return { ok: true }; // silent reject; do nothing
   }
-
-  console.warn('[contact][diag] passed all bot gates — proceeding to rate-limit/persist/email');
 
   // 4. Rate limit per hashed IP (skipped in dev; fails closed when configured).
   const ipHash = hashIp(ip);
