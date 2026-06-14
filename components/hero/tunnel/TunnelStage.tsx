@@ -73,10 +73,18 @@ export function TunnelStage() {
   return (
     <>
       <div aria-hidden className="pointer-events-none fixed inset-0 z-0">
-        {/* SITE-WIDE dark gradient + grain — the dark "artwork" fades out as the
-            world turns white (var(--world): 0 dark → 1 white), revealing the
-            light body background beneath. */}
-        <div style={{ opacity: 'calc(1 - var(--world, 0))' }}>
+        {/* SITE-WIDE dark gradient — as the world turns white the darkness DRAINS
+            INTO the bust: a radial mask contracts toward screen centre (the bust)
+            so the void appears to get sucked into the head. var(--world): 0 dark
+            → 1 white. */}
+        <div
+          style={{
+            WebkitMaskImage:
+              'radial-gradient(circle at 50% 50%, #000 calc((1 - var(--world, 0)) * 150%), transparent calc((1 - var(--world, 0)) * 150% + 6%))',
+            maskImage:
+              'radial-gradient(circle at 50% 50%, #000 calc((1 - var(--world, 0)) * 150%), transparent calc((1 - var(--world, 0)) * 150% + 6%))',
+          }}
+        >
           <HeroBackdropFallback />
         </div>
 

@@ -74,6 +74,8 @@ const VERT = /* glsl */ `
   uniform vec2 uMouse;
   uniform float uDepth;
   uniform float uPixelRatio;
+  uniform float uWorld;       // 0 dark … 1 white → funnel particles into the bust
+  uniform vec3 uBustCenter;   // bust world position (the galaxy gets sucked in here)
   attribute float aRand;
   attribute float aGroup;
   varying float vRand;
@@ -106,6 +108,12 @@ const VERT = /* glsl */ `
     // dive reads as a straight plunge down the tunnel, not a sideways drift.
     p.x += uMouse.x * 0.55 * (0.3 + t) * (1.0 - uWarp);
     p.y += uMouse.y * 0.55 * (0.3 + t) * (1.0 - uWarp);
+
+    // Galaxy → bust: as the world turns white, funnel every particle INTO the
+    // bust (converge toward its centre) so the tunnel + void get "sucked into"
+    // the head — the galaxy ends up inside the bust.
+    float funnel = smoothstep(0.0, 0.6, uWorld);
+    p = mix(p, uBustCenter, pow(funnel, 1.4));
 
     vec4 mv = modelViewMatrix * vec4(p, 1.0);
     gl_Position = projectionMatrix * mv;
@@ -190,7 +198,8 @@ const FRAG = /* glsl */ `
     // dive. Proximity affects LIGHT only — speed lives in uFlow.
     float alpha =
       glow * vFade * tw * (0.6 + uProximity * 0.4 + spark * 0.9 + vWarp * 0.8);
-    alpha *= (1.0 - uWorld);                          // gone in the white world
+    // Stay bright while funnelling in, then fade out as they reach the bust.
+    alpha *= (1.0 - smoothstep(0.5, 0.82, uWorld));
     if (alpha <= 0.001) discard;
     gl_FragColor = vec4(col, alpha);
   }
@@ -214,6 +223,8 @@ function Tunnel() {
           uDepth: { value: DEPTH },
           uPixelRatio: { value: 1 },
           uWorld: { value: 0 },
+          // Must match ChromeBust POSITION — the point the galaxy funnels into.
+          uBustCenter: { value: new THREE.Vector3(0, 0, -3.2) },
         },
         vertexShader: VERT,
         fragmentShader: FRAG,
