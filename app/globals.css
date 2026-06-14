@@ -152,30 +152,3 @@
   }
 }
 
-/* White-world synapse collision: a quick light-burst where two neuron snakes
-   bump, and a brief fade for the little code snippet that types out beside it. */
-@keyframes gdg-synapse-flash {
-  0% {
-    transform: translate(-50%, -50%) scale(0.2);
-    opacity: 1;
-  }
-  100% {
-    transform: translate(-50%, -50%) scale(2.4);
-    opacity: 0;
-  }
-}
-
-@keyframes gdg-synapse-text {
-  0% {
-    opacity: 0;
-  }
-  14% {
-    opacity: 1;
-  }
-  72% {
-    opacity: 1;
-  }
-  100% {
-    opacity: 0;
-  }
-}

@@ -10,7 +10,6 @@ import { firePulse } from '@/lib/pulse';
 import { getWorld } from '@/lib/world';
 import { PostFX } from './PostFX';
 import { QuantumCore } from './QuantumCore';
-import { SnakeNeurons } from './SnakeNeurons';
 
 /**
  * Particle tunnel — the heavy three.js/R3F chunk (Phase 3R).
@@ -341,7 +340,6 @@ export default function TunnelCanvas({ active, welcomeActive }: TunnelCanvasProp
     >
       <Tunnel />
       <CameraRig />
-      <SnakeNeurons />
       <QuantumCore welcomeActive={welcomeActive} onSunReady={setSun} />
       <PostFX sun={sun} />
       <AdaptiveDpr pixelated={false} />
