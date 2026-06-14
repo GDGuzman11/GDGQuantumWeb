@@ -26,8 +26,8 @@ import { getWorld } from '@/lib/world';
  * reduced-motion gates. Replaces the ferrofluid core in the white world.
  */
 
-const POSITION: [number, number, number] = [0, -0.1, -3.0];
-const TARGET_HEIGHT = 2.7; // world units the bust is scaled to
+const POSITION: [number, number, number] = [0, 0, -3.2];
+const TARGET_HEIGHT = 5.4; // world units the bust is scaled to (~2× larger)
 // Orientation correction baked into the geometry so the bust stands upright and
 // faces the camera. The model imported lying down (we saw its base), so tilt it
 // up 90° about X. If it's still wrong: try STAND_UP_X = -Math.PI/2, and rotate
@@ -100,7 +100,6 @@ export function ChromeBust() {
       uTime: { value: 0 },
       uDisplace: { value: 1 }, // 1 = full blob, 0 = clean face
       uAmp: { value: DISP_AMP },
-      uThink: { value: 0 }, // 0..1 brightness of the "thinking" circuit lines
     }),
     [],
   );
@@ -142,64 +141,37 @@ export function ChromeBust() {
       shader.uniforms.uTime = uniforms.uTime;
       shader.uniforms.uDisplace = uniforms.uDisplace;
       shader.uniforms.uAmp = uniforms.uAmp;
-      shader.uniforms.uThink = uniforms.uThink;
       shader.uniforms.uLightDir = { value: LIGHT_DIR };
 
-      // VERTEX — blob displacement + pass object-space position to the fragment
-      // so the "thinking" grid sits on the surface.
+      // VERTEX — blob displacement (resolves to the clean face as world→white).
       shader.vertexShader = shader.vertexShader
         .replace(
           '#include <common>',
           `#include <common>
            uniform float uTime; uniform float uDisplace; uniform float uAmp;
-           varying vec3 vObjPos;
            ${SIMPLEX}`,
         )
         .replace(
           '#include <begin_vertex>',
           `#include <begin_vertex>
-           vObjPos = position;
            float nA = snoise(position * 1.6 + vec3(0.0, 0.0, uTime * 0.25));
            float nB = snoise(position * 3.3 - vec3(0.0, 0.0, uTime * 0.18));
            float d = nA * 0.65 + nB * 0.35;
            transformed += normal * d * uAmp * uDisplace;`,
         );
 
-      // FRAGMENT — bright neuron circuit lines travelling horizontally and
-      // vertically across the surface (the bust "thinking"), added as emissive.
+      // FRAGMENT — directional side-shading (chiaroscuro) on the chrome.
       shader.fragmentShader = shader.fragmentShader
         .replace(
           '#include <common>',
           `#include <common>
-           uniform float uTime; uniform float uThink; uniform vec3 uLightDir;
-           varying vec3 vObjPos;`,
+           uniform vec3 uLightDir;`,
         )
         .replace(
           '#include <opaque_fragment>',
           `#include <opaque_fragment>
-           // Directional side-shading: the side facing the key light stays bright,
-           // the far side falls into shadow — cinematic chiaroscuro on the chrome.
            float sideShade = dot(normalize(normal), normalize(uLightDir)) * 0.5 + 0.5;
            gl_FragColor.rgb *= mix(0.4, 1.12, sideShade);`,
-        )
-        .replace(
-          '#include <emissivemap_fragment>',
-          `#include <emissivemap_fragment>
-           {
-             float FREQ = 6.0;
-             // Thin H + V lines (object space) → a circuit grid on the surface.
-             float fy = fract(vObjPos.y * FREQ);
-             float fx = fract(vObjPos.x * FREQ);
-             float lineH = smoothstep(0.045, 0.0, min(fy, 1.0 - fy));
-             float lineV = smoothstep(0.045, 0.0, min(fx, 1.0 - fx));
-             // Bright pulses racing along: along x on the H lines, along y on V.
-             float pulseH = exp(-pow(fract(vObjPos.x * 1.4 - uTime * 0.55) - 0.5, 2.0) * 46.0);
-             float pulseV = exp(-pow(fract(vObjPos.y * 1.4 - uTime * 0.42) - 0.5, 2.0) * 46.0);
-             float think = lineH * (0.35 + pulseH * 1.4) + lineV * (0.35 + pulseV * 1.4);
-             // Bright, shifting colours (HDR → blooms).
-             vec3 tc = 0.6 + 0.4 * cos(6.2831 * (vObjPos.y * 0.5 + vObjPos.x * 0.4 + uTime * 0.18 + vec3(0.0, 0.33, 0.66)));
-             totalEmissiveRadiance += tc * 2.2 * think * uThink;
-           }`,
         );
     };
 
@@ -228,8 +200,6 @@ export function ChromeBust() {
 
     // Displacement resolves from blob → clean face as the world finishes white.
     uniforms.uDisplace.value = 1 - THREE.MathUtils.smoothstep(w, 0.55, 1.0);
-    // Thinking lines glow once the face has resolved (strongest when clean).
-    uniforms.uThink.value = present.current * THREE.MathUtils.smoothstep(w, 0.6, 1.0);
 
     if (mesh) {
       const mat = mesh.material as THREE.MeshStandardMaterial;
@@ -267,10 +237,10 @@ export function ChromeBust() {
 
       <ContactShadows
         ref={shadowRef}
-        position={[POSITION[0], POSITION[1] - TARGET_HEIGHT * 0.62, POSITION[2]]}
-        scale={6}
-        blur={2.6}
-        far={4}
+        position={[POSITION[0], POSITION[1] - TARGET_HEIGHT * 0.6, POSITION[2]]}
+        scale={11}
+        blur={2.8}
+        far={5}
         opacity={0}
         color="#1a2030"
       />
