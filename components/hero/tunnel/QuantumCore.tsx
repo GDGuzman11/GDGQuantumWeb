@@ -326,10 +326,12 @@ export function QuantumCore({ welcomeActive, onSunReady }: QuantumCoreProps) {
     // Spikes swell during the dive / on click, and grow tall in the white world.
     u.uAmp.value = DISP_AMP * (1 + warp * 0.9 + click * 0.7 + w * 0.6);
 
-    // Welcome-only presence eases in after reveal, out on inner pages.
+    // Welcome-only presence eases in after reveal, out on inner pages. ALSO fade
+    // out as the world turns white — the chrome bust replaces the core there.
     const target = welcomeActive && revealed.current ? 1 : 0;
     present.current += (target - present.current) * Math.min(1, dt * 2.2);
-    u.uOpacity.value = present.current;
+    const whiteFade = 1 - THREE.MathUtils.smoothstep(w, 0.5, 0.9);
+    u.uOpacity.value = present.current * whiteFade;
 
     const g = groupRef.current;
     if (g) {

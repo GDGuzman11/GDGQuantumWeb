@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { Suspense, useEffect, useMemo, useRef, useState } from 'react';
 import { Canvas, useFrame, useThree } from '@react-three/fiber';
 import { AdaptiveDpr } from '@react-three/drei';
 import * as THREE from 'three';
@@ -10,6 +10,7 @@ import { firePulse } from '@/lib/pulse';
 import { getWorld } from '@/lib/world';
 import { PostFX } from './PostFX';
 import { QuantumCore } from './QuantumCore';
+import { ChromeBust } from './ChromeBust';
 
 /**
  * Particle tunnel — the heavy three.js/R3F chunk (Phase 3R).
@@ -341,6 +342,9 @@ export default function TunnelCanvas({ active, welcomeActive }: TunnelCanvasProp
       <Tunnel />
       <CameraRig />
       <QuantumCore welcomeActive={welcomeActive} onSunReady={setSun} />
+      <Suspense fallback={null}>
+        <ChromeBust />
+      </Suspense>
       <PostFX sun={sun} />
       <AdaptiveDpr pixelated={false} />
     </Canvas>
