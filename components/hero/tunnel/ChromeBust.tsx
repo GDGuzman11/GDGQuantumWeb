@@ -28,9 +28,17 @@ import { getWorld } from '@/lib/world';
 
 const POSITION: [number, number, number] = [0, -0.1, -3.0];
 const TARGET_HEIGHT = 2.7; // world units the bust is scaled to
-const ROT_Y = 0; // tweak if the model faces away from camera (e.g. Math.PI)
+// Orientation correction baked into the geometry so the bust stands upright and
+// faces the camera. The model imported lying down (we saw its base), so tilt it
+// up 90° about X. If it's still wrong: try STAND_UP_X = -Math.PI/2, and rotate
+// FACE_YAW by Math.PI if it faces away / ±Math.PI/2 if it faces sideways.
+const STAND_UP_X = Math.PI / 2;
+const FACE_YAW = 0;
 const DISP_AMP = 0.5; // blob displacement amplitude (local units)
 const INNER = new THREE.Color(0.2, 0.5, 1.5); // HDR inner emission (blooms)
+// Fixed view-space key-light direction → one side of the face is lit, the other
+// falls into shadow (cinematic chiaroscuro on the chrome).
+const LIGHT_DIR = new THREE.Vector3(-0.6, 0.45, 0.65).normalize();
 
 // Compact Ashima simplex noise for the vertex displacement injection.
 const SIMPLEX = /* glsl */ `
@@ -107,6 +115,10 @@ export function ChromeBust() {
     if (!geo) return null;
 
     const g = (geo as THREE.BufferGeometry).clone();
+    // Stand it upright + face the camera BEFORE measuring, so height/centre are
+    // correct for the upright pose.
+    g.rotateX(STAND_UP_X);
+    g.rotateY(FACE_YAW);
     g.computeVertexNormals(); // smooth the low-poly normals for clean chrome
     g.computeBoundingBox();
     const box = g.boundingBox!;
@@ -131,6 +143,7 @@ export function ChromeBust() {
       shader.uniforms.uDisplace = uniforms.uDisplace;
       shader.uniforms.uAmp = uniforms.uAmp;
       shader.uniforms.uThink = uniforms.uThink;
+      shader.uniforms.uLightDir = { value: LIGHT_DIR };
 
       // VERTEX — blob displacement + pass object-space position to the fragment
       // so the "thinking" grid sits on the surface.
@@ -158,8 +171,16 @@ export function ChromeBust() {
         .replace(
           '#include <common>',
           `#include <common>
-           uniform float uTime; uniform float uThink;
+           uniform float uTime; uniform float uThink; uniform vec3 uLightDir;
            varying vec3 vObjPos;`,
+        )
+        .replace(
+          '#include <opaque_fragment>',
+          `#include <opaque_fragment>
+           // Directional side-shading: the side facing the key light stays bright,
+           // the far side falls into shadow — cinematic chiaroscuro on the chrome.
+           float sideShade = dot(normalize(normal), normalize(uLightDir)) * 0.5 + 0.5;
+           gl_FragColor.rgb *= mix(0.4, 1.12, sideShade);`,
         )
         .replace(
           '#include <emissivemap_fragment>',
@@ -220,7 +241,8 @@ export function ChromeBust() {
     if (g) {
       g.visible = present.current > 0.004;
       g.scale.setScalar(0.85 + present.current * 0.15);
-      g.rotation.y = ROT_Y + Math.sin(uniforms.uTime.value * 0.15) * 0.35;
+      // Gentle sway around facing the camera (orientation is baked into the mesh).
+      g.rotation.y = Math.sin(uniforms.uTime.value * 0.15) * 0.28;
     }
     if (shadowRef.current) shadowRef.current.opacity = present.current * 0.4;
   });
@@ -232,9 +254,11 @@ export function ChromeBust() {
       {/* Studio environment for the chrome reflections — built from light strips,
           no HDRI file (CSP-safe, no network). */}
       <Environment resolution={256} frames={1}>
-        <Lightformer intensity={2.2} position={[3, 3, 2]} scale={[6, 6, 1]} />
-        <Lightformer intensity={1.4} position={[-4, 1, 1]} scale={[5, 8, 1]} color="#bcd4ff" />
-        <Lightformer intensity={1.0} position={[0, -3, 3]} scale={[8, 4, 1]} color="#ffffff" />
+        {/* Key on the LEFT (matches LIGHT_DIR) → bright lit side; dim fill on the
+            right so that side reads dark — chiaroscuro in the reflections. */}
+        <Lightformer intensity={3.0} position={[-4, 3, 3]} scale={[7, 7, 1]} color="#ffffff" />
+        <Lightformer intensity={0.6} position={[4, 0, 2]} scale={[5, 8, 1]} color="#9fc0ff" />
+        <Lightformer intensity={1.3} position={[0, 4, -2]} scale={[8, 3, 1]} color="#dfeaff" />
       </Environment>
 
       <group ref={groupRef} position={POSITION} visible={false}>
