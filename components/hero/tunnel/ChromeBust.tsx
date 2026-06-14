@@ -5,6 +5,7 @@ import { useFrame } from '@react-three/fiber';
 import { useGLTF, Environment, Lightformer, ContactShadows } from '@react-three/drei';
 import * as THREE from 'three';
 import { getWorld } from '@/lib/world';
+import { getPointer } from '@/lib/pointer';
 
 /**
  * Chrome bust (white world) — the plain uploaded head/shoulders model
@@ -214,8 +215,15 @@ export function ChromeBust() {
     if (g) {
       g.visible = present.current > 0.004;
       g.scale.setScalar(0.85 + present.current * 0.15);
-      // Gentle sway around facing the camera (orientation is baked into the mesh).
-      g.rotation.y = Math.sin(uniforms.uTime.value * 0.15) * 0.28;
+      // GAZE: the head turns to follow the cursor — subtle & premium, with a
+      // tiny idle drift so it stays alive when the cursor is still. Damped so the
+      // turn is smooth, never snappy.
+      const p = getPointer();
+      const yaw = p.x * 0.42 + Math.sin(uniforms.uTime.value * 0.12) * 0.04;
+      const pitch = -p.y * 0.2 + Math.sin(uniforms.uTime.value * 0.17) * 0.025;
+      const k = Math.min(1, dt * 2.4);
+      g.rotation.y += (yaw - g.rotation.y) * k;
+      g.rotation.x += (pitch - g.rotation.x) * k;
     }
     if (shadowRef.current) shadowRef.current.opacity = present.current * 0.4;
   });

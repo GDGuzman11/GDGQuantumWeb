@@ -11,7 +11,6 @@ import { getWorld } from '@/lib/world';
 import { PostFX } from './PostFX';
 import { QuantumCore } from './QuantumCore';
 import { ChromeBust } from './ChromeBust';
-import { NeuronTraces } from './NeuronTraces';
 
 /**
  * Particle tunnel — the heavy three.js/R3F chunk (Phase 3R).
@@ -346,7 +345,6 @@ export default function TunnelCanvas({ active, welcomeActive }: TunnelCanvasProp
       <Suspense fallback={null}>
         <ChromeBust />
       </Suspense>
-      <NeuronTraces />
       <PostFX sun={sun} />
       <AdaptiveDpr pixelated={false} />
     </Canvas>
