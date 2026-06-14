@@ -33,7 +33,7 @@ function tick(): void {
     raf = 0;
     return;
   }
-  world += d * 0.05; // ~1.2s cinematic ease at 60fps
+  world += d * 0.04; // ~1.5s cinematic ease at 60fps (smoother bust↔core morph)
   emit();
   raf = requestAnimationFrame(tick);
 }

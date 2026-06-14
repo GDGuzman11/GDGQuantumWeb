@@ -67,19 +67,16 @@ const FRAG = /* glsl */ `
   varying vec3 vColor;
   varying float vFade;
   void main(){
-    vec3 col = vColor * (0.35 + vFade * 1.1);     // brighter toward the head
-    float a = (0.3 + vFade * 0.7) * uOpacity;
-    gl_FragColor = vec4(col, a);
+    // Dark trace, head fully opaque → fades along the tail. Keep the colour dark
+    // (don't brighten toward the head) so it CONTRASTS the white page.
+    float a = (0.22 + vFade * 0.78) * uOpacity;
+    gl_FragColor = vec4(vColor, a);
   }
 `;
 
-function hdrColor(): THREE.Color {
-  const h = Math.random();
-  return new THREE.Color(
-    (0.5 + 0.5 * Math.cos(2 * Math.PI * (h + 0.0))) * 2.0,
-    (0.5 + 0.5 * Math.cos(2 * Math.PI * (h + 0.33))) * 2.0,
-    (0.5 + 0.5 * Math.cos(2 * Math.PI * (h + 0.66))) * 2.0,
-  );
+function traceColor(): THREE.Color {
+  // Dark, saturated ink colours (low lightness) so they read on the white page.
+  return new THREE.Color().setHSL(Math.random(), 0.8, 0.22);
 }
 
 export function NeuronTraces() {
@@ -136,7 +133,7 @@ export function NeuronTraces() {
     t.active = true;
     t.dir = DIRS[(Math.random() * 4) | 0];
     t.committed = 0;
-    t.color = hdrColor();
+    t.color = traceColor();
     t.path = [
       new THREE.Vector3(
         ORIGIN.x + (Math.random() * 2 - 1) * SPAWN_HALF.x,

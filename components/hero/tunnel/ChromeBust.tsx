@@ -194,12 +194,15 @@ export function ChromeBust() {
     const w = getWorld();
     uniforms.uTime.value += dt;
 
-    // Presence: emerge in the latter half of the flip; gone in the dark world.
-    const target = THREE.MathUtils.smoothstep(w, 0.42, 1.0);
+    // Presence: emerge across the flip with plenty of overlap so the bust and
+    // the ferrofluid core cross-dissolve smoothly (both are a blob near the
+    // midpoint, masked by the flash); gone in the dark world.
+    const target = THREE.MathUtils.smoothstep(w, 0.38, 0.9);
     present.current += (target - present.current) * Math.min(1, dt * 3);
 
-    // Displacement resolves from blob → clean face as the world finishes white.
-    uniforms.uDisplace.value = 1 - THREE.MathUtils.smoothstep(w, 0.55, 1.0);
+    // Displacement stays blobby through the midpoint, then resolves to the clean
+    // face near the end — so the hand-off reads as one continuous blob→face.
+    uniforms.uDisplace.value = 1 - THREE.MathUtils.smoothstep(w, 0.5, 0.95);
 
     if (mesh) {
       const mat = mesh.material as THREE.MeshStandardMaterial;

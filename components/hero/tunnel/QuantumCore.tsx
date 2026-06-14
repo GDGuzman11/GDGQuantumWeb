@@ -330,7 +330,9 @@ export function QuantumCore({ welcomeActive, onSunReady }: QuantumCoreProps) {
     // out as the world turns white — the chrome bust replaces the core there.
     const target = welcomeActive && revealed.current ? 1 : 0;
     present.current += (target - present.current) * Math.min(1, dt * 2.2);
-    const whiteFade = 1 - THREE.MathUtils.smoothstep(w, 0.5, 0.9);
+    // Linger as a blob a touch past the midpoint, then fade — overlaps the bust's
+    // blob phase so the core↔bust hand-off cross-dissolves smoothly.
+    const whiteFade = 1 - THREE.MathUtils.smoothstep(w, 0.42, 0.8);
     u.uOpacity.value = present.current * whiteFade;
 
     const g = groupRef.current;
