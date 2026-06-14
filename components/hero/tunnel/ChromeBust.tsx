@@ -4,7 +4,7 @@ import { useEffect, useMemo, useRef } from 'react';
 import { useFrame } from '@react-three/fiber';
 import { useGLTF, Environment, Lightformer, ContactShadows } from '@react-three/drei';
 import * as THREE from 'three';
-import { getWorld } from '@/lib/world';
+import { getWorld, isWhiteWorld } from '@/lib/world';
 import { getPointer } from '@/lib/pointer';
 
 /**
@@ -47,6 +47,35 @@ const INNER = new THREE.Color(0.2, 0.5, 1.5); // HDR inner emission (blooms)
 // Fixed view-space key-light direction → one side of the face is lit, the other
 // falls into shadow (cinematic chiaroscuro on the chrome).
 const LIGHT_DIR = new THREE.Vector3(-0.6, 0.45, 0.65).normalize();
+
+// 3D screen embedded ON the chrome face. Position/size are in the scaled, centred
+// local space (y ≈ -2.7..2.7); tune onto your model's face. The screen is a child
+// of a head-group that rotates with the gaze, so it tracks the head turn.
+const SCREEN_POS: [number, number, number] = [0, 1.0, 1.45];
+const SCREEN_W = 1.3;
+const SCREEN_H = 0.82;
+
+const SNIPPETS = [
+  '> initializing neural core',
+  '> bootstrapping consciousness',
+  'synapse.link(0x7F3A)',
+  '> loading weights ...',
+  'tensor.alloc(4096)',
+  '> calibrating cortex',
+  'train(epoch=42) loss=0.0031',
+  'graph.compile() :: ok',
+  '0xA1F0: handshake accepted',
+  '> mounting memory banks',
+  'await think(input)',
+  '> SYSTEM ONLINE',
+];
+
+function pickSequence(): string {
+  const n = 7 + Math.floor(Math.random() * 4);
+  const out: string[] = [];
+  for (let i = 0; i < n; i++) out.push(SNIPPETS[(Math.random() * SNIPPETS.length) | 0]);
+  return out.join('\n');
+}
 
 // Compact Ashima simplex noise for the vertex displacement injection.
 const SIMPLEX = /* glsl */ `
@@ -99,8 +128,24 @@ const SIMPLEX = /* glsl */ `
 export function ChromeBust() {
   const { scene } = useGLTF('/models/bust.glb');
   const groupRef = useRef<THREE.Group>(null);
+  const headGroupRef = useRef<THREE.Group>(null);
+  const screenRef = useRef<THREE.Mesh>(null);
   const shadowRef = useRef<any>(null);
   const present = useRef(0);
+  const screenPresent = useRef(0);
+  const screenActive = useRef(false);
+
+  // Offscreen canvas → texture for the embedded terminal screen.
+  const screen = useMemo(() => {
+    const canvas = document.createElement('canvas');
+    canvas.width = 320;
+    canvas.height = 200;
+    const ctx = canvas.getContext('2d')!;
+    const texture = new THREE.CanvasTexture(canvas);
+    texture.minFilter = THREE.LinearFilter;
+    texture.colorSpace = THREE.SRGBColorSpace;
+    return { canvas, ctx, texture };
+  }, []);
 
   // Shared uniforms for the onBeforeCompile injection (updated each frame).
   const uniforms = useMemo(
@@ -225,8 +270,74 @@ export function ChromeBust() {
         mesh.geometry.dispose();
         (mesh.material as THREE.Material).dispose();
       }
+      screen.texture.dispose();
     };
-  }, [mesh]);
+  }, [mesh, screen]);
+
+  // Boot sequence — a click on any BUTTON/link (in the white world, not the core)
+  // types random code onto the embedded face screen, then it fades.
+  useEffect(() => {
+    const { canvas, ctx, texture } = screen;
+    const W = canvas.width;
+    const H = canvas.height;
+    const draw = (text: string) => {
+      ctx.clearRect(0, 0, W, H);
+      ctx.fillStyle = 'rgba(2,8,12,0.92)';
+      ctx.fillRect(0, 0, W, H);
+      ctx.strokeStyle = 'rgba(34,211,238,0.55)';
+      ctx.lineWidth = 4;
+      ctx.strokeRect(4, 4, W - 8, H - 8);
+      ctx.font = '15px monospace';
+      ctx.fillStyle = 'rgba(150,235,255,0.96)';
+      ctx.textBaseline = 'top';
+      const lines = text.split('\n').slice(-9);
+      const lh = 19;
+      lines.forEach((ln, i) => ctx.fillText(ln, 14, 14 + i * lh));
+      const last = lines[lines.length - 1] ?? '';
+      ctx.fillRect(14 + ctx.measureText(last).width + 2, 14 + (lines.length - 1) * lh, 8, 14);
+      ctx.fillStyle = 'rgba(0,0,0,0.16)';
+      for (let y = 0; y < H; y += 4) ctx.fillRect(0, y, W, 2);
+      texture.needsUpdate = true;
+    };
+
+    let typer = 0;
+    let hideId = 0;
+    const startBoot = () => {
+      window.clearInterval(typer);
+      window.clearTimeout(hideId);
+      const full = pickSequence();
+      screenActive.current = true;
+      let i = 0;
+      draw('');
+      typer = window.setInterval(() => {
+        i += 1;
+        draw(full.slice(0, i));
+        if (i >= full.length) {
+          window.clearInterval(typer);
+          typer = 0;
+          hideId = window.setTimeout(() => {
+            screenActive.current = false;
+          }, 2600);
+        }
+      }, 26);
+    };
+
+    const onClick = (e: MouseEvent) => {
+      if (!isWhiteWorld()) return;
+      const t = e.target as HTMLElement | null;
+      if (!t) return;
+      if (t.closest('#core-hotspot')) return; // core toggles the world
+      if (!t.closest('button, a, [role="button"], input[type="submit"]')) return;
+      startBoot();
+    };
+
+    window.addEventListener('click', onClick);
+    return () => {
+      window.removeEventListener('click', onClick);
+      window.clearInterval(typer);
+      window.clearTimeout(hideId);
+    };
+  }, [screen]);
 
   useFrame((_s, delta) => {
     const dt = Math.min(delta, 0.05);
@@ -267,6 +378,21 @@ export function ChromeBust() {
       // Shoulders fixed — no group rotation (the head turns via the shader).
     }
     if (shadowRef.current) shadowRef.current.opacity = present.current * 0.4;
+
+    // Face screen: the head-group tracks the gaze (so the screen turns with the
+    // head); the screen fades in when active, and only while the bust is present.
+    if (w < 0.5) screenActive.current = false;
+    if (headGroupRef.current) {
+      headGroupRef.current.rotation.y = uniforms.uYaw.value;
+      headGroupRef.current.rotation.x = uniforms.uPitch.value;
+    }
+    const sTarget = screenActive.current ? 1 : 0;
+    screenPresent.current += (sTarget - screenPresent.current) * Math.min(1, dt * 6);
+    if (screenRef.current) {
+      const sm = screenRef.current.material as THREE.MeshBasicMaterial;
+      sm.opacity = screenPresent.current * present.current;
+      screenRef.current.visible = sm.opacity > 0.01;
+    }
   });
 
   if (!mesh) return null;
@@ -285,6 +411,26 @@ export function ChromeBust() {
 
       <group ref={groupRef} position={POSITION} visible={false}>
         <primitive object={mesh} />
+        {/* Embedded terminal screen on the face — child of a head-group that
+            rotates with the gaze so it tracks the head turn. */}
+        <group ref={headGroupRef} position={[0, PIVOT_Y, 0]}>
+          <mesh
+            ref={screenRef}
+            position={[SCREEN_POS[0], SCREEN_POS[1] - PIVOT_Y, SCREEN_POS[2]]}
+            renderOrder={6}
+            visible={false}
+          >
+            <planeGeometry args={[SCREEN_W, SCREEN_H]} />
+            <meshBasicMaterial
+              map={screen.texture}
+              transparent
+              toneMapped={false}
+              depthWrite={false}
+              depthTest={false}
+              opacity={0}
+            />
+          </mesh>
+        </group>
       </group>
 
       <ContactShadows

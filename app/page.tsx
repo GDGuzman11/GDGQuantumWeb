@@ -4,7 +4,6 @@ import { SectionNav } from '@/components/chrome/SectionNav';
 import { PanelDeck } from '@/components/deck/PanelDeck';
 import { TunnelStage } from '@/components/hero/tunnel/TunnelStage';
 import { WorldController } from '@/components/hero/WorldController';
-import { FaceScreen } from '@/components/hero/FaceScreen';
 import { Landing } from '@/components/sections/Landing';
 import { Systems } from '@/components/sections/Systems';
 import { Contact } from '@/components/sections/Contact';
@@ -31,7 +30,6 @@ export default function Home() {
     <>
       <Preloader />
       <WorldController />
-      <FaceScreen />
 
       <PanelDeck
         chrome={
