@@ -217,9 +217,10 @@ export function ChromeBust() {
     // correct for the upright pose.
     g.rotateX(STAND_UP_X);
     g.rotateY(FACE_YAW);
-    // Weld duplicate verts, then smooth to round off the sharp crown / facets.
+    // Weld duplicate verts, then lightly smooth — enough to round the sharp crown
+    // without washing away the (already subtle) facial features.
     g = mergeVertices(g);
-    smoothGeometry(g, 4, 0.5);
+    smoothGeometry(g, 2, 0.5);
     g.computeVertexNormals(); // smooth normals for clean chrome
     g.computeBoundingBox();
     const box = g.boundingBox!;
@@ -234,8 +235,8 @@ export function ChromeBust() {
     const mat = new THREE.MeshStandardMaterial({
       color: new THREE.Color(0.55, 0.6, 0.7),
       metalness: 1.0,
-      roughness: 0.12, // crisper reflections → more defined features
-      envMapIntensity: 1.55,
+      roughness: 0.14,
+      envMapIntensity: 1.3, // a touch dimmer so reflections don't wash the form
       emissive: INNER,
       emissiveIntensity: 0,
     });
@@ -304,11 +305,16 @@ export function ChromeBust() {
            // Directional side-shading (chiaroscuro), anchored to the FACE via the
            // rest-pose normal so it stays put as the head turns (no swimming).
            float sideShade = dot(normalize(vRest), normalize(uLightDir)) * 0.5 + 0.5;
-           gl_FragColor.rgb *= mix(0.36, 1.14, sideShade);
+           gl_FragColor.rgb *= mix(0.34, 1.14, sideShade);
+           // Crease/cavity shading: darken where the normal changes fast (nose,
+           // eye sockets, lips, jaw) so the facial features read on the low-poly
+           // mesh. Screen-space derivative of the normal ≈ surface curvature.
+           float curv = length(fwidth(normalize(normal)));
+           gl_FragColor.rgb *= 1.0 - clamp(curv * 7.0, 0.0, 0.72);
            // Fresnel edge-rim: a bright cool rim at grazing angles defines the
-           // silhouette and feature edges of the low-poly face.
-           float edgeFres = pow(1.0 - max(dot(normalize(normal), normalize(vViewPosition)), 0.0), 2.5);
-           gl_FragColor.rgb += edgeFres * vec3(0.45, 0.55, 0.78) * 0.8;`,
+           // silhouette and feature edges.
+           float edgeFres = pow(1.0 - max(dot(normalize(normal), normalize(vViewPosition)), 0.0), 2.3);
+           gl_FragColor.rgb += edgeFres * vec3(0.5, 0.6, 0.85) * 1.0;`,
         );
     };
 
@@ -417,10 +423,11 @@ export function ChromeBust() {
     // rotates only the head (above the neck), so the shoulders stay put. Tiny
     // idle drift keeps it alive when the cursor is still.
     const p = getPointer();
-    // Face/screen turn TOWARD the cursor: nose & screen (front, +z) swing toward
-    // the cursor side. (yaw positive with p.x; flip the sign here if it reverses.)
-    const yawT = p.x * 0.5 + Math.sin(uniforms.uTime.value * 0.12) * 0.04;
-    const pitchT = -p.y * 0.26 + Math.sin(uniforms.uTime.value * 0.17) * 0.025;
+    // Face/screen turn TOWARD the cursor. Amplitude kept SMALL so the chrome
+    // reflections don't swim much as the head turns (dampened). Flip a sign here
+    // if an axis reverses.
+    const yawT = p.x * 0.3 + Math.sin(uniforms.uTime.value * 0.12) * 0.03;
+    const pitchT = -p.y * 0.17 + Math.sin(uniforms.uTime.value * 0.17) * 0.02;
     const k = Math.min(1, dt * 2.4);
     uniforms.uYaw.value += (yawT - uniforms.uYaw.value) * k;
     uniforms.uPitch.value += (pitchT - uniforms.uPitch.value) * k;
