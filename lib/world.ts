@@ -55,7 +55,15 @@ export function setWorldInstant(on: boolean): void {
 
 /** Flip dark ⇄ white. */
 export function toggleWorld(): void {
-  target = target > 0.5 ? 0 : 1;
+  setWhiteWorld(target <= 0.5);
+}
+
+/** Explicitly go to the white or dark world (e.g. auto-revert to dark on leaving
+ *  the Welcome panel — the white world is scoped to the bust). */
+export function setWhiteWorld(white: boolean): void {
+  const t = white ? 1 : 0;
+  if (t === target) return;
+  target = t;
   if (instant) {
     world = target;
     emit();

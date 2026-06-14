@@ -33,6 +33,20 @@
     color-scheme: dark;
   }
 
+  /* White world (the chrome-bust mode): the orb flip removes <body data-theme>
+     and adds `.world-white`. Components that hardcode their own dark scope
+     (TopBar, SectionNav, the Landing panel) would otherwise stay light-on-white
+     and vanish — so re-light any nested dark scope here. Higher specificity than
+     `[data-theme='dark']`, so it wins. */
+  body.world-white [data-theme='dark'] {
+    --bg: #faf9f6;
+    --ink: #0e1116;
+    --accent: #2563eb;
+    --muted: #6b7280;
+    --hairline: rgba(14, 17, 22, 0.1);
+    color-scheme: light;
+  }
+
   html {
     /* Phase 3R full-dark — root color-scheme is dark so the root scrollbar /
        overscroll gutter never flash light. The light :root tokens above remain
