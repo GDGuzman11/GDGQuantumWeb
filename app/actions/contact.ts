@@ -30,13 +30,14 @@ const MIN_FILL_MS = 2500;
 
 /** Pull the security envelope (non-content fields) off the raw payload. */
 function readEnvelope(raw: unknown): {
-  website: string;
+  extraField: string;
   renderedAt: number;
   turnstileToken: string | undefined;
 } {
   const r = (raw ?? {}) as Record<string, unknown>;
   return {
-    website: typeof r.website === 'string' ? r.website : '',
+    // Non-semantic key so browser autofill doesn't recognise/fill the honeypot.
+    extraField: typeof r.extraField === 'string' ? r.extraField : '',
     renderedAt: typeof r.renderedAt === 'number' ? r.renderedAt : 0,
     turnstileToken:
       typeof r.turnstileToken === 'string' ? r.turnstileToken : undefined,
@@ -44,12 +45,12 @@ function readEnvelope(raw: unknown): {
 }
 
 export async function submitContact(raw: unknown): Promise<ContactResult> {
-  const { website, renderedAt, turnstileToken } = readEnvelope(raw);
+  const { extraField, renderedAt, turnstileToken } = readEnvelope(raw);
   const { ip, userAgent } = getClientInfo();
 
-  // 1. Honeypot — a real user never fills the hidden `website` field.
-  if (website.trim() !== '') {
-    console.warn('[contact][diag] honeypot fired — website field length:', website.length);
+  // 1. Honeypot — a real user never fills the hidden honeypot field.
+  if (extraField.trim() !== '') {
+    console.warn('[contact][diag] honeypot fired — field length:', extraField.length);
     return { ok: true }; // silent accept; do nothing
   }
 

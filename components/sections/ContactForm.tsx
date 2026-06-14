@@ -60,7 +60,7 @@ export function ContactForm() {
 
     const result = await submitContact({
       ...values,
-      website: honeypotRef.current?.value ?? '',
+      extraField: honeypotRef.current?.value ?? '',
       renderedAt: renderedAt.current,
       turnstileToken: token ?? undefined,
     });
@@ -151,17 +151,24 @@ export function ContactForm() {
         {...register('message')}
       />
 
-      {/* Honeypot — visually hidden, off the tab order; bots fill it, humans
-          don't. Off-screen (not display:none) so naive bots still see it. */}
+      {/* Honeypot — visually hidden, off the tab order; naive bots fill it,
+          humans don't. Off-screen (not display:none) so bots still see it.
+          Uses a NON-semantic name/label + password-manager ignore hints so
+          browser autofill (Edge/Chrome address profiles, 1Password, LastPass)
+          does NOT fill it — a "website"-named field was being autofilled and
+          silently rejecting real users. */}
       <div aria-hidden className="absolute -left-[5000px] h-0 w-0 overflow-hidden">
-        <label htmlFor="contact-website">Company website (leave blank)</label>
+        <label htmlFor="contact-extra-field">Leave this field empty</label>
         <input
           ref={honeypotRef}
-          id="contact-website"
-          name="website"
+          id="contact-extra-field"
+          name="contact_extra_field"
           type="text"
           tabIndex={-1}
           autoComplete="off"
+          data-lpignore="true"
+          data-1p-ignore=""
+          data-form-type="other"
         />
       </div>
 
