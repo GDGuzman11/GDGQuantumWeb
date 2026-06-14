@@ -9,7 +9,7 @@ A premium, single‑page, scroll‑snapped marketing site for **GDG Quantum** �
 
 The experience is built around a custom **GSAP Observer “panel deck”** (one gesture = one panel, fully input‑locked during transitions — not CSS `scroll-snap`), a **GPU particle tunnel** that runs site‑wide, and a signature **“dive into the void” warp** that carries you between every section at light‑speed.
 
-> **Status:** Front‑end experience is built through **Phase 3R.2**. The backend (database + contact pipeline), security hardening, final performance/SEO/a11y polish, and production deployment are **not yet built** — see [Roadmap](#roadmap). The contact form is currently **visual‑only**.
+> **Status:** Built and deployed. The full front‑end experience, the backend contact pipeline (Phase 4), security hardening (Phase 5), performance/SEO/a11y polish (Phase 6), and the production deployment to Vercel (Phase 7) are all shipped, and a **Phase 8 full‑app audit & cleanup** has been run. The contact form is **live** (validates → persists → sends owner + sender emails). Two features landed in‑session beyond the original three‑panel plan: an interactive **Projects showcase** (glassmorphic terminal cards → full‑screen scroll‑locked case study) and a cinematic **white‑world / chrome‑bust** mode (an orb toggle flips the Welcome panel to a light theme where the galaxy funnels into a chrome bust). See the [changelog](#whats-been-done-changelog).
 
 ---
 
@@ -44,7 +44,10 @@ The experience is built around a custom **GSAP Observer “panel deck”** (one 
 - **“Dive into the void” warp** — scrolling between sections pulses the tunnel to a radial **light‑speed streak** and back; the particles persist calmly while at rest on every section.
 - **Hero social marks** — themed monochrome GitHub + LinkedIn links sit under the hero sub‑line and brighten to the accent on hover.
 - **Real‑progress preloader** — a percentage counter driven by genuine load signals (`document.fonts.ready` + window `load`), choreographed into the hero’s entrance reveal.
-- **Performance‑minded** — the heavy three.js/R3F stack is isolated in an async chunk so it stays **out of the route’s First Load JS** (≈138 kB) and the `<h1>` remains the LCP element.
+- **Interactive Projects showcase** — three glassmorphic terminal cards (hover‑resumed typing, 3D tilt, cyan scan‑line) open a full‑screen, scroll‑locked case study with a cinematic zoom, neural‑field backdrop, live latency dashboard, and CTAs.
+- **White‑world / chrome‑bust mode** — an orb toggle flips the Welcome panel to a light theme where the particle galaxy funnels into a head‑gazing chrome bust with an inner stencil‑masked galaxy (desktop + WebGL only; reduced‑motion/mobile never enter it).
+- **Live contact pipeline** — React Hook Form + shared Zod schema → Next.js Server Action → Prisma/Postgres persist → Resend owner + sender emails, hardened with Turnstile, Upstash rate limiting, a nonce CSP, and salted IP hashing.
+- **Performance‑minded** — the heavy three.js/R3F stack (incl. the white‑world feature) is isolated in async chunks so it stays **out of the route’s First Load JS** (≈145 kB) and the `<h1>` remains the LCP element.
 - **Correctness‑first fallbacks** — `prefers-reduced-motion`, mobile (`<768px`), and no‑WebGL paths all degrade to native scroll + a static dark backdrop, with no animation.
 
 ---
@@ -57,10 +60,12 @@ The experience is built around a custom **GSAP Observer “panel deck”** (one 
 | Language | **TypeScript** (`strict: true`) |
 | Styling | **Tailwind CSS** with design tokens as CSS variables |
 | Motion / snap engine | **GSAP** (`Observer`, `SplitText`) — free since the Webflow acquisition |
-| 3D / particles | **three.js** `0.169.0` + **@react-three/fiber** `8.18.0` + **@react-three/drei** `9.122.0` (pinned React‑18 line) |
+| 3D / particles | **three.js** `0.169.0` + **@react-three/fiber** `8.18.0` + **@react-three/drei** `9.122.0` + **@react-three/postprocessing** + **three-stdlib** (pinned React‑18 line) |
 | Fonts | **Instrument Serif** (display) + **Inter** (body/UI), self‑hosted via `next/font` |
-| Backend *(planned)* | Prisma + PostgreSQL, Next.js Server Action, Resend email |
-| Hosting *(planned)* | Vercel + custom domain |
+| Backend | Prisma + PostgreSQL (Neon), Next.js Server Action, **Resend** email |
+| Forms / validation | **React Hook Form** + **Zod** (schema shared client + server) |
+| Security | Cloudflare **Turnstile**, **Upstash** Redis rate limit, nonce **CSP** + security headers, salted IP hashing |
+| Hosting | **Vercel** + custom domain |
 
 ---
 
@@ -235,20 +240,29 @@ The site is dark on every section. `[data-theme="dark"]` is applied on `<body>`,
 - **Phase 3 → 3R — Cinematic Landing redesign.** Replaced the original hero object with the **particle tunnel**; reworked the deck into **directional transitions**; introduced the **full‑dark** palette site‑wide.
 - **Phase 3R.1 — Landing tunnel feel (cinematic lighting).** Constant slow flow with a subtle bounded proximity lift; per‑particle cinematic colour flashing; occasional coordinated sparks between neighbouring particles. Also fixed a shader **precision‑mismatch bug** that had stopped the tunnel from rendering at all.
 - **Phase 3R.2 — “Dive into the void” warp.** Site‑wide particle persistence; a transient light‑speed **warp pulse** on the dive leg; CPU‑integrated flow (no teleport on speed change); staggered panel hand‑off (no overlap).
-- **Structure update — three‑panel flow.** Removed the About panel; the flow is now **Welcome → Projects → Contact**. The warp dive is now the transition on **every** leg (in both directions). “Landing” is relabelled **Welcome**; “Systems” is relabelled **Projects** (a placeholder until the work showcase is designed; internal hash stays `#systems`). Added themed **GitHub + LinkedIn** social marks to the hero.
+- **Structure update — three‑panel flow.** Removed the About panel; the flow is now **Welcome → Projects → Contact**. The warp dive is now the transition on **every** leg (in both directions). “Landing” is relabelled **Welcome**; “Systems” is relabelled **Projects** (internal hash stays `#systems`). Added themed **GitHub + LinkedIn** social marks to the hero.
+- **Projects showcase (in‑session).** The Projects panel became the interactive centrepiece: three glassmorphic terminal cards (hover‑resumed typing, cursor 3D tilt, scan‑line) → a full‑screen, scroll‑locked case study (cinematic zoom, neural‑field backdrop, live latency dashboard, media gallery, CTAs). Added a deck‑lock so the overlay’s scroll isn’t eaten by the snap engine; the deck always opens on Welcome.
+- **White‑world / chrome‑bust (in‑session).** An orb toggle flips the Welcome panel to a light theme where the galaxy funnels into a head‑gazing chrome bust (inner stencil‑masked galaxy, embedded face screen), with post‑FX. Desktop + WebGL only.
+- **Phase 4 — Backend.** Prisma `ContactSubmission` model + migration (`20260611040603_init`, applied); shared Zod schema; contact **Server Action** (validate → persist → owner + sender emails); in‑place success/error states. The form is **live**, not visual‑only.
+- **Phase 5 — Security hardening.** Honeypot + time‑trap + server‑verified Cloudflare Turnstile; Upstash sliding‑window rate limit (fail‑closed); email‑injection defenses; security headers + per‑request nonce **CSP** (no `unsafe-inline` script); salted SHA‑256 IP hashing (raw IP never stored).
+- **Phase 6 — Performance, a11y & SEO polish.** Code‑split the form out of First Load (≈145 kB); WCAG 2.1 AA on the dark theme; metadata / OG image / Twitter / sitemap / robots / manifest.
+- **Phase 7 — Deploy.** Shipped to **Vercel** (`vercel-build` runs `prisma migrate deploy` before `next build`; `binaryTargets` includes the serverless runtime). Custom domain + production smoke test are Gabe‑run acceptance items.
+- **Phase 8 — Full‑app audit & cleanup.** Multi‑agent sweep: removed dead code, added the explicit `three-stdlib` dep, end‑to‑end security re‑review (incl. sanitising leaked secrets out of `.env.example` — see the security note below), data‑pipeline verification, perf + a11y re‑check on **both** the dark and white themes, and this docs reconciliation.
 
-All of the above pass `tsc`, `next lint`, and `next build` with three.js isolated in an async chunk. Visual/interaction acceptance is reviewed per‑phase.
+All of the above pass `tsc`, `next lint`, and `next build` with three.js (and the white‑world feature) isolated in async chunks. Visual/interaction and live‑production acceptance is reviewed per‑phase by Gabe.
+
+> **Security note (Phase 8):** real API keys (Resend, Turnstile secret, Upstash token, IP‑hash salt) had been committed to `.env.example` and pushed to the public repo. The file is now sanitised to placeholders, **but those credentials must be rotated** — removing them from the file does not undo the exposure (they remain in git history). Rotation steps are tracked with the PM.
 
 ---
 
 ## Roadmap
 
-Not yet built (planned in `CLAUDE.md`):
+All eight planned phases are built (Phase 8 audit complete pending its gate). Remaining items are Gabe‑run / operational, not code:
 
-- **Phase 4 — Backend.** Prisma `ContactSubmission` model + migration; shared Zod schema (client + server); contact **Server Action** (validate → persist → owner + sender emails); in‑place success/error states. *(The form is visual‑only today.)*
-- **Phase 5 — Security hardening.** Honeypot/time‑trap + Cloudflare Turnstile; rate limiting (Upstash); email‑injection defenses; security headers + CSP; salted IP hashing.
-- **Phase 6 — Performance, a11y & SEO polish.** Core Web Vitals pass; full WCAG 2.1 AA; metadata/OG/sitemap/robots.
-- **Phase 7 — Deploy.** Vercel + custom domain, env per environment, production migrations, smoke test.
+- **Credential rotation** (Phase 8 follow‑up) — rotate the four leaked secrets and update Vercel env + local `.env`.
+- **Live‑production acceptance** — securityheaders.com / Mozilla Observatory scans, live Lighthouse, a real prod contact submit (row + both emails), and social‑unfurl on the production URL.
+- **Dependency upgrade** — `next@14.2.35` carries the CSP‑nonce XSS advisory (GHSA‑ffhc‑5mcf‑pf4q); plan a patched/upgraded release.
+- **Projects content** — replace the placeholder case‑study copy/media with real projects.
 
 ---
 

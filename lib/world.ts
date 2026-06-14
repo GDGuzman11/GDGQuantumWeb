@@ -58,9 +58,8 @@ export function toggleWorld(): void {
   setWhiteWorld(target <= 0.5);
 }
 
-/** Explicitly go to the white or dark world (e.g. auto-revert to dark on leaving
- *  the Welcome panel — the white world is scoped to the bust). */
-export function setWhiteWorld(white: boolean): void {
+/** Go to the white or dark world. Internal — `toggleWorld()` is the public flip. */
+function setWhiteWorld(white: boolean): void {
   const t = white ? 1 : 0;
   if (t === target) return;
   target = t;
