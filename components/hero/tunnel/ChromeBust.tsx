@@ -169,10 +169,70 @@ const SIMPLEX = /* glsl */ `
   }
 `;
 
+// Inner "galaxy" — a drifting particle field rendered INSIDE the bust via a
+// stencil mask (the bust writes stencil=1; these only draw where it equals 1),
+// so it reads as the head containing the galaxy. Additive + HDR → blooms.
+const GAL_VERT = /* glsl */ `
+  uniform float uPixelRatio;
+  attribute float aRand;
+  varying float vRand;
+  void main(){
+    vRand = aRand;
+    vec4 mv = modelViewMatrix * vec4(position, 1.0);
+    gl_Position = projectionMatrix * mv;
+    float dist = max(-mv.z, 0.1);
+    gl_PointSize = (16.0 + aRand * 34.0) * uPixelRatio / dist;
+  }
+`;
+
+const GAL_FRAG = /* glsl */ `
+  precision highp float;
+  uniform float uTime;
+  uniform float uOpacity;
+  varying float vRand;
+  void main(){
+    vec2 c = gl_PointCoord - 0.5;
+    float d = length(c);
+    if (d > 0.5) discard;
+    float glow = pow(smoothstep(0.5, 0.0, d), 1.8);
+    float tw = 0.6 + 0.4 * sin(uTime * (1.0 + vRand * 3.0) + vRand * 6.2831);
+    vec3 col = 0.5 + 0.5 * cos(6.2831 * (vRand + uTime * 0.05 + vec3(0.0, 0.33, 0.66)));
+    col = mix(vec3(0.5, 0.7, 1.25), col, 0.5);
+    float alpha = glow * tw * uOpacity;
+    if (alpha <= 0.001) discard;
+    gl_FragColor = vec4(col * 1.4, alpha);
+  }
+`;
+
+function buildGalaxy(): THREE.BufferGeometry {
+  const COUNT = 700;
+  const pos = new Float32Array(COUNT * 3);
+  const rnd = new Float32Array(COUNT);
+  for (let i = 0; i < COUNT; i++) {
+    // Uniform point in a unit sphere → scaled to an ellipsoid that fills the
+    // bust's bounding volume (the stencil clips it to the actual silhouette).
+    let x, y, z;
+    do {
+      x = Math.random() * 2 - 1;
+      y = Math.random() * 2 - 1;
+      z = Math.random() * 2 - 1;
+    } while (x * x + y * y + z * z > 1);
+    pos[i * 3] = x * 1.7;
+    pos[i * 3 + 1] = y * 2.6;
+    pos[i * 3 + 2] = z * 1.1 + 0.2;
+    rnd[i] = Math.random();
+  }
+  const g = new THREE.BufferGeometry();
+  g.setAttribute('position', new THREE.BufferAttribute(pos, 3));
+  g.setAttribute('aRand', new THREE.BufferAttribute(rnd, 1));
+  return g;
+}
+
 export function ChromeBust() {
   const { scene } = useGLTF('/models/bust.glb');
   const groupRef = useRef<THREE.Group>(null);
   const headGroupRef = useRef<THREE.Group>(null);
+  const galaxyRef = useRef<THREE.Points>(null);
   const screenRef = useRef<THREE.Mesh>(null);
   const shadowRef = useRef<any>(null);
   const present = useRef(0);
@@ -318,10 +378,40 @@ export function ChromeBust() {
         );
     };
 
+    // Write stencil = 1 across the bust silhouette so the inner galaxy can mask
+    // itself to the head shape.
+    mat.stencilWrite = true;
+    mat.stencilRef = 1;
+    mat.stencilFunc = THREE.AlwaysStencilFunc;
+    mat.stencilZPass = THREE.ReplaceStencilOp;
+
     const m = new THREE.Mesh(g, mat);
     m.castShadow = true;
     return m;
   }, [scene, uniforms]);
+
+  // Inner galaxy: only renders where the bust stencil == 1 (inside the head).
+  const galaxyGeo = useMemo(buildGalaxy, []);
+  const galaxyMat = useMemo(
+    () =>
+      new THREE.ShaderMaterial({
+        uniforms: {
+          uTime: { value: 0 },
+          uOpacity: { value: 0 },
+          uPixelRatio: { value: 1 },
+        },
+        vertexShader: GAL_VERT,
+        fragmentShader: GAL_FRAG,
+        transparent: true,
+        blending: THREE.AdditiveBlending,
+        depthWrite: false,
+        depthTest: false,
+        stencilWrite: true,
+        stencilRef: 1,
+        stencilFunc: THREE.EqualStencilFunc,
+      }),
+    [],
+  );
 
   useEffect(() => {
     return () => {
@@ -330,8 +420,10 @@ export function ChromeBust() {
         (mesh.material as THREE.Material).dispose();
       }
       screen.texture.dispose();
+      galaxyGeo.dispose();
+      galaxyMat.dispose();
     };
-  }, [mesh, screen]);
+  }, [mesh, screen, galaxyGeo, galaxyMat]);
 
   // Boot sequence — a click on any BUTTON/link (in the white world, not the core)
   // types random code onto the embedded face screen, then it fades.
@@ -398,10 +490,16 @@ export function ChromeBust() {
     };
   }, [screen]);
 
-  useFrame((_s, delta) => {
+  useFrame((state, delta) => {
     const dt = Math.min(delta, 0.05);
     const w = getWorld();
     uniforms.uTime.value += dt;
+
+    // Inner galaxy: drifts/rotates, fades in with the bust (white world only).
+    galaxyMat.uniforms.uTime.value += dt;
+    galaxyMat.uniforms.uOpacity.value = present.current;
+    galaxyMat.uniforms.uPixelRatio.value = state.gl.getPixelRatio();
+    if (galaxyRef.current) galaxyRef.current.rotation.y += dt * 0.08;
 
     // Presence: emerge across the flip with plenty of overlap so the bust and
     // the ferrofluid core cross-dissolve smoothly (both are a blob near the
@@ -472,6 +570,15 @@ export function ChromeBust() {
 
       <group ref={groupRef} position={POSITION} visible={false}>
         <primitive object={mesh} />
+        {/* The galaxy contained inside the bust — stencil-masked to its
+            silhouette so the particles only show within the head/shoulders. */}
+        <points
+          ref={galaxyRef}
+          geometry={galaxyGeo}
+          material={galaxyMat}
+          frustumCulled={false}
+          renderOrder={4}
+        />
         {/* Embedded terminal screen on the face — child of a head-group that
             rotates with the gaze so it tracks the head turn. */}
         <group ref={headGroupRef} position={[0, PIVOT_Y, 0]}>

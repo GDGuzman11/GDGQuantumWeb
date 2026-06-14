@@ -114,5 +114,11 @@ export function PostFX({ sun }: PostFXProps) {
     <Vignette key="vignette" eskil={false} offset={0.28} darkness={0.7} />,
   ].filter(Boolean) as JSX.Element[];
 
-  return <EffectComposer multisampling={0}>{effects}</EffectComposer>;
+  // stencilBuffer: true so the chrome bust can mask the inner "galaxy" particles
+  // to its silhouette (see ChromeBust).
+  return (
+    <EffectComposer multisampling={0} stencilBuffer>
+      {effects}
+    </EffectComposer>
+  );
 }
