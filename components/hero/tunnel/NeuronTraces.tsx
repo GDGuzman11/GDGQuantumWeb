@@ -21,18 +21,19 @@ import { getWorld } from '@/lib/world';
  * gated desktop canvas, so it inherits the fallbacks.
  */
 
-const MAX = 30;
-const BODY = 16; // trail length (nodes)
+const MAX = 16; // concurrent neurons
+const MAX_NODES = 42; // path cap (recycle past this) — the trail keeps its FULL
+// length back to the emission point, so each neuron stays visibly wired to the
+// bust (it is NOT a short trailing tail).
 const STEP = 0.5; // grid cell (turn spacing)
-const SPEED = 2.5; // head speed
-const TURN_PROB = 0.5; // chance of a 90° turn at each node
-const SPAWN_EVERY = 0.11; // seconds between new traces
-const LIFE_NODES = 64; // recycle after this many nodes
+const SPEED = 2.3; // head speed
+const TURN_PROB = 0.45; // chance of a 90° turn at each node
+const SPAWN_EVERY = 0.28; // seconds between emitting a new neuron
 const BOUND_X = 9.2;
 const BOUND_Y = 5.6;
-// Spawn box (inside the bust's screen region) — see ChromeBust POSITION/size.
-const ORIGIN = new THREE.Vector3(0, 0.2, -2.0);
-const SPAWN_HALF = new THREE.Vector2(1.5, 2.3);
+// SINGLE emission point on the face — every neuron fires from here, so it reads
+// as the bust emitting them (tune onto the forehead/third-eye of your model).
+const ORIGIN = new THREE.Vector3(0, 1.1, -2.0);
 
 const DIRS: Array<[number, number]> = [
   [1, 0],
@@ -93,7 +94,7 @@ export function NeuronTraces() {
   const spawnTimer = useRef(0);
   const wasWhite = useRef(false);
 
-  const MAX_SEGS = MAX * (BODY + 1);
+  const MAX_SEGS = MAX * MAX_NODES;
   const positions = useMemo(() => new Float32Array(MAX_SEGS * 2 * 3), [MAX_SEGS]);
   const colors = useMemo(() => new Float32Array(MAX_SEGS * 2 * 3), [MAX_SEGS]);
   const fades = useMemo(() => new Float32Array(MAX_SEGS * 2), [MAX_SEGS]);
@@ -134,14 +135,10 @@ export function NeuronTraces() {
     t.dir = DIRS[(Math.random() * 4) | 0];
     t.committed = 0;
     t.color = traceColor();
-    const start = new THREE.Vector3(
-      ORIGIN.x + (Math.random() * 2 - 1) * SPAWN_HALF.x,
-      ORIGIN.y + (Math.random() * 2 - 1) * SPAWN_HALF.y,
-      ORIGIN.z,
-    );
-    // Seed BOTH the moving head [0] and a fixed first node [1] at the spawn point,
-    // so the head measures its travel against a stationary anchor and commits.
-    t.path = [start.clone(), start.clone()];
+    // Seed the moving head [0] and a fixed origin node [1] both AT the single
+    // emission point. The origin node stays at the end of the path forever, so
+    // the trail always leads back to the bust.
+    t.path = [ORIGIN.clone(), ORIGIN.clone()];
   };
 
   const turn = (t: Trace) => {
@@ -189,15 +186,16 @@ export function NeuronTraces() {
           anchor.y + t.dir[1] * STEP,
           ORIGIN.z,
         );
-        t.path.splice(1, 0, node);
+        t.path.splice(1, 0, node); // insert after the head; origin stays at end
         head.copy(node);
-        if (t.path.length > BODY + 1) t.path.pop();
         t.committed++;
         if (Math.random() < TURN_PROB) turn(t);
       }
 
+      // Recycle when the trail reaches its cap or the head leaves the screen —
+      // a fresh neuron then fires again from the emission point.
       if (
-        t.committed > LIFE_NODES ||
+        t.committed >= MAX_NODES - 2 ||
         Math.abs(head.x) > BOUND_X ||
         Math.abs(head.y) > BOUND_Y
       ) {
@@ -219,8 +217,12 @@ export function NeuronTraces() {
         positions[o + 3] = b.x; positions[o + 4] = b.y; positions[o + 5] = b.z;
         colors[o] = t.color.r; colors[o + 1] = t.color.g; colors[o + 2] = t.color.b;
         colors[o + 3] = t.color.r; colors[o + 4] = t.color.g; colors[o + 5] = t.color.b;
-        fades[seg * 2] = Math.max(0, 1 - i / BODY);
-        fades[seg * 2 + 1] = Math.max(0, 1 - (i + 1) / BODY);
+        // Brightest at the head, but the whole trail stays clearly visible back
+        // to the bust (floor ~0.55) so the wire-to-the-bust always reads.
+        const fA = Math.max(0.55, 1 - i * 0.018);
+        const fB = Math.max(0.55, 1 - (i + 1) * 0.018);
+        fades[seg * 2] = fA;
+        fades[seg * 2 + 1] = fB;
         seg++;
       }
       if (seg >= MAX_SEGS) break;
