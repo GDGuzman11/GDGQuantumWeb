@@ -134,13 +134,14 @@ export function NeuronTraces() {
     t.dir = DIRS[(Math.random() * 4) | 0];
     t.committed = 0;
     t.color = traceColor();
-    t.path = [
-      new THREE.Vector3(
-        ORIGIN.x + (Math.random() * 2 - 1) * SPAWN_HALF.x,
-        ORIGIN.y + (Math.random() * 2 - 1) * SPAWN_HALF.y,
-        ORIGIN.z,
-      ),
-    ];
+    const start = new THREE.Vector3(
+      ORIGIN.x + (Math.random() * 2 - 1) * SPAWN_HALF.x,
+      ORIGIN.y + (Math.random() * 2 - 1) * SPAWN_HALF.y,
+      ORIGIN.z,
+    );
+    // Seed BOTH the moving head [0] and a fixed first node [1] at the spawn point,
+    // so the head measures its travel against a stationary anchor and commits.
+    t.path = [start.clone(), start.clone()];
   };
 
   const turn = (t: Trace) => {
@@ -181,7 +182,7 @@ export function NeuronTraces() {
       head.x += t.dir[0] * SPEED * dt;
       head.y += t.dir[1] * SPEED * dt;
 
-      const anchor = t.path[1] ?? new THREE.Vector3(head.x, head.y, ORIGIN.z);
+      const anchor = t.path[1];
       if (Math.hypot(head.x - anchor.x, head.y - anchor.y) >= STEP) {
         const node = new THREE.Vector3(
           anchor.x + t.dir[0] * STEP,
