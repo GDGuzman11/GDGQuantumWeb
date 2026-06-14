@@ -44,7 +44,7 @@ export async function sendContactEmails(data: ContactInput): Promise<SendResult>
   const subjectName = stripHeaderChars(data.name);
 
   // 1. Owner notification
-  await resend.emails.send({
+  const owner = await resend.emails.send({
     from: FROM,
     to: OWNER,
     replyTo: data.email,
@@ -58,9 +58,14 @@ export async function sendContactEmails(data: ContactInput): Promise<SendResult>
         <p>${message}</p>
       </div>`,
   });
+  if (owner.error) {
+    // Resend returns errors in the response (it does NOT throw) — surface them
+    // so a rejected send (e.g. an unverified `from` domain) isn't silent.
+    console.error('[email] owner notification failed:', owner.error);
+  }
 
   // 2. Sender confirmation
-  await resend.emails.send({
+  const confirmation = await resend.emails.send({
     from: FROM,
     to: data.email,
     subject: 'Thanks for reaching out to GDG Quantum',
@@ -74,6 +79,9 @@ export async function sendContactEmails(data: ContactInput): Promise<SendResult>
         <p>&mdash; GDG Quantum</p>
       </div>`,
   });
+  if (confirmation.error) {
+    console.error('[email] sender confirmation failed:', confirmation.error);
+  }
 
-  return { sent: true };
+  return { sent: !owner.error && !confirmation.error };
 }
