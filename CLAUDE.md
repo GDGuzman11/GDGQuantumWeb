@@ -338,6 +338,25 @@ Each phase lists **Tasks** (checkboxes the owning agent ticks + logs as they com
 - [ ] Security headers still present in production.
 - [ ] Final Lighthouse on the live URL is green; deep-links (`/#systems`) work in prod.
 
+### Phase 8 — Full-app audit & cleanup (multi-agent)
+**Owner:** `pm-orchestrator` (coordinates and enforces the gate). All specialists collaborate, with **`security-engineer` as security lead**, plus `backend-engineer`, `frontend-engineer`, and `qa-reviewer`.
+
+> **Gabe-requested 2026-06-14.** A top-to-bottom analysis of the *entire* app and a cleanup pass. Context: the cinematic **white-world / chrome-bust** feature (orb toggle → white theme, galaxy funnels into a chrome bust with head-gaze, inner stencil-masked galaxy, embedded face screen) and the **Vercel deploy** both landed via in-session improvisation *outside* the formal phase gates, and Phases 4–6 history in this file predates them. Goal: a clean, consistent, secure, documented codebase — no dead code, verified production behaviour, and the tracking files reconciled with what actually shipped. The PM runs this as a coordinated multi-agent pass and stops at the gate for Gabe.
+
+**Tasks**
+- [ ] **Codebase sweep** (`frontend-engineer` + `backend-engineer`): remove dead code, unused files/exports/deps/assets (e.g. abandoned experiment components, unused `lib/*` exports, any unused bust/galaxy scaffolding); de-duplicate; resolve stray TODOs; confirm naming/structure consistency across the white-world additions.
+- [ ] **Security re-review** (`security-engineer` lead): re-audit end-to-end — CSP/headers in prod, the contact Server Action + rate limit + Turnstile + email-injection defenses, the **Resend error-surfacing** path, env-var/secrets handling, the new white-world/3D + `.glb` model-serving code, and `npm audit` / supply chain. Run securityheaders.com + Mozilla Observatory on the live domain.
+- [ ] **Backend / data-pipeline verify** (`backend-engineer`): contact pipeline prod-correctness (persist + dual email), Prisma migrations applied, pooled vs direct URLs, graceful degradation when keys are absent.
+- [ ] **Performance & a11y re-check** (`frontend-engineer`): bundle/First-Load, three.js async-isolation, white-world GPU cost (stencil galaxy, post-FX), reduced-motion/mobile fallbacks, and WCAG AA on **both** the dark and white themes; Lighthouse on the live URL.
+- [ ] **Docs reconciliation** (`pm-orchestrator`): bring `PROGRESS.md` + the §0 Status in sync with what actually shipped (white-world feature + deploy), and update `README` / `.env.example` as needed.
+
+**Exit criteria:** `tsc` / `lint` / `npm run build` clean; no dead code or unused deps; security scan passes on the live domain; contact pipeline verified in prod; perf + a11y green on dark **and** white themes; tracking files reconciled with the shipped app.
+**Human Test Gate 8:**
+- [ ] `qa-reviewer` reports the sweep + security re-review PASS (no dead code, no unused deps, scanners clean).
+- [ ] Production contact form persists a row **and** sends both emails; rapid submits are rate-limited.
+- [ ] Lighthouse green on the live URL; reduced-motion / mobile fall back cleanly in **both** themes.
+- [ ] `PROGRESS.md` + §0 Status accurately reflect the shipped app.
+
 ---
 
 ## 4. Definition of done
