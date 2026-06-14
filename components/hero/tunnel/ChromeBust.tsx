@@ -364,8 +364,9 @@ export function ChromeBust() {
     // rotates only the head (above the neck), so the shoulders stay put. Tiny
     // idle drift keeps it alive when the cursor is still.
     const p = getPointer();
-    // NOTE: yaw is negated so the face turns TOWARD the cursor (it read reversed).
-    const yawT = -p.x * 0.5 + Math.sin(uniforms.uTime.value * 0.12) * 0.04;
+    // Face/screen turn TOWARD the cursor: nose & screen (front, +z) swing toward
+    // the cursor side. (yaw positive with p.x; flip the sign here if it reverses.)
+    const yawT = p.x * 0.5 + Math.sin(uniforms.uTime.value * 0.12) * 0.04;
     const pitchT = -p.y * 0.26 + Math.sin(uniforms.uTime.value * 0.17) * 0.025;
     const k = Math.min(1, dt * 2.4);
     uniforms.uYaw.value += (yawT - uniforms.uYaw.value) * k;
