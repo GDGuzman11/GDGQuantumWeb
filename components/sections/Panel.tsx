@@ -52,7 +52,7 @@ export function Panel({
       tabIndex={-1}
       data-theme={theme}
       className={[
-        'relative flex h-[100svh] min-h-[100svh] w-full flex-col scroll-mt-0',
+        'panel-surface relative flex h-[100svh] min-h-[100svh] w-full flex-col scroll-mt-0',
         transparent ? 'bg-transparent' : 'bg-bg',
         'px-6 sm:px-10 lg:px-16',
         'focus:outline-none',

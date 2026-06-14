@@ -47,6 +47,12 @@
     color-scheme: light;
   }
 
+  /* In the white world the panels go transparent so the persistent chrome bust +
+     galaxy show through behind the content on every section (not just Welcome). */
+  body.world-white .panel-surface {
+    background-color: transparent !important;
+  }
+
   html {
     /* Phase 3R full-dark — root color-scheme is dark so the root scrollbar /
        overscroll gutter never flash light. The light :root tokens above remain

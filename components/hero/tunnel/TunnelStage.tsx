@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react';
 import dynamic from 'next/dynamic';
 import { useDeck } from '@/components/deck/DeckContext';
-import { toggleWorld, setWhiteWorld } from '@/lib/world';
+import { toggleWorld } from '@/lib/world';
 import { useReducedMotion } from '@/lib/use-reduced-motion';
 import { isWebGLAvailable } from '@/lib/webgl';
 import { isRevealStarted, onReveal } from '@/lib/reveal';
@@ -38,13 +38,6 @@ export function TunnelStage() {
   // path where the canvas mounts) the controlled GSAP deck keeps activeIndex
   // reliable; default to Welcome (0) if the deck isn't measured yet.
   const welcomeActive = (deck?.activeIndex ?? 0) === 0;
-
-  // The white (chrome-bust) world is scoped to the Welcome panel — revert to the
-  // dark world whenever the user navigates away, so the dark-designed Projects /
-  // Contact panels never show under the light theme.
-  useEffect(() => {
-    if (!welcomeActive) setWhiteWorld(false);
-  }, [welcomeActive]);
 
   const [lgUp, setLgUp] = useState(false);
   const [revealed, setRevealed] = useState(isRevealStarted());
