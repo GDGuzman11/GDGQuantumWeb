@@ -47,3 +47,6 @@ yarn-error.log*
 
 # claude code — per-machine local settings (permission grants etc.)
 .claude/settings.local.json
+
+# private, machine-local notes / guides — never commit (public repo)
+/private/
