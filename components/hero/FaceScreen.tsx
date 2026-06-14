@@ -55,7 +55,10 @@ export function FaceScreen() {
     const onClick = (e: MouseEvent) => {
       if (!isWhiteWorld()) return;
       const t = e.target as HTMLElement | null;
-      if (t && t.closest('#core-hotspot')) return; // core toggles the world
+      if (!t) return;
+      if (t.closest('#core-hotspot')) return; // core toggles the world
+      // Only a real BUTTON/link initialises the screen — empty space does nothing.
+      if (!t.closest('button, a, [role="button"], input[type="submit"]')) return;
       // (Re)start the boot sequence.
       clearTimers();
       const full = pickSequence();

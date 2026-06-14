@@ -142,8 +142,8 @@ export function ChromeBust() {
     const mat = new THREE.MeshStandardMaterial({
       color: new THREE.Color(0.55, 0.6, 0.7),
       metalness: 1.0,
-      roughness: 0.18,
-      envMapIntensity: 1.35,
+      roughness: 0.12, // crisper reflections → more defined features
+      envMapIntensity: 1.55,
       emissive: INNER,
       emissiveIntensity: 0,
     });
@@ -204,8 +204,13 @@ export function ChromeBust() {
         .replace(
           '#include <opaque_fragment>',
           `#include <opaque_fragment>
+           // Directional side-shading (chiaroscuro).
            float sideShade = dot(normalize(normal), normalize(uLightDir)) * 0.5 + 0.5;
-           gl_FragColor.rgb *= mix(0.4, 1.12, sideShade);`,
+           gl_FragColor.rgb *= mix(0.36, 1.14, sideShade);
+           // Fresnel edge-rim: a bright cool rim at grazing angles defines the
+           // silhouette and feature edges of the low-poly face.
+           float edgeFres = pow(1.0 - max(dot(normalize(normal), normalize(vViewPosition)), 0.0), 2.5);
+           gl_FragColor.rgb += edgeFres * vec3(0.45, 0.55, 0.78) * 0.8;`,
         );
     };
 
@@ -248,7 +253,8 @@ export function ChromeBust() {
     // rotates only the head (above the neck), so the shoulders stay put. Tiny
     // idle drift keeps it alive when the cursor is still.
     const p = getPointer();
-    const yawT = p.x * 0.5 + Math.sin(uniforms.uTime.value * 0.12) * 0.04;
+    // NOTE: yaw is negated so the face turns TOWARD the cursor (it read reversed).
+    const yawT = -p.x * 0.5 + Math.sin(uniforms.uTime.value * 0.12) * 0.04;
     const pitchT = -p.y * 0.26 + Math.sin(uniforms.uTime.value * 0.17) * 0.025;
     const k = Math.min(1, dt * 2.4);
     uniforms.uYaw.value += (yawT - uniforms.uYaw.value) * k;
