@@ -357,6 +357,25 @@ Each phase lists **Tasks** (checkboxes the owning agent ticks + logs as they com
 - [ ] Lighthouse green on the live URL; reduced-motion / mobile fall back cleanly in **both** themes.
 - [ ] `PROGRESS.md` + §0 Status accurately reflect the shipped app.
 
+### Phase 9 — Mobile experience & responsiveness
+**Owner:** `frontend-engineer` (PM coordinates; `qa-reviewer` audits).
+
+> **Gabe-requested 2026-06-14.** On a real phone the site feels stale and breaks layout. Two confirmed root causes in the code: (1) **No "signs of life" / no chrome bust on mobile** — the entire WebGL world (particle tunnel + `ChromeBust` + the Core orb + the dark↔white world toggle) only mounts when `canRenderCanvas` passes, and that gate includes **`lgUp` = `min-width:1024px`** (`components/hero/tunnel/TunnelStage.tsx`), so every phone falls back to the static `HeroBackdropFallback` (gradients + grain only). (2) **Projects & Contact squished/clipped at the bottom** — `components/sections/Panel.tsx` locks each panel to a fixed `h-[100svh]` with an inner `justify-center` + `py-28`, so tall content (Projects showcase; Contact form **+** footer) overflows and clips on small screens instead of flowing and scrolling. The desktop GSAP Observer deck is unaffected (mobile already uses the native-scroll fallback).
+
+**Tasks**
+- [ ] **Mobile hero "signs of life" / the bust** (`frontend-engineer`): decide + implement the mobile hero treatment so phones aren't a flat static page. Evaluate with Gabe and pick: **(A, recommended)** lower the WebGL gate to capable phones/tablets with a **mobile-tuned** scene — reduced particle count, simpler shader, capped DPR, and a lighter-but-visible `ChromeBust` — without hurting LCP/CWV; **or (B)** a richer **non-WebGL** fallback — a static rendered chrome-bust image + subtle CSS parallax/animated backdrop. Preserve the reduced-motion / no-WebGL static fallback in either case.
+- [ ] **Panel layout responsiveness — fix the squish** (`frontend-engineer`): rework `Panel.tsx` so panels are `min-h` (grow with content) instead of fixed `h-[100svh]`, top-align content on small screens (`justify-start` → `justify-center` at `lg`), and scale padding (e.g. `py-20 sm:py-28`) so tall content flows + scrolls instead of clipping. Audit `Contact.tsx` (form + footer) and `Systems.tsx` / `ProjectsShowcase.tsx` (terminal, case studies, `NeuralField`) for mobile stacking/overflow.
+- [ ] **Chrome, type & touch polish** (`frontend-engineer`): responsive `TopBar`/`SectionNav` (no crowding), ≥44px tap targets, font scaling, notch/safe-area insets, and zero horizontal overflow; verify the native-scroll fallback path on mobile (the GSAP deck stays desktop-only).
+- [ ] **Cross-device QA** (`qa-reviewer`): real iOS Safari + Android Chrome; mobile Lighthouse Performance/A11y green with `<h1>` as LCP; reduced-motion / low-end still graceful.
+
+**Exit criteria:** on real phones the hero shows signs of life (bust/tunnel or a rich animated fallback); no panel content is squished/clipped/overlapping; Projects & Contact are fully readable and the form usable; no horizontal scroll; mobile Lighthouse Perf/A11y green with `<h1>` LCP fast; reduced-motion / no-WebGL still fall back cleanly.
+**Human Test Gate 9 (Gabe on a real phone):**
+- [ ] Hero on a phone shows the bust / animated life — not a flat static page.
+- [ ] Projects & Contact panels are not squished — content readable, the form usable, footer sensible.
+- [ ] One-thumb scroll through every panel is smooth; nothing overlaps or clips; no horizontal scroll.
+- [ ] Tap targets are comfortable; notch / safe-areas respected.
+- [ ] Reduced-motion / low-end phones still fall back gracefully (no jank, nothing broken).
+
 ---
 
 ## 4. Definition of done
