@@ -67,8 +67,14 @@ function smoothGeometry(
  *    finishes turning white — the bust emerges from the ferrofluid (the swap is
  *    masked by the white flash). Driven by getWorld().
  *
- * Welcome-only, in the same canvas, behind the existing desktop/WebGL/
+ * Welcome-only, in the same canvas, behind the existing capability/WebGL/
  * reduced-motion gates. Replaces the ferrofluid core in the white world.
+ *
+ * Phase 9 (Gabe follow-up): now ships on the MOBILE tier too, TUNED for phones —
+ * the `mobile` prop drops the per-frame stencil galaxy + ContactShadows, lowers
+ * the studio Environment cubemap (256 → 128), and runs one fewer smoothing pass.
+ * The DPR cap (1.5) + stripped post pipeline live in TunnelCanvas / PostFX. The
+ * desktop path is byte-for-byte unchanged.
  */
 
 const POSITION: [number, number, number] = [0, 0, -3.2];
@@ -228,7 +234,13 @@ function buildGalaxy(): THREE.BufferGeometry {
   return g;
 }
 
-export function ChromeBust() {
+type ChromeBustProps = {
+  /** Phase 9 mobile tier — tunes the bust down for phones: no stencil galaxy, no
+   *  ContactShadows, a lower-res Environment cubemap, and lighter smoothing. */
+  mobile?: boolean;
+};
+
+export function ChromeBust({ mobile }: ChromeBustProps) {
   const { scene } = useGLTF('/models/bust.glb');
   const groupRef = useRef<THREE.Group>(null);
   const headGroupRef = useRef<THREE.Group>(null);
@@ -280,7 +292,7 @@ export function ChromeBust() {
     // Weld duplicate verts, then lightly smooth — enough to round the sharp crown
     // without washing away the (already subtle) facial features.
     g = mergeVertices(g);
-    smoothGeometry(g, 2, 0.5);
+    smoothGeometry(g, mobile ? 1 : 2, 0.5);
     g.computeVertexNormals(); // smooth normals for clean chrome
     g.computeBoundingBox();
     const box = g.boundingBox!;
@@ -388,7 +400,7 @@ export function ChromeBust() {
     const m = new THREE.Mesh(g, mat);
     m.castShadow = true;
     return m;
-  }, [scene, uniforms]);
+  }, [scene, uniforms, mobile]);
 
   // Inner galaxy: only renders where the bust stencil == 1 (inside the head).
   const galaxyGeo = useMemo(buildGalaxy, []);
@@ -496,10 +508,14 @@ export function ChromeBust() {
     uniforms.uTime.value += dt;
 
     // Inner galaxy: drifts/rotates, fades in with the bust (white world only).
-    galaxyMat.uniforms.uTime.value += dt;
-    galaxyMat.uniforms.uOpacity.value = present.current;
-    galaxyMat.uniforms.uPixelRatio.value = state.gl.getPixelRatio();
-    if (galaxyRef.current) galaxyRef.current.rotation.y += dt * 0.08;
+    // Dropped entirely on the mobile tier (stencil galaxy is a per-frame cost),
+    // so skip its uniform/rotation work there too.
+    if (!mobile) {
+      galaxyMat.uniforms.uTime.value += dt;
+      galaxyMat.uniforms.uOpacity.value = present.current;
+      galaxyMat.uniforms.uPixelRatio.value = state.gl.getPixelRatio();
+      if (galaxyRef.current) galaxyRef.current.rotation.y += dt * 0.08;
+    }
 
     // Presence: emerge across the flip with plenty of overlap so the bust and
     // the ferrofluid core cross-dissolve smoothly (both are a blob near the
@@ -559,8 +575,10 @@ export function ChromeBust() {
   return (
     <>
       {/* Studio environment for the chrome reflections — built from light strips,
-          no HDRI file (CSP-safe, no network). */}
-      <Environment resolution={256} frames={1}>
+          no HDRI file (CSP-safe, no network). Mobile halves the cubemap (256 →
+          128): the chrome reflections are soft/blurry, so the lower-res PMREM is
+          indistinguishable while cutting the one-time render + memory in ~4×. */}
+      <Environment resolution={mobile ? 128 : 256} frames={1}>
         {/* Key on the LEFT (matches LIGHT_DIR) → bright lit side; dim fill on the
             right so that side reads dark — chiaroscuro in the reflections. */}
         <Lightformer intensity={3.0} position={[-4, 3, 3]} scale={[7, 7, 1]} color="#ffffff" />
@@ -571,14 +589,19 @@ export function ChromeBust() {
       <group ref={groupRef} position={POSITION} visible={false}>
         <primitive object={mesh} />
         {/* The galaxy contained inside the bust — stencil-masked to its
-            silhouette so the particles only show within the head/shoulders. */}
-        <points
-          ref={galaxyRef}
-          geometry={galaxyGeo}
-          material={galaxyMat}
-          frustumCulled={false}
-          renderOrder={4}
-        />
+            silhouette so the particles only show within the head/shoulders.
+            DESKTOP-ONLY: the stencil mask needs a stencil buffer on the composer
+            (mobile's PostFX runs a cheaper stencil-less pipeline) and the 700
+            additive points are a per-frame cost we drop on phones. */}
+        {!mobile ? (
+          <points
+            ref={galaxyRef}
+            geometry={galaxyGeo}
+            material={galaxyMat}
+            frustumCulled={false}
+            renderOrder={4}
+          />
+        ) : null}
         {/* Embedded terminal screen on the face — child of a head-group that
             rotates with the gaze so it tracks the head turn. */}
         <group ref={headGroupRef} position={[0, PIVOT_Y, 0]}>
@@ -601,15 +624,20 @@ export function ChromeBust() {
         </group>
       </group>
 
-      <ContactShadows
-        ref={shadowRef}
-        position={[POSITION[0], POSITION[1] - TARGET_HEIGHT * 0.6, POSITION[2]]}
-        scale={11}
-        blur={2.8}
-        far={5}
-        opacity={0}
-        color="#1a2030"
-      />
+      {/* Grounding shadow — DESKTOP-ONLY: ContactShadows re-renders the scene
+          into a shadow map every frame, the single most expensive add-on here.
+          On phones the bust floats over the white world without it. */}
+      {!mobile ? (
+        <ContactShadows
+          ref={shadowRef}
+          position={[POSITION[0], POSITION[1] - TARGET_HEIGHT * 0.6, POSITION[2]]}
+          scale={11}
+          blur={2.8}
+          far={5}
+          opacity={0}
+          color="#1a2030"
+        />
+      ) : null}
     </>
   );
 }

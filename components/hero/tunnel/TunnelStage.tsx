@@ -33,9 +33,10 @@ import { Grain } from './Grain';
  *   • MOBILE tier (≥360px and not low-end) → a MOBILE-TUNED scene: fewer
  *     particles, a lower-detail Core, DPR capped at 1.5, and a stripped post
  *     pipeline (small bloom only — no GodRays / ChromaticAberration / Vignette).
- *     The dark↔white world-toggle + the heavy ChromeBust (GLB + studio
- *     Environment + stencil galaxy + ContactShadows) stay DESKTOP-ONLY; the
- *     flowing tunnel + Core are the phone's "signs of life".
+ *     Phase 9 (Gabe follow-up): the dark↔white world-toggle + ChromeBust reveal
+ *     now ship on mobile too, TUNED — the bust drops the stencil galaxy +
+ *     ContactShadows and uses a lower-res Environment (see ChromeBust). Tapping
+ *     the Core orb triggers the same world-flip the desktop gets.
  *   • Below the floor, low-end (deviceMemory < 4), reduced-motion, no-WebGL, or
  *     pre-reveal → the static dark backdrop stands in (no canvas, no orb).
  */
@@ -182,13 +183,14 @@ export function TunnelStage() {
         </div>
       </div>
 
-      {/* Orb hotspot — clicking the Core toggles the dark⇄white world. A focusable
-          DOM target over the orb (the canvas is pointer-events-none). Welcome-only
-          and only when the orb is actually rendered. DESKTOP-ONLY: the white-world
-          ChromeBust pipeline (GLB + studio Environment + stencil galaxy +
-          ContactShadows) is too heavy to ship to phones blind, so the toggle is
-          gated to the desktop tier (the mobile tier shows the tunnel + Core only). */}
-      {canRenderCanvas && !mobile && welcomeActive ? (
+      {/* Orb hotspot — clicking/tapping the Core toggles the dark⇄white world. A
+          focusable DOM target over the orb (the canvas is pointer-events-none).
+          Welcome-only and only when the orb is actually rendered. Phase 9 (Gabe
+          follow-up): the world-flip → ChromeBust reveal now ships on the MOBILE
+          tier too (TUNED — see ChromeBust), so the hotspot renders on BOTH tiers.
+          It's gated to `canRenderCanvas` (the bust path is active whenever the
+          canvas mounts), so a tap always does something — never a dead tap. */}
+      {canRenderCanvas && welcomeActive ? (
         <button
           id="core-hotspot"
           type="button"

@@ -342,7 +342,8 @@ type TunnelCanvasProps = {
   welcomeActive: boolean;
   /** Phase 9 mobile tier — tunes the scene down for phones/tablets: fewer
    *  particles, lower-detail Core, DPR capped at 1.5, stripped post pipeline,
-   *  and the heavy white-world ChromeBust dropped entirely. */
+   *  and a TUNED white-world ChromeBust (no stencil galaxy / ContactShadows,
+   *  lower-res Environment) rather than the full desktop bust. */
   mobile?: boolean;
 };
 
@@ -365,13 +366,12 @@ export default function TunnelCanvas({ active, welcomeActive, mobile }: TunnelCa
       <Tunnel mobile={mobile} />
       <CameraRig />
       <QuantumCore welcomeActive={welcomeActive} mobile={mobile} onSunReady={setSun} />
-      {/* White-world chrome bust is DESKTOP-ONLY — the GLB + studio Environment +
-          stencil galaxy + ContactShadows pipeline is too heavy for phones. */}
-      {!mobile ? (
-        <Suspense fallback={null}>
-          <ChromeBust />
-        </Suspense>
-      ) : null}
+      {/* White-world chrome bust — Phase 9 (Gabe follow-up): now ships on MOBILE
+          too, TUNED via the `mobile` prop (no stencil galaxy / ContactShadows, a
+          128 Environment cubemap, lighter smoothing). Desktop is unchanged. */}
+      <Suspense fallback={null}>
+        <ChromeBust mobile={mobile} />
+      </Suspense>
       <PostFX sun={mobile ? null : sun} mobile={mobile} />
       <AdaptiveDpr pixelated={false} />
     </Canvas>
