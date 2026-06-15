@@ -16,8 +16,12 @@
 
 let world = 0; // live eased value
 let target = 0; // 0 or 1
+let from = 0; // world value when the current transition started
+let startTime = 0; // performance.now() when the current transition started
 let raf = 0;
 let instant = false; // reduced-motion: snap instead of ease
+
+const DURATION = 1300; // ms — full dark⇄white transition
 
 const subs = new Set<(v: number) => void>();
 
@@ -25,16 +29,30 @@ function emit(): void {
   for (const cb of Array.from(subs)) cb(world);
 }
 
+/**
+ * Smootherstep — a SYMMETRIC ease-in-out (slow at both ends, fast in the
+ * middle). Replaces the old exponential `world += d*0.04` ease-OUT, which was
+ * always fast-at-start / slow-at-end and therefore ASYMMETRIC: the bust↔orb
+ * morph lives in the high end of the 0→1 range, so dark→white traversed it in
+ * the slow tail (gradual, nice) while white→dark hit it in the fast head (the
+ * morph rushed by in ~0.3s, then a long crawl where nothing visibly morphed —
+ * the "freeze then snap back to the orb" bug). A time-based ease-in-out makes
+ * both directions read identically.
+ */
+function easeInOut(t: number): number {
+  return t * t * t * (t * (t * 6 - 15) + 10);
+}
+
 function tick(): void {
-  const d = target - world;
-  if (Math.abs(d) < 0.002) {
+  const t = Math.min(1, (performance.now() - startTime) / DURATION);
+  world = from + (target - from) * easeInOut(t);
+  emit();
+  if (t >= 1) {
     world = target;
     emit();
     raf = 0;
     return;
   }
-  world += d * 0.04; // ~1.5s cinematic ease at 60fps (smoother bust↔core morph)
-  emit();
   raf = requestAnimationFrame(tick);
 }
 
@@ -68,6 +86,10 @@ function setWhiteWorld(white: boolean): void {
     emit();
     return;
   }
+  // Re-base the tween on the CURRENT value so a mid-transition toggle reverses
+  // smoothly from where it is (no jump), and both directions ease symmetrically.
+  from = world;
+  startTime = performance.now();
   if (!raf) raf = requestAnimationFrame(tick);
 }
 
