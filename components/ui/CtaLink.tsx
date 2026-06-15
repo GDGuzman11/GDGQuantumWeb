@@ -56,7 +56,7 @@ export function CtaLink({
       href={href}
       onClick={handleClick}
       className={[
-        'group inline-flex items-center gap-2 font-sans text-sm uppercase tracking-[0.18em] text-accent',
+        'group inline-flex min-h-[44px] items-center gap-2 font-sans text-sm uppercase tracking-[0.18em] text-accent',
         'transition-colors duration-300 ease-out',
         'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-4 focus-visible:ring-offset-bg',
         className,

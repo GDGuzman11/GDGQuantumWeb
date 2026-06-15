@@ -52,9 +52,15 @@ export function Panel({
       tabIndex={-1}
       data-theme={theme}
       className={[
-        'panel-surface relative flex h-[100svh] min-h-[100svh] w-full flex-col scroll-mt-0',
+        // min-h (not fixed h) so tall content GROWS the panel and the page
+        // scrolls instead of clipping in native-scroll mode (mobile /
+        // reduced-motion). In deck mode the panel sits in an absolute
+        // h-[100svh] wrapper, so it still fills exactly one viewport there.
+        'panel-surface relative flex min-h-[100svh] w-full flex-col scroll-mt-0',
         transparent ? 'bg-transparent' : 'bg-bg',
-        'px-6 sm:px-10 lg:px-16',
+        // pad-x = the px-6/sm:px-10/lg:px-16 rhythm, but max()-clamped against
+        // the device safe-area so a landscape notch never clips content.
+        'pad-x',
         'focus:outline-none',
         className,
       ].join(' ')}
@@ -65,7 +71,12 @@ export function Panel({
       >
         {index}
       </span>
-      <div className="flex min-h-[100svh] w-full flex-col justify-center py-28">
+      {/* Content TOP-aligns on phones (so a tall panel flows + scrolls from the
+          top instead of being centered and clipped) and CENTERS from md up —
+          md (768px) is the deck's MOBILE_BP, so every deck-mode panel stays
+          vertically centered exactly as before; only native-scroll phones
+          top-align. Padding scales down on small screens. */}
+      <div className="flex min-h-[100svh] w-full flex-col justify-start py-20 sm:py-28 md:justify-center">
         {children}
       </div>
     </section>

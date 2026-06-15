@@ -45,7 +45,7 @@ export function Contact() {
       </div>
 
       {/* Footer */}
-      <footer className="mx-auto mt-12 flex w-full max-w-6xl flex-col gap-4 border-t border-hairline pt-8 sm:flex-row sm:items-center sm:justify-between">
+      <footer className="pad-bottom-safe mx-auto mt-12 flex w-full max-w-6xl flex-col gap-4 border-t border-hairline pt-8 sm:flex-row sm:items-center sm:justify-between">
         <p className="font-sans text-xs uppercase tracking-[0.2em] text-muted">
           {siteConfig.brand}
         </p>

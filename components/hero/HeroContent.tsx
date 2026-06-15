@@ -174,7 +174,7 @@ export function HeroContent() {
 
         <h1
           data-hero-title
-          className="mt-6 font-serif text-[clamp(2.75rem,8vw,6rem)] leading-[0.98] tracking-tight text-ink [text-shadow:0_2px_40px_rgba(6,7,10,0.5)]"
+          className="mt-6 font-serif text-[clamp(2.25rem,8vw,6rem)] leading-[0.98] tracking-tight text-ink [text-shadow:0_2px_40px_rgba(6,7,10,0.5)]"
         >
           The things we create eventually create us.
         </h1>
@@ -196,7 +196,7 @@ export function HeroContent() {
                 target="_blank"
                 rel="noopener noreferrer"
                 aria-label={s.label}
-                className="inline-flex h-10 w-10 items-center justify-center rounded-full border border-hairline text-muted transition-colors duration-300 ease-out hover:border-accent hover:text-accent focus-visible:border-accent focus-visible:text-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 focus-visible:ring-offset-bg"
+                className="inline-flex h-11 w-11 items-center justify-center rounded-full border border-hairline text-muted transition-colors duration-300 ease-out hover:border-accent hover:text-accent focus-visible:border-accent focus-visible:text-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 focus-visible:ring-offset-bg"
               >
                 {s.icon}
               </a>

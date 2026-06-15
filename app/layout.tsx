@@ -68,6 +68,10 @@ export const metadata: Metadata = {
 export const viewport: Viewport = {
   themeColor: '#06070a',
   colorScheme: 'dark',
+  // Phase 9 — extend the layout under the notch/rounded corners so the
+  // env(safe-area-inset-*) values become non-zero and our `.pad-x` /
+  // `.pad-top-safe` / `.pad-bottom-safe` helpers can keep content clear of them.
+  viewportFit: 'cover',
 };
 
 /**

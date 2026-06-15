@@ -88,6 +88,11 @@
     font-family: var(--font-inter), system-ui, sans-serif;
     -webkit-font-smoothing: antialiased;
     text-rendering: optimizeLegibility;
+    /* Phase 9 — hard guarantee of ZERO horizontal scroll at any width. Clips
+       any stray off-canvas element (e.g. the off-screen honeypot at -5000px,
+       which has no overflow-hidden ancestor in native-scroll mobile mode).
+       Vertical scrolling is unaffected. */
+    overflow-x: hidden;
   }
 
   h1,
@@ -96,6 +101,39 @@
     font-family: var(--font-serif), Georgia, serif;
     font-weight: 400;
     line-height: 1.05;
+  }
+}
+
+/* Phase 9 — safe-area / notch helpers. ------------------------------------ */
+@layer components {
+  /* Horizontal panel rhythm that mirrors px-6 / sm:px-10 / lg:px-16 but is
+     max()-clamped against the device safe-area inset, so a landscape notch /
+     rounded corner never clips content. Used on panels, the top bar, and the
+     case-study overlay. Requires viewport-fit=cover (set in app/layout.tsx). */
+  .pad-x {
+    padding-left: max(1.5rem, env(safe-area-inset-left));
+    padding-right: max(1.5rem, env(safe-area-inset-right));
+  }
+  @media (min-width: 640px) {
+    .pad-x {
+      padding-left: max(2.5rem, env(safe-area-inset-left));
+      padding-right: max(2.5rem, env(safe-area-inset-right));
+    }
+  }
+  @media (min-width: 1024px) {
+    .pad-x {
+      padding-left: max(4rem, env(safe-area-inset-left));
+      padding-right: max(4rem, env(safe-area-inset-right));
+    }
+  }
+}
+
+@layer utilities {
+  .pad-top-safe {
+    padding-top: env(safe-area-inset-top);
+  }
+  .pad-bottom-safe {
+    padding-bottom: env(safe-area-inset-bottom);
   }
 }
 

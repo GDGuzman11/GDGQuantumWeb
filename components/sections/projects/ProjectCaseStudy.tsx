@@ -173,7 +173,7 @@ export function ProjectCaseStudy({
             flash colour where their paths intersect. */}
         <NeuralField />
 
-        <div ref={contentRef} className="relative z-10 mx-auto w-full max-w-6xl px-6 py-16 sm:px-10 lg:py-20">
+        <div ref={contentRef} className="pad-x pad-bottom-safe relative z-10 mx-auto w-full max-w-6xl py-16 lg:py-20">
           <EscapeButton ref={closeBtnRef} onClick={requestClose} />
           <CommandCenter project={project} />
           <TacticalBrief project={project} />
@@ -196,7 +196,7 @@ const EscapeButton = forwardRef<HTMLButtonElement, { onClick: () => void }>(
         ref={ref}
         type="button"
         onClick={onClick}
-        className="fixed right-5 top-5 z-10 rounded-md border border-[rgba(126,223,255,0.45)] bg-[rgba(6,8,12,0.7)] px-4 py-2 font-mono text-[11px] uppercase tracking-[0.2em] text-[#7fdfff] shadow-[0_0_24px_-6px_rgba(110,168,255,0.6)] backdrop-blur transition-colors duration-200 hover:bg-[rgba(126,223,255,0.12)] focus:outline-none focus-visible:ring-2 focus-visible:ring-[#7fdfff] sm:right-8 sm:top-8"
+        className="fixed right-[max(1.25rem,env(safe-area-inset-right))] top-[max(1.25rem,env(safe-area-inset-top))] z-10 inline-flex min-h-[44px] items-center rounded-md border border-[rgba(126,223,255,0.45)] bg-[rgba(6,8,12,0.7)] px-4 py-2 font-mono text-[11px] uppercase tracking-[0.2em] text-[#7fdfff] shadow-[0_0_24px_-6px_rgba(110,168,255,0.6)] backdrop-blur transition-colors duration-200 hover:bg-[rgba(126,223,255,0.12)] focus:outline-none focus-visible:ring-2 focus-visible:ring-[#7fdfff] sm:right-8 sm:top-8"
       >
         [ ⤺ ESCAPE_SYSTEM ]
       </button>
@@ -458,7 +458,7 @@ function LogTerminal({ project }: { project: Project }) {
           <button
             type="button"
             onClick={copy}
-            className="rounded border border-hairline px-2.5 py-1 font-mono text-[10px] uppercase tracking-[0.18em] text-[#7fdfff] transition-colors hover:bg-[rgba(126,223,255,0.12)] focus:outline-none focus-visible:ring-1 focus-visible:ring-[#7fdfff]"
+            className="inline-flex min-h-[40px] items-center rounded border border-hairline px-3 py-2 font-mono text-[10px] uppercase tracking-[0.18em] text-[#7fdfff] transition-colors hover:bg-[rgba(126,223,255,0.12)] focus:outline-none focus-visible:ring-1 focus-visible:ring-[#7fdfff]"
           >
             {copied ? 'COPIED ✓' : 'COPY'}
           </button>

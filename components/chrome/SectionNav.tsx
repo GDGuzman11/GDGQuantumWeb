@@ -54,9 +54,9 @@ export function SectionNav() {
     <nav
       aria-label="Sections"
       data-theme="dark"
-      className="fixed right-6 top-1/2 z-40 hidden -translate-y-1/2 lg:block"
+      className="fixed right-[max(1.5rem,env(safe-area-inset-right))] top-1/2 z-40 hidden -translate-y-1/2 lg:block"
     >
-      <ol className="flex flex-col gap-5">
+      <ol className="flex flex-col gap-2">
         {panels.map((panel, i) => {
           const isActive = i === activeIndex;
           return (
@@ -65,7 +65,7 @@ export function SectionNav() {
                 href={`#${panel.hash}`}
                 onClick={handleNav(i)}
                 aria-current={isActive ? 'true' : undefined}
-                className="group flex items-center justify-end gap-3 focus-visible:outline-none"
+                className="group flex min-h-[44px] items-center justify-end gap-3 focus-visible:outline-none"
               >
                 <span
                   className={[

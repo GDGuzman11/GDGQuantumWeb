@@ -35,12 +35,12 @@ export function TopBar() {
     };
 
   return (
-    <header data-theme="dark" className="fixed inset-x-0 top-0 z-40">
-      <div className="flex items-center justify-between px-6 py-5 sm:px-10 lg:px-16">
+    <header data-theme="dark" className="pad-top-safe fixed inset-x-0 top-0 z-40">
+      <div className="flex items-center justify-between pad-x py-2.5">
         <a
           href="#home"
           onClick={handleNav(0)}
-          className="group flex items-center gap-3 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-4 focus-visible:ring-offset-bg"
+          className="group flex min-h-[44px] items-center gap-3 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-4 focus-visible:ring-offset-bg"
         >
           <HexMark />
           <span className="font-sans text-sm uppercase tracking-[0.22em] text-ink transition-colors duration-500 ease-out">
@@ -56,7 +56,7 @@ export function TopBar() {
                   href={`#${panel.hash}`}
                   onClick={handleNav(i)}
                   aria-current={deck?.activeIndex === i ? 'true' : undefined}
-                  className="font-sans text-xs uppercase tracking-[0.16em] text-muted transition-colors duration-300 ease-out hover:text-ink focus-visible:text-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-4 focus-visible:ring-offset-bg aria-[current]:text-ink"
+                  className="inline-flex min-h-[44px] items-center font-sans text-xs uppercase tracking-[0.16em] text-muted transition-colors duration-300 ease-out hover:text-ink focus-visible:text-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-4 focus-visible:ring-offset-bg aria-[current]:text-ink"
                 >
                   {panel.label}
                 </a>
