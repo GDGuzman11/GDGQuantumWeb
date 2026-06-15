@@ -7,6 +7,7 @@ import * as THREE from 'three';
 import { mergeVertices } from 'three-stdlib';
 import { getWorld, isWhiteWorld } from '@/lib/world';
 import { getPointer } from '@/lib/pointer';
+import { getTilt, onTiltFlick } from '@/lib/tilt';
 
 /**
  * Laplacian (umbrella) smoothing — averages each vertex toward its neighbours a
@@ -495,12 +496,24 @@ export function ChromeBust({ mobile }: ChromeBustProps) {
     };
 
     window.addEventListener('click', onClick);
+
+    // MOBILE tier: there is no button to click, so a deliberate tilt FLICK boots
+    // the face screen — the gyroscope equivalent of the desktop click trigger.
+    // Only meaningful in the white world (where the bust + screen are present),
+    // mirroring the onClick guard above.
+    const unsubFlick = mobile
+      ? onTiltFlick(() => {
+          if (isWhiteWorld()) startBoot();
+        })
+      : null;
+
     return () => {
       window.removeEventListener('click', onClick);
+      unsubFlick?.();
       window.clearInterval(typer);
       window.clearTimeout(hideId);
     };
-  }, [screen]);
+  }, [screen, mobile]);
 
   useFrame((state, delta) => {
     const dt = Math.min(delta, 0.05);
@@ -536,7 +549,12 @@ export function ChromeBust({ mobile }: ChromeBustProps) {
     // HEAD-ONLY GAZE: ease the gaze uniforms toward the cursor; the shader
     // rotates only the head (above the neck), so the shoulders stay put. Tiny
     // idle drift keeps it alive when the cursor is still.
-    const p = getPointer();
+    // Gaze SOURCE: desktop reads the cursor; the mobile tier reads device tilt
+    // (Phase 9 — gyroscope-driven bust). getTilt() publishes the SAME {x,y}
+    // (−1..1, y up) shape getPointer() does, so the amplitude MATH below is
+    // identical on both tiers. When tilt is unavailable/denied getTilt() stays
+    // {0,0} and the idle-drift terms keep the head gently alive.
+    const p = mobile ? getTilt() : getPointer();
     // Face/screen turn TOWARD the cursor. Amplitude kept SMALL so the chrome
     // reflections don't swim much as the head turns (dampened). Flip a sign here
     // if an axis reverses.

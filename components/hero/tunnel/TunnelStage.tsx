@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from 'react';
 import dynamic from 'next/dynamic';
 import { useDeck } from '@/components/deck/DeckContext';
 import { isWhiteWorld, onWorld, toggleWorld } from '@/lib/world';
+import { requestTiltPermission, stopTilt } from '@/lib/tilt';
 import { useReducedMotion } from '@/lib/use-reduced-motion';
 import { isWebGLAvailable } from '@/lib/webgl';
 import { isRevealStarted, onReveal } from '@/lib/reveal';
@@ -130,6 +131,9 @@ export function TunnelStage() {
       cancelAnimationFrame(raf);
       unsub();
       unsubWorld();
+      // Phase 9: drop the gyroscope listener (no-op if it was never attached —
+      // desktop, denied, or unsupported).
+      stopTilt();
     };
   }, []);
 
@@ -194,7 +198,14 @@ export function TunnelStage() {
         <button
           id="core-hotspot"
           type="button"
-          onClick={() => toggleWorld()}
+          onClick={() => {
+            // Phase 9 (mobile): the orb tap is a user gesture, so it's the only
+            // place iOS 13+ will let us request motion-sensor access. Fire it
+            // here (Android/unsupported → silently attaches/degrades), then flip
+            // the world as before. Desktop never takes this branch.
+            if (mobile) void requestTiltPermission();
+            toggleWorld();
+          }}
           aria-pressed={inWhite}
           aria-label={inWhite ? 'Return to the dark world' : 'Enter the chrome-bust world'}
           className="pointer-events-auto fixed left-1/2 top-1/2 z-40 h-40 w-40 -translate-x-1/2 -translate-y-1/2 rounded-full bg-transparent outline-none focus-visible:ring-2 focus-visible:ring-accent"
