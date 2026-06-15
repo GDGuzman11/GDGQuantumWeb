@@ -25,23 +25,40 @@ import { Grain } from './Grain';
  * Landing-only" decision at Gabe's request.
  *
  * The heavy particle-tunnel canvas (dynamic, ssr:false) mounts ONLY when ALL
- * gates pass: lg+ (≥1024px), motion on, WebGL available, and after the preloader
- * reveal (LCP guard). Otherwise the static dark backdrop stands in.
+ * gates pass: motion on, WebGL available, after the preloader reveal (LCP guard),
+ * AND the device is "capable" (Phase 9). The capability gate replaced the hard
+ * `lg+` (≥1024px) requirement so phones/tablets get signs of life too:
+ *   • DESKTOP tier (≥1024px) → the full scene, unchanged (tunnel + Core +
+ *     ChromeBust white-world + full cinematic post-grade).
+ *   • MOBILE tier (≥360px and not low-end) → a MOBILE-TUNED scene: fewer
+ *     particles, a lower-detail Core, DPR capped at 1.5, and a stripped post
+ *     pipeline (small bloom only — no GodRays / ChromaticAberration / Vignette).
+ *     The dark↔white world-toggle + the heavy ChromeBust (GLB + studio
+ *     Environment + stencil galaxy + ContactShadows) stay DESKTOP-ONLY; the
+ *     flowing tunnel + Core are the phone's "signs of life".
+ *   • Below the floor, low-end (deviceMemory < 4), reduced-motion, no-WebGL, or
+ *     pre-reveal → the static dark backdrop stands in (no canvas, no orb).
  */
 
 const TunnelCanvas = dynamic(() => import('./TunnelCanvas'), { ssr: false });
 
+type Tier = 'desktop' | 'mobile' | null;
+
 export function TunnelStage() {
   const reduced = useReducedMotion(); // null until measured
   const deck = useDeck();
-  // The morphing Core is Welcome-only. On lg+ desktop with motion (the only
-  // path where the canvas mounts) the controlled GSAP deck keeps activeIndex
-  // reliable; default to Welcome (0) if the deck isn't measured yet.
-  const welcomeActive = (deck?.activeIndex ?? 0) === 0;
 
   const [lgUp, setLgUp] = useState(false);
+  const [aboveFloor, setAboveFloor] = useState(false);
+  const [lowEnd, setLowEnd] = useState(false);
   const [revealed, setRevealed] = useState(isRevealStarted());
   const [webgl, setWebgl] = useState(false);
+  // On the MOBILE tier the GSAP deck is inactive (native scroll), so
+  // `deck.activeIndex` never updates and can't gate the Welcome-only Core.
+  // Track it from the scroll position instead so the orb still fades out once
+  // the visitor scrolls past the hero (keeps it from sitting behind Projects /
+  // Contact content).
+  const [mobileWelcome, setMobileWelcome] = useState(true);
 
   // Live discrete world state for the orb's `aria-pressed` / label. `onWorld`
   // fires on every eased step, but the WHITE↔dark intent flips at `toggleWorld`
@@ -53,6 +70,14 @@ export function TunnelStage() {
   useEffect(() => {
     setWebgl(isWebGLAvailable());
 
+    // Low-end heuristic: very memory-constrained phones get the static backdrop
+    // even though WebGL exists, so we never ship a tuned scene that can't hold
+    // CWV on them. `deviceMemory` is Chromium-only and coarse (rounded down to
+    // 0.25/0.5/1/2/4/8); when absent (Safari/Firefox) we don't penalise — the
+    // DPR cap + reduced scene keep those safe.
+    const mem = (navigator as Navigator & { deviceMemory?: number }).deviceMemory;
+    if (typeof mem === 'number' && mem < 4) setLowEnd(true);
+
     const unsubWorld = onWorld(() => {
       const white = isWhiteWorld();
       if (white !== inWhiteRef.current) {
@@ -61,23 +86,69 @@ export function TunnelStage() {
       }
     });
 
-    const mq = window.matchMedia('(min-width: 1024px)');
-    const onChange = () => setLgUp(mq.matches);
+    // Two breakpoints: the desktop tier (≥1024px → full scene) and the capable
+    // floor (≥360px → mobile-tuned scene). Below the floor → static backdrop.
+    const mqLg = window.matchMedia('(min-width: 1024px)');
+    const mqFloor = window.matchMedia('(min-width: 360px)');
+    const onChange = () => {
+      setLgUp(mqLg.matches);
+      setAboveFloor(mqFloor.matches);
+    };
     onChange();
-    if (mq.addEventListener) mq.addEventListener('change', onChange);
-    else mq.addListener(onChange); // older Safari
+    if (mqLg.addEventListener) {
+      mqLg.addEventListener('change', onChange);
+      mqFloor.addEventListener('change', onChange);
+    } else {
+      mqLg.addListener(onChange); // older Safari
+      mqFloor.addListener(onChange);
+    }
+
+    // Mobile Welcome tracking (native scroll): orb on while within ~the first
+    // viewport, off below. rAF-throttled, passive — negligible cost.
+    let raf = 0;
+    const onScroll = () => {
+      cancelAnimationFrame(raf);
+      raf = requestAnimationFrame(() =>
+        setMobileWelcome(window.scrollY < window.innerHeight * 0.6),
+      );
+    };
+    onScroll();
+    window.addEventListener('scroll', onScroll, { passive: true });
 
     const unsub = onReveal(() => setRevealed(true));
 
     return () => {
-      if (mq.removeEventListener) mq.removeEventListener('change', onChange);
-      else mq.removeListener(onChange);
+      if (mqLg.removeEventListener) {
+        mqLg.removeEventListener('change', onChange);
+        mqFloor.removeEventListener('change', onChange);
+      } else {
+        mqLg.removeListener(onChange);
+        mqFloor.removeListener(onChange);
+      }
+      window.removeEventListener('scroll', onScroll);
+      cancelAnimationFrame(raf);
       unsub();
       unsubWorld();
     };
   }, []);
 
-  const canRenderCanvas = reduced === false && lgUp && webgl && revealed;
+  // Capability tier (Phase 9). Desktop ≥1024px → full scene; ≥360px and not
+  // low-end → mobile-tuned scene; otherwise the static dark backdrop.
+  const tier: Tier =
+    reduced === false && webgl && revealed && !lowEnd
+      ? lgUp
+        ? 'desktop'
+        : aboveFloor
+          ? 'mobile'
+          : null
+      : null;
+  const canRenderCanvas = tier !== null;
+  const mobile = tier === 'mobile';
+
+  // The morphing Core is Welcome-only. On the desktop deck `activeIndex` is
+  // reliable; on the mobile tier it isn't (native scroll), so use the
+  // scroll-derived flag there.
+  const welcomeActive = mobile ? mobileWelcome : (deck?.activeIndex ?? 0) === 0;
 
   return (
     <>
@@ -101,7 +172,7 @@ export function TunnelStage() {
             the warp pulse (Landing↔About) lives inside the canvas, not here. */}
         {canRenderCanvas ? (
           <div className="absolute inset-0">
-            <TunnelCanvas active welcomeActive={welcomeActive} />
+            <TunnelCanvas active welcomeActive={welcomeActive} mobile={mobile} />
           </div>
         ) : null}
 
@@ -113,8 +184,11 @@ export function TunnelStage() {
 
       {/* Orb hotspot — clicking the Core toggles the dark⇄white world. A focusable
           DOM target over the orb (the canvas is pointer-events-none). Welcome-only
-          and only when the orb is actually rendered. */}
-      {canRenderCanvas && welcomeActive ? (
+          and only when the orb is actually rendered. DESKTOP-ONLY: the white-world
+          ChromeBust pipeline (GLB + studio Environment + stencil galaxy +
+          ContactShadows) is too heavy to ship to phones blind, so the toggle is
+          gated to the desktop tier (the mobile tier shows the tunnel + Core only). */}
+      {canRenderCanvas && !mobile && welcomeActive ? (
         <button
           id="core-hotspot"
           type="button"

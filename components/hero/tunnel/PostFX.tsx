@@ -48,19 +48,30 @@ const CA_WARP_GAIN = 0.003; // extra fringe at peak warp
 const GODRAYS_WEIGHT = 0.5; // resting shaft strength
 const GODRAYS_WARP_GAIN = 0.5; // extra strength at peak warp
 
+// ── Mobile (Phase 9) ────────────────────────────────────────────────────────
+// The full grade (Bloom LARGE + GodRays ~60 samples + ChromaticAberration +
+// Vignette, every frame) is the dominant GPU cost and far too heavy for phones.
+// On the mobile tier we keep ONLY a tiny-kernel bloom so the Core's HDR inner
+// glow still reads — no GodRays, no ChromaticAberration, no Vignette.
+const MOBILE_BLOOM_INTENSITY = 0.7;
+const MOBILE_BLOOM_THRESHOLD = 0.8;
+
 type PostFXProps = {
   /** The Core's emissive inner mesh, used as the god-rays light source. Null
    *  until the Core has mounted; GodRays is skipped until then. */
   sun: THREE.Mesh | null;
+  /** Phase 9 mobile tier — render the stripped, cheap pipeline. */
+  mobile?: boolean;
 };
 
-export function PostFX({ sun }: PostFXProps) {
+export function PostFX({ sun, mobile }: PostFXProps) {
   const godRaysRef = useRef<any>(null);
 
   // Stable Vector2 the ChromaticAberration effect reads; mutated in useFrame.
   const caVec = useMemo(() => new THREE.Vector2(CA_BASE, CA_BASE), []);
 
   useFrame(() => {
+    if (mobile) return; // mobile has no warp-reactive passes to drive
     // sin(dive·π) pulse: 0 at rest on any panel, 1 at mid-transition.
     const dive = Math.min(1, Math.max(0, getDive()));
     const warp = Math.sin(dive * Math.PI);
@@ -76,6 +87,22 @@ export function PostFX({ sun }: PostFXProps) {
         GODRAYS_WEIGHT + warp * GODRAYS_WARP_GAIN;
     }
   });
+
+  // Mobile: a single small-kernel bloom — keeps the Core glow alive at a
+  // fraction of the desktop cost (no godrays / CA / vignette, no stencil buffer).
+  if (mobile) {
+    return (
+      <EffectComposer multisampling={0}>
+        <Bloom
+          mipmapBlur
+          intensity={MOBILE_BLOOM_INTENSITY}
+          luminanceThreshold={MOBILE_BLOOM_THRESHOLD}
+          luminanceSmoothing={BLOOM_SMOOTHING}
+          kernelSize={KernelSize.SMALL}
+        />
+      </EffectComposer>
+    );
+  }
 
   // EffectComposer's children type rejects `null`, so assemble the passes as a
   // filtered array — GodRays only joins once the Core (sun) exists.

@@ -36,14 +36,18 @@ import { ChromeBust } from './ChromeBust';
 // the tunnel clearly reads as motion at rest without overdoing it. Adjust COUNT
 // here and the `speed` (VERT) + resting-alpha (FRAG) constants below to taste.
 const COUNT = 1900;
+// Phase 9: the desktop tunnel is heavy; the mobile tier renders far fewer points
+// (the cluster binning below is count-independent, so sparks still work — some
+// clusters just end up empty, which is harmless).
+const MOBILE_COUNT = 700;
 const DEPTH = 16; // tunnel length along z
 const RADIUS = 5.4; // tunnel wall radius
 
-function buildGeometry(): THREE.BufferGeometry {
-  const positions = new Float32Array(COUNT * 3);
-  const aRand = new Float32Array(COUNT); // per-particle random: size/twinkle/colour phase
-  const aGroup = new Float32Array(COUNT); // spatial cluster id → coordinated sparks
-  for (let i = 0; i < COUNT; i++) {
+function buildGeometry(count: number): THREE.BufferGeometry {
+  const positions = new Float32Array(count * 3);
+  const aRand = new Float32Array(count); // per-particle random: size/twinkle/colour phase
+  const aGroup = new Float32Array(count); // spatial cluster id → coordinated sparks
+  for (let i = 0; i < count; i++) {
     const angle = Math.random() * Math.PI * 2;
     // sqrt keeps the ring hollow-ish (more points toward the wall than centre).
     const r = RADIUS * Math.sqrt(Math.random() * 0.82 + 0.18);
@@ -205,12 +209,13 @@ const FRAG = /* glsl */ `
   }
 `;
 
-function Tunnel() {
+function Tunnel({ mobile }: { mobile?: boolean }) {
   const { gl } = useThree();
   const mouse = useRef({ x: 0, y: 0 });
   const targetProx = useRef(0);
 
-  const geometry = useMemo(buildGeometry, []);
+  const count = mobile ? MOBILE_COUNT : COUNT;
+  const geometry = useMemo(() => buildGeometry(count), [count]);
   const material = useMemo(
     () =>
       new THREE.ShaderMaterial({
@@ -335,28 +340,39 @@ type TunnelCanvasProps = {
   active: boolean;
   /** True only while the Welcome panel (index 0) is active — gates the Core. */
   welcomeActive: boolean;
+  /** Phase 9 mobile tier — tunes the scene down for phones/tablets: fewer
+   *  particles, lower-detail Core, DPR capped at 1.5, stripped post pipeline,
+   *  and the heavy white-world ChromeBust dropped entirely. */
+  mobile?: boolean;
 };
 
-export default function TunnelCanvas({ active, welcomeActive }: TunnelCanvasProps) {
+export default function TunnelCanvas({ active, welcomeActive, mobile }: TunnelCanvasProps) {
   // The Core's emissive inner mesh, lifted to state so the EffectComposer
-  // rebuilds with a real god-rays source once the Core has mounted.
+  // rebuilds with a real god-rays source once the Core has mounted. Desktop-only
+  // (mobile's PostFX skips GodRays), so we never feed it on the mobile tier.
   const [sun, setSun] = useState<THREE.Mesh | null>(null);
 
   return (
     <Canvas
       className="!absolute !inset-0"
       gl={{ antialias: false, alpha: true, powerPreference: 'high-performance' }}
-      dpr={[1, 2]}
+      // Cap DPR at 1.5 on mobile so phones never render at native 2–3× — the
+      // dominant fill-rate cost. AdaptiveDpr scales it down further under load.
+      dpr={mobile ? [1, 1.5] : [1, 2]}
       camera={{ position: [0, 0, 6], fov: 70, near: 0.1, far: 40 }}
       frameloop={active ? 'always' : 'never'}
     >
-      <Tunnel />
+      <Tunnel mobile={mobile} />
       <CameraRig />
-      <QuantumCore welcomeActive={welcomeActive} onSunReady={setSun} />
-      <Suspense fallback={null}>
-        <ChromeBust />
-      </Suspense>
-      <PostFX sun={sun} />
+      <QuantumCore welcomeActive={welcomeActive} mobile={mobile} onSunReady={setSun} />
+      {/* White-world chrome bust is DESKTOP-ONLY — the GLB + studio Environment +
+          stencil galaxy + ContactShadows pipeline is too heavy for phones. */}
+      {!mobile ? (
+        <Suspense fallback={null}>
+          <ChromeBust />
+        </Suspense>
+      ) : null}
+      <PostFX sun={mobile ? null : sun} mobile={mobile} />
       <AdaptiveDpr pixelated={false} />
     </Canvas>
   );

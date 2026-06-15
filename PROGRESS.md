@@ -422,3 +422,10 @@ this file is the reference for what has been done. Newest entries at the bottom 
   - Summary: Removed `scripts/contact-smoke.ts` per Gabe — a stale Phase-4 manual contact-pipeline verification tool, NOT imported by any app code, NOT referenced by any package.json script, and drifted from current prod email logic. Grep for `contact-smoke` across .ts/.tsx/.json/.mjs (excl. node_modules) returned only the file itself; the sole remaining mention is a historical note in PROGRESS.md, left as-is (append-only history). Working tree only — staged via `git rm`, not committed.
   - Verify: `git rm scripts/contact-smoke.ts`; reference grep clean (only self-match pre-delete); `npx tsc --noEmit` exit 0; `npx next lint` 0 warnings/errors.
   - QA: pending
+
+## Phase 9 — Mobile experience & responsiveness
+- [x] Mobile hero "signs of life" / the bust — `@frontend-engineer` — 2026-06-14
+  - Files: components/hero/tunnel/TunnelStage.tsx, components/hero/tunnel/TunnelCanvas.tsx, components/hero/tunnel/QuantumCore.tsx, components/hero/tunnel/PostFX.tsx
+  - Summary: Option A (tuned WebGL on capable phones). Replaced the hard `lgUp` (≥1024px) gate with a capability tier (`desktop` ≥1024 / `mobile` ≥360 & not low-end / null). Low-end = `navigator.deviceMemory < 4` → static fallback. Mobile-tuned scene: particles 1900→700, Core subdivision 5→4 (10,242→2,562 verts), DPR capped [1,1.5] (+AdaptiveDpr), PostFX stripped to a single small-kernel Bloom (no GodRays/ChromaticAberration/Vignette). The white-world toggle + ChromeBust (GLB + studio Environment + stencil galaxy + ContactShadows) are DESKTOP-ONLY — too heavy to ship to phones blind. Desktop tier unchanged. LCP `revealed` gate + reduced-motion/no-WebGL/below-floor static fallback preserved. Welcome-only Core now scroll-driven on mobile (deck.activeIndex is unreliable under native scroll) so the orb fades out past the hero.
+  - Verify: `npx tsc --noEmit` (exit 0); `npx next lint` (0 warnings/errors). Real-device FPS/CWV NOT statically verifiable — needs Gabe's phone gate (mobile Lighthouse Perf/A11y green, `<h1>` LCP fast).
+  - QA: pending

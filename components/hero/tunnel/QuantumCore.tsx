@@ -224,17 +224,21 @@ type QuantumCoreProps = {
    * state (not a ref) so the EffectComposer rebuilds when the sun appears.
    */
   onSunReady?: (mesh: THREE.Mesh | null) => void;
+  /** Phase 9 mobile tier — drops the subdivision (10,242 → 2,562 verts) so the
+   *  noise-displaced morph is far cheaper to skin on phones. */
+  mobile?: boolean;
 };
 
-export function QuantumCore({ welcomeActive, onSunReady }: QuantumCoreProps) {
+export function QuantumCore({ welcomeActive, onSunReady, mobile }: QuantumCoreProps) {
   const groupRef = useRef<THREE.Group>(null);
   const innerRef = useRef<THREE.Mesh>(null);
   const present = useRef(0); // eased 0→1 Welcome presence
   const revealed = useRef(isRevealStarted());
 
+  const detail = mobile ? 4 : DETAIL; // 4 → 2,562 verts, 5 → 10,242 verts
   const geometry = useMemo(
-    () => new THREE.IcosahedronGeometry(RADIUS, DETAIL),
-    [],
+    () => new THREE.IcosahedronGeometry(RADIUS, detail),
+    [detail],
   );
 
   const material = useMemo(
