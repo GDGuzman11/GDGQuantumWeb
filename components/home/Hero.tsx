@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { Intro } from '@/components/home/Intro';
+import { ContactFormLazy } from '@/components/sections/ContactFormLazy';
 import { setDepth, type DiveSection } from '@/lib/dive';
 
 /**
@@ -10,12 +11,10 @@ import { setDepth, type DiveSection } from '@/lib/dive';
  *
  * The orb lives in the full-screen world canvas; this is the DOM overlay (intro
  * copy + entry points) plus the tween that drives the shared dive DEPTH:
- *   0 = rest · 1 = the core (About / Contact) · 2 = the quantum field (Projects).
+ *   0 = rest · 1 = core (About) · 2 = quantum field (Projects) · 3 = singularity (Contact).
  * One continuous scalar, so ANY leg animates smoothly — landing→section AND
- * section→section (About→Projects, Projects→About/Contact).
- *
- * Contact's bespoke behaviour is still TBD; for now it settles at the core
- * (depth 1) as a placeholder.
+ * section→section (About→Projects→Contact and back). The descent ends at the
+ * singularity, where the contact form transmits through to the AI (Helix).
  *
  * Reduced-motion: no flight — navigation jumps instantly.
  */
@@ -31,9 +30,11 @@ function easeInOutCubic(k: number): number {
   return k < 0.5 ? 4 * k * k * k : 1 - Math.pow(-2 * k + 2, 3) / 2;
 }
 
-/** Target dive depth per destination. */
+/** Target dive depth per destination — the descent: core → quantum → singularity. */
 function depthOf(s: Exclude<DiveSection, null>): number {
-  return s === 'projects' ? 2 : 1; // about + contact → core (placeholder for contact)
+  if (s === 'projects') return 2;
+  if (s === 'contact') return 3;
+  return 1; // about → the core
 }
 
 export function Hero() {
@@ -97,7 +98,7 @@ export function Hero() {
       finish();
       return;
     }
-    animateDepth(0, depthRef.current > 1.5 ? 1900 : 1200, finish);
+    animateDepth(0, 600 + depthRef.current * 600, finish); // longer climb from deeper
   }, [animateDepth, applyOpacities]);
 
   useEffect(() => {
@@ -243,17 +244,31 @@ function Interior({
 
   if (section === 'contact') {
     return (
-      <div className="max-w-2xl text-center [text-shadow:0_2px_30px_rgba(0,0,0,0.85)]">
-        <p className="font-mono text-[11px] uppercase tracking-[0.32em] text-white/55">
-          03 · Contact
-        </p>
-        <h2 className="mt-5 font-serif text-[clamp(2rem,5vw,3.5rem)] leading-[1.05] tracking-tight text-ink">
-          Let&rsquo;s build something together.
-        </h2>
-        <p className="mx-auto mt-6 max-w-xl font-sans text-base leading-relaxed text-white/75 sm:text-lg">
-          Got a hard problem in mind? The way to reach me &mdash; the form and
-          the links &mdash; materialises here next.
-        </p>
+      <div className="w-full max-w-lg [text-shadow:0_2px_30px_rgba(0,0,0,0.9)]">
+        <div className="text-center">
+          <p className="font-mono text-[11px] uppercase tracking-[0.32em] text-white/55">
+            &infin; · Contact · Singularity
+          </p>
+          <h2 className="mt-5 font-serif text-[clamp(1.9rem,5vw,3.25rem)] leading-[1.05] tracking-tight text-ink">
+            Transmit through the singularity.
+          </h2>
+          <p className="mx-auto mt-5 max-w-md font-mono text-xs leading-relaxed text-[#9fb4d8]">
+            <span className="text-white/85">&gt; HELIX</span> online at the event
+            horizon. Whatever you send collapses to a point &mdash; and reaches
+            me on the other side.
+          </p>
+        </div>
+
+        {/* The real pipeline: persists + emails (security gate intact). */}
+        <ContactFormLazy />
+
+        <div className="mt-10 text-center">
+          <PrimaryLink
+            label="Back to Projects"
+            direction="left"
+            onClick={() => onNavigate('projects')}
+          />
+        </div>
       </div>
     );
   }

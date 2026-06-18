@@ -4,6 +4,7 @@ import { Canvas, useFrame, useThree } from '@react-three/fiber';
 import { Sky } from '@/components/sky/NightSkyCanvas';
 import { OrbScene } from '@/components/helix/HelixLogo';
 import { QuantumField } from '@/components/world/QuantumField';
+import { Singularity } from '@/components/world/Singularity';
 import { getDepth } from '@/lib/dive';
 
 /**
@@ -23,6 +24,7 @@ import { getDepth } from '@/lib/dive';
 const REST_Z = 10.5;
 const ABOUT_Z = 0.9; // arrives AT the core (the story chamber)
 const PROJECTS_Z = 0.12; // plunges PAST the core, down to the quantum field
+const SINGULARITY_Z = 0.04; // the very bottom — the singularity (Contact)
 // The orb sits HIGH in the scene so it reads above the (bottom-anchored) hero
 // copy at rest; the camera rises to meet it as the dive flies in.
 const ORB_Y = 2.4;
@@ -41,10 +43,15 @@ function CameraRig() {
       const e = easeInOutCubic(Math.min(1, Math.max(0, d)));
       camera.position.z = REST_Z + (ABOUT_Z - REST_Z) * e;
       camera.position.y = ORB_Y * e;
-    } else {
+    } else if (d <= 2) {
       // core → quantum (continue the plunge, already at the orb's height)
       const e = easeInOutCubic(Math.min(1, d - 1));
       camera.position.z = ABOUT_Z + (PROJECTS_Z - ABOUT_Z) * e;
+      camera.position.y = ORB_Y;
+    } else {
+      // quantum → singularity (the final collapse)
+      const e = easeInOutCubic(Math.min(1, d - 2));
+      camera.position.z = PROJECTS_Z + (SINGULARITY_Z - PROJECTS_Z) * e;
       camera.position.y = ORB_Y;
     }
   });
@@ -75,6 +82,7 @@ export default function OrbWorldCanvas({ animate = true }: { animate?: boolean }
       <group position={[0, ORB_Y, 0]} scale={ORB_SCALE}>
         <OrbScene />
         <QuantumField />
+        <Singularity />
       </group>
     </Canvas>
   );

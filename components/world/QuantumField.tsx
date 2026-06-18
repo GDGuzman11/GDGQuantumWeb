@@ -119,9 +119,13 @@ export function QuantumField() {
     const u = material.uniforms;
     u.uTime.value = state.clock.elapsedTime;
     u.uPixelRatio.value = state.gl.getPixelRatio();
-    // Reveal across the core→quantum leg (depth 1.3 → 2): a smoothstep.
-    const x = Math.min(1, Math.max(0, (d - 1.3) / 0.7));
-    const target = x * x * (3 - 2 * x);
+    // Reveal across the core→quantum leg (depth 1.3 → 2), then COLLAPSE away as
+    // the dive falls on toward the singularity (depth 2 → 3).
+    const inX = Math.min(1, Math.max(0, (d - 1.3) / 0.7));
+    const inS = inX * inX * (3 - 2 * inX);
+    const outX = Math.min(1, Math.max(0, d - 2));
+    const outS = outX * outX * (3 - 2 * outX);
+    const target = inS * (1 - outS);
     u.uReveal.value += (target - u.uReveal.value) * 0.1;
   });
 
