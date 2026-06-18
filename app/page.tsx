@@ -1,7 +1,5 @@
 import { NightSky } from '@/components/sky/NightSky';
-import { HelixMark } from '@/components/helix/HelixMark';
-import { HeroStage } from '@/components/home/HeroStage';
-import { Intro } from '@/components/home/Intro';
+import { Hero } from '@/components/home/Hero';
 import { SocialLinks } from '@/components/home/SocialLinks';
 
 /**
@@ -23,10 +21,7 @@ export default function Home() {
       <NightSky />
 
       <section className="relative z-10 mx-auto flex min-h-[100svh] max-w-3xl items-center justify-center px-6 py-20 text-center">
-        <HeroStage className="flex flex-col items-center gap-6 sm:gap-8">
-          <HelixMark />
-          <Intro />
-        </HeroStage>
+        <Hero />
       </section>
 
       {/* Social marks pinned bottom-centre (safe-area aware). */}
