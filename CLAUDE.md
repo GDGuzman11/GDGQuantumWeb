@@ -38,6 +38,56 @@ There are **two tracking files**:
 
 **Status** (PM keeps this current):
 ```
+═══════════════ FRONT-END REBUILD IN PROGRESS (Gabe-driven, 2026-06-17) ═══════════════
+Gabe chose to REBUILD the front-end from scratch into a new cinematic single-page experience —
+"ENTER THE ORB." The previous nine-phase snap-deck site (preloader, GSAP Observer deck, particle
+tunnel, warp dive, Projects terminal-card showcase, white-world/chrome-bust) is RETIRED from the
+rendered page; those component files remain on disk UNUSED (not yet deleted) and everything is
+preserved in git history. This is outside the original phase/gate flow and is in ACTIVE ITERATION.
+
+REUSED INTACT (NOT rebuilt): the entire backend + security + infra — the contact Server Action
+(`app/actions/contact.ts`), shared Zod schema, Prisma/Neon, Resend email, the Phase-5 security
+gate (honeypot `extraField` + time-trap + Turnstile + Upstash rate-limit + salted IP hash),
+`middleware.ts` nonce CSP + `next.config.mjs` headers, SEO metadata/OG/sitemap, and the Vercel
+deployment + domain. The new contact form transmits through this SAME pipeline.
+
+THE NEW EXPERIENCE (all new files under app/page.tsx + components/{world,home,helix,sky}):
+- ONE full-screen WebGL world (`components/world/OrbWorldCanvas.tsx`) = night sky (stars + faint
+  randomized-shape galaxies, from `components/sky/NightSkyCanvas.tsx`) + the Helix "Ethereal Halo"
+  orb (`components/helix/HelixLogo.tsx`, copied verbatim from Screenshots/ + `'use client'`) in
+  ONE camera. Hosted by `components/world/OrbWorld.tsx` (dynamic ssr:false, WebGL/reduced gating,
+  CSS-star fallback). Replaces the old NightSky two-canvas setup.
+- NAVIGATION = flying INTO the orb. A single shared "dive depth" scalar (`lib/dive.ts`): 0 rest ·
+  1 core (About) · 2 quantum field (Projects) · 3 singularity (Contact). `CameraRig` maps the
+  scalar to a continuous multi-segment camera flight; `components/home/Hero.tsx` is the DOM overlay
+  (intro + About/Projects/Contact links + the per-section interior overlay) and tweens the depth
+  via rAF (reduced-motion jumps). Any leg animates smoothly (landing→section and section→section:
+  About→Projects "go deeper", Projects→Contact, Back-to-* links).
+- DEPTH CONTENT: About = the core (story chamber, placeholder copy). Projects = the QUANTUM FIELD
+  (`components/world/QuantumField.tsx`, jittering/flickering subatomic points that bloom in then
+  collapse). Contact = the SINGULARITY (`components/world/Singularity.tsx`): an occluding event-
+  horizon void + blazing photon ring + Doppler-beamed accretion disk that ignites; camera pulls
+  BACK and slowly orbits it (cinematic hero shot).
+- HOLLYWOOD POST (`@react-three/postprocessing` + `postprocessing`, NEW deps): `EffectComposer`
+  with Bloom (everything bright blazes, site-wide) + a custom gravitational-lens screen distortion
+  (`components/world/LensEffect.ts`) gated to the singularity leg.
+- LANDING COPY (`components/home/Intro.tsx`): big serif headline "Let's build something that didn't
+  exist this morning." + builder-voice sub, materialize-in + a subtle "living hologram" glow; whisper
+  pointer-parallax (`components/home/HeroStage.tsx`). 3 social marks (LinkedIn/GitHub/Upwork) pinned
+  bottom-centre (`components/home/SocialLinks.tsx`).
+- CINEMATIC CONTACT FORM (`components/home/TransmitForm.tsx`): rethemed dark-glass "transmission"
+  console (mono labels, glowing `Transmit ▸`) in a contrast panel over the blurred singularity —
+  SAME RHF+Zod+submitContact pipeline + full security envelope as the old ContactForm; code-split
+  (lazy) so it stays out of First Load.
+QA: tsc 0, lint 0, `npm run build` exit 0 throughout; `/` First Load ~91 kB (down from ~175) with
+three.js + postprocessing async-isolated; `/` is `force-dynamic` (nonce CSP). All committed on `main`
+(24 commits ahead of origin at the time of writing — being pushed now). OPEN: framing/pacing/bloom/
+lensing are visually tuned by Gabe; About/Projects/Contact interior CONTENT is placeholder; mobile
+pass not yet done for the new experience; old retired component files pending deletion; unused
+`gdg-glitch` keyframe in globals.css. The nine-phase history below is RETAINED as the record of the
+prior site (its front-end is superseded; its backend/security/deploy still power this rebuild).
+═════════════════════════════════════════════════════════════════════════════════════
+
 ═══════════════ WHERE WE ARE RIGHT NOW (2026-06-14) ═══════════════
 PROJECT COMPLETE & LIVE IN PRODUCTION at https://gdgquantum.com.
 All nine phases shipped; every Human Test Gate approved by Gabe (latest: Gate 9 — mobile — 2026-06-14).

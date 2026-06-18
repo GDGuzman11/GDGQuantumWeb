@@ -1,54 +1,50 @@
 # GDG Quantum
 
-A premium, single‑page, scroll‑snapped marketing site for **GDG Quantum** — a studio that builds considered digital systems. The visitor lands on a cinematic hero and then snaps panel‑to‑panel through three full‑viewport sections:
+A cinematic, single‑page portfolio built around one idea: **the brand mark is a world you fly into.**
+
+You land on a calm night sky with the **Helix "Ethereal Halo" orb** glowing at its centre. Choosing
+a destination doesn't navigate a page — it flies the camera *into the orb*:
 
 ```
-01 Welcome  →  02 Projects  →  03 Contact
-   #home         #systems        #contact
+About     →  the CORE          (the story chamber)
+Projects  →  the QUANTUM FIELD (deeper — a jittering subatomic cloud)
+Contact   →  the SINGULARITY   (a black hole; transmit a message to the AI on the other side)
 ```
 
-The experience is built around a custom **GSAP Observer “panel deck”** (one gesture = one panel, fully input‑locked during transitions — not CSS `scroll-snap`), a **GPU particle tunnel** that runs site‑wide, and a signature **“dive into the void” warp** that carries you between every section at light‑speed.
+It's one continuous descent through scale, rendered in a single WebGL world with bloom + gravitational
+lensing, ending at a cinematic singularity where the (real, working) contact form transmits through to
+"HELIX."
 
-> **Status:** Built and deployed. The full front‑end experience, the backend contact pipeline (Phase 4), security hardening (Phase 5), performance/SEO/a11y polish (Phase 6), and the production deployment to Vercel (Phase 7) are all shipped, and a **Phase 8 full‑app audit & cleanup** has been run. The contact form is **live** (validates → persists → sends owner + sender emails). Two features landed in‑session beyond the original three‑panel plan: an interactive **Projects showcase** (glassmorphic terminal cards → full‑screen scroll‑locked case study) and a cinematic **white‑world / chrome‑bust** mode (an orb toggle flips the Welcome panel to a light theme where the galaxy funnels into a chrome bust). See the [changelog](#whats-been-done-changelog).
-
----
-
-## Table of contents
-
-- [Highlights](#highlights)
-- [Tech stack](#tech-stack)
-- [Getting started](#getting-started)
-- [Scripts](#scripts)
-- [Environment variables](#environment-variables)
-- [Project structure](#project-structure)
-- [Design system](#design-system)
-- [Architecture & key concepts](#architecture--key-concepts)
-  - [The panel deck (snap engine)](#the-panel-deck-snap-engine)
-  - [The particle tunnel](#the-particle-tunnel)
-  - [The “dive into the void” warp](#the-dive-into-the-void-warp)
-  - [Preloader & reveal choreography](#preloader--reveal-choreography)
-  - [Full‑dark theming](#full-dark-theming)
-  - [Fallbacks & accessibility](#fallbacks--accessibility)
-- [What’s been done (changelog)](#whats-been-done-changelog)
-- [Roadmap](#roadmap)
-- [Conventions](#conventions)
-- [Project governance](#project-governance)
+> **Status: front‑end rebuild in progress.** This is a ground‑up reimagining of the front end (the prior
+> nine‑phase snap‑deck site is retired). The **backend + security + infrastructure are reused intact** —
+> the contact form genuinely persists a row and sends owner + sender emails, behind the same Turnstile /
+> rate‑limit / nonce‑CSP hardening, deployed on Vercel. Section interior *content* is placeholder, the 3D
+> framing/pacing is being visually tuned, and a mobile pass is still to come. The previous site's full
+> history is preserved in `CLAUDE.md` / `PROGRESS.md` and in git.
 
 ---
 
 ## Highlights
 
-- **Custom snap engine** — GSAP `Observer` deck where one wheel/trackpad/touch gesture, arrow key, nav click, or hash deep‑link moves exactly one panel, with the input locked during the transition so it can never skip or trap.
-- **Warp‑dive transitions** — every adjacent move (Welcome↔Projects and Projects↔Contact) is the cinematic light‑speed dive, in either direction, with a staggered panel hand‑off so the two panels never overlap.
-- **Site‑wide GPU particle tunnel** — a ~1,900‑point R3F/three.js starfield flowing toward the camera on a recycling cylinder, with in‑shader twinkle, cinematic colour drift, and occasional coordinated “sparks” between neighbouring particles.
-- **“Dive into the void” warp** — scrolling between sections pulses the tunnel to a radial **light‑speed streak** and back; the particles persist calmly while at rest on every section.
-- **Hero social marks** — themed monochrome GitHub + LinkedIn links sit under the hero sub‑line and brighten to the accent on hover.
-- **Real‑progress preloader** — a percentage counter driven by genuine load signals (`document.fonts.ready` + window `load`), choreographed into the hero’s entrance reveal.
-- **Interactive Projects showcase** — three glassmorphic terminal cards (hover‑resumed typing, 3D tilt, cyan scan‑line) open a full‑screen, scroll‑locked case study with a cinematic zoom, neural‑field backdrop, live latency dashboard, and CTAs.
-- **White‑world / chrome‑bust mode** — an orb toggle flips the Welcome panel to a light theme where the particle galaxy funnels into a head‑gazing chrome bust with an inner stencil‑masked galaxy (desktop + WebGL only; reduced‑motion/mobile never enter it).
-- **Live contact pipeline** — React Hook Form + shared Zod schema → Next.js Server Action → Prisma/Postgres persist → Resend owner + sender emails, hardened with Turnstile, Upstash rate limiting, a nonce CSP, and salted IP hashing.
-- **Performance‑minded** — the heavy three.js/R3F stack (incl. the white‑world feature) is isolated in async chunks so it stays **out of the route’s First Load JS** (≈145 kB) and the `<h1>` remains the LCP element.
-- **Correctness‑first fallbacks** — `prefers-reduced-motion`, mobile (`<768px`), and no‑WebGL paths all degrade to native scroll + a static dark backdrop, with no animation.
+- **One WebGL world, one camera.** Stars, faint randomly‑shaped distant galaxies, and the Helix orb live
+  in a single R3F/three.js scene. Navigation is a real camera flight *into* the orb — no page loads.
+- **A continuous "dive" model.** A single shared depth scalar (`0` rest → `1` core → `2` quantum → `3`
+  singularity) drives a multi‑segment camera flight, so every leg — landing→section *and* section→section
+  (About→Projects "go deeper", Projects→Contact, and back) — animates smoothly.
+- **The quantum field (Projects).** A cloud of subatomic points that vibrate (uncertainty) and flicker
+  (probability), blooming in as you fall past the core, then collapsing into the singularity.
+- **The singularity (Contact).** An occluding **event horizon**, a blazing **photon ring**, and a
+  **Doppler‑beamed accretion disk** that ignites as it forms; the camera pulls back and slowly orbits it.
+- **Hollywood post.** `EffectComposer` with **bloom** (everything bright blazes) + a custom
+  **gravitational‑lensing** screen distortion that warps the frame around the black hole on the Contact leg.
+- **Cinematic, working contact.** A rethemed dark‑glass "transmission" console — same React Hook Form +
+  shared Zod schema → Server Action → Prisma persist → Resend emails pipeline, with the full security
+  envelope (honeypot, time‑trap, Turnstile, rate limit, salted IP hash).
+- **Living landing copy.** A big serif statement that materialises in and keeps a subtle "living hologram"
+  glow, with a whisper of pointer‑parallax depth, and LinkedIn / GitHub / Upwork marks pinned bottom‑centre.
+- **Correctness‑first fallbacks.** `prefers-reduced-motion` jumps between states (no flight); no‑WebGL
+  shows a CSS starfield; the heavy three.js + postprocessing stack is async‑isolated so `/` First Load
+  stays ≈ **91 kB**.
 
 ---
 
@@ -56,11 +52,12 @@ The experience is built around a custom **GSAP Observer “panel deck”** (one 
 
 | Area | Choice |
 | --- | --- |
-| Framework | **Next.js 14** (App Router) |
+| Framework | **Next.js 14** (App Router) · `force-dynamic` `/` for the per‑request nonce CSP |
 | Language | **TypeScript** (`strict: true`) |
 | Styling | **Tailwind CSS** with design tokens as CSS variables |
-| Motion / snap engine | **GSAP** (`Observer`, `SplitText`) — free since the Webflow acquisition |
-| 3D / particles | **three.js** `0.169.0` + **@react-three/fiber** `8.18.0` + **@react-three/drei** `9.122.0` + **@react-three/postprocessing** + **three-stdlib** (pinned React‑18 line) |
+| 3D / world | **three.js** `0.169` + **@react-three/fiber** `8.18` + **@react-three/drei** `9.122` |
+| Post‑processing | **@react-three/postprocessing** + **postprocessing** (bloom + custom lens effect) |
+| Motion (DOM) | lightweight rAF tweens + CSS keyframes (the dive, hologram, parallax) |
 | Fonts | **Instrument Serif** (display) + **Inter** (body/UI), self‑hosted via `next/font` |
 | Backend | Prisma + PostgreSQL (Neon), Next.js Server Action, **Resend** email |
 | Forms / validation | **React Hook Form** + **Zod** (schema shared client + server) |
@@ -74,19 +71,13 @@ The experience is built around a custom **GSAP Observer “panel deck”** (one 
 **Prerequisites:** Node.js 18.18+ (or 20+) and npm.
 
 ```bash
-# 1. Install dependencies
 npm install
-
-# 2. (optional, for later backend work) create your local env file
-cp .env.example .env.local
-
-# 3. Run the dev server
-npm run dev
+cp .env.example .env       # optional — the front-end runs without it; the contact form degrades gracefully
+npm run dev                # http://localhost:3000
 ```
 
-Open <http://localhost:3000>. Scroll, swipe, use the arrow keys, click the numbered nav, or deep‑link to `/#systems` — the deck handles them all through a single entry point.
-
-> **Tip:** the particle tunnel only mounts on `lg+` (≥1024px) screens with WebGL available and reduced‑motion off, and only after the preloader reveal completes. On smaller/reduced/no‑WebGL setups you’ll correctly see the static dark backdrop instead.
+The orb world (and the contact form chunk) load only in the browser; with WebGL off or reduced‑motion on,
+you get a static starfield and instant (non‑flying) navigation.
 
 ---
 
@@ -94,190 +85,125 @@ Open <http://localhost:3000>. Scroll, swipe, use the arrow keys, click the numbe
 
 | Script | Purpose |
 | --- | --- |
-| `npm run dev` | Start the Next.js dev server |
+| `npm run dev` | Start the dev server |
 | `npm run build` | Production build |
 | `npm run start` | Serve the production build |
 | `npm run lint` | ESLint (`next lint`) |
 | `npm run typecheck` | `tsc --noEmit` |
-| `npm run format` | Prettier write |
-| `npm run format:check` | Prettier check |
+| `npm run format` / `format:check` | Prettier write / check |
 
 ---
 
 ## Environment variables
 
-Nothing is required to run the front‑end today. The variables below are the **skeleton for the planned backend** (see `.env.example`). Secrets must live only in your local `.env.local` / hosting provider — **never committed**, and nothing sensitive may be prefixed `NEXT_PUBLIC_`.
+The front‑end runs with none set (the contact pipeline degrades gracefully). For the live form, set these
+in `.env` locally and in your Vercel project — secrets are **never** committed and nothing sensitive is
+`NEXT_PUBLIC_` except the Turnstile **site** key. See `.env.example`.
 
-- `DATABASE_URL` / `DIRECT_URL` — pooled + direct PostgreSQL connection strings (Prisma)
-- `RESEND_API_KEY`, `CONTACT_FROM_EMAIL`, `CONTACT_OWNER_EMAIL` — transactional email (Resend); SMTP fallback vars also present
-- `NEXT_PUBLIC_TURNSTILE_SITE_KEY` / `TURNSTILE_SECRET_KEY` — Cloudflare Turnstile bot protection
+- `DATABASE_URL` / `DIRECT_URL` — pooled + direct PostgreSQL (Prisma)
+- `RESEND_API_KEY`, `CONTACT_FROM_EMAIL`, `CONTACT_OWNER_EMAIL` — transactional email
+- `NEXT_PUBLIC_TURNSTILE_SITE_KEY` / `TURNSTILE_SECRET_KEY` — Cloudflare Turnstile
 - `UPSTASH_REDIS_REST_URL` / `UPSTASH_REDIS_REST_TOKEN` — rate limiting
 - `IP_HASH_SALT` — salt for hashing IPs at rest
+- `NEXT_PUBLIC_SITE_URL` — canonical/OG base URL
 
 ---
 
-## Project structure
+## Project structure (the rebuild)
 
 ```
 app/
-  layout.tsx            Root layout — fonts, metadata, full-dark <body> scope, skip link
-  page.tsx              Composes Preloader + PanelDeck (chrome, backdrop, 3 panels)
-  globals.css           Tokens, dark theme scope, grain keyframes, base styles
+  layout.tsx              Root layout — fonts, SEO metadata/OG, force-dynamic (nonce CSP), skip link
+  page.tsx                The world (OrbWorld) + the Hero overlay + bottom social marks
+  globals.css             Tokens, dark scope, keyframes (hologram, glitch, grain, …)
 
 components/
-  chrome/
-    Preloader.tsx        Real-progress % preloader, scroll lock, fires the reveal
-    TopBar.tsx           Hex mark + wordmark + primary nav (routes through the deck)
-    SectionNav.tsx       Numbered 01–03 rail + progress indicator
-  deck/
-    DeckContext.tsx      Shared deck state (activeIndex, goToPanel, deckMode)
-    PanelDeck.tsx        The GSAP Observer snap engine + warp-dive transitions
-  hero/
-    HeroContent.tsx      The single <h1> (LCP) + sub + social marks + CTA + SplitText reveal
-    HeroBackdropFallback.tsx  Static dark gradient + grain (the always-on backdrop)
-    tunnel/
-      TunnelStage.tsx    DOM host: gates + mounts the canvas site-wide (no three import)
-      TunnelCanvas.tsx   The R3F/three.js particle tunnel + warp shader (async chunk)
-      Grain.tsx          Soft film-grain overlay (inline SVG noise)
-  sections/
-    Panel.tsx            Full-viewport (100svh) panel shell, focus target
-    PanelReveal.tsx      Per-panel entrance reveal (deck-active OR IntersectionObserver)
-    Landing.tsx (Welcome) · Systems.tsx (Projects, placeholder) · Contact.tsx
-  ui/
-    CtaLink.tsx · Field.tsx   Hand-built primitives
+  world/
+    OrbWorld.tsx           Full-screen host — dynamic ssr:false, WebGL/reduced gating, CSS fallback
+    OrbWorldCanvas.tsx     ONE canvas: Sky + Helix orb + CameraRig + EffectComposer (bloom + lens)
+    QuantumField.tsx       Projects — vibrating/flickering subatomic cloud (depth 1→2, collapses 2→3)
+    Singularity.tsx        Contact — event horizon + photon ring + beamed accretion disk (depth 2→3)
+    LensEffect.ts          Custom gravitational-lens postprocessing effect (gated by dive depth)
+  home/
+    Hero.tsx               DOM overlay: intro + About/Projects/Contact + per-section interior + dive tween
+    Intro.tsx              The <h1> statement + sub (materialise-in, living-hologram glow)
+    HeroStage.tsx          Whisper pointer-parallax wrapper (rAF, reduced-motion safe)
+    SocialLinks.tsx        LinkedIn / GitHub / Upwork marks, bottom-centre
+    TransmitForm.tsx       Cinematic contact form → the real submitContact pipeline (lazy-loaded)
+  helix/
+    HelixLogo.tsx          The "Ethereal Halo" orb (verbatim asset; exports OrbScene for the world)
+  sky/
+    NightSkyCanvas.tsx     Starfield + galaxies (exports <Sky/> for the world)
 
 lib/
-  site-config.ts        Brand + panel metadata (the swappable "Projects" label lives here)
-  fonts.ts              next/font setup (Instrument Serif + Inter, size-adjusted fallback)
-  reveal.ts             Latched pub/sub linking the preloader → hero entrance
-  warp.ts               Shared "dive progress" scalar linking the deck → tunnel warp
-  webgl.ts              WebGL capability probe (no three import)
-  use-reduced-motion.ts Live prefers-reduced-motion hook
+  dive.ts                 Shared dive-depth scalar (0 rest · 1 core · 2 quantum · 3 singularity)
+  webgl.ts · use-reduced-motion.ts · fonts.ts · site-url.ts · schema.ts
 
-prisma/                 (placeholder — schema lands in Phase 4)
-CLAUDE.md               The build plan & orchestration protocol (source of truth)
-PROGRESS.md             Append-only completion log
+app/actions/contact.ts    Server Action (security gate → validate → persist → email)  [reused]
+lib/{security,email,db}.ts  Turnstile/rate-limit/IP-hash · Resend · Prisma client      [reused]
+middleware.ts             Per-request nonce CSP                                         [reused]
+prisma/                   ContactSubmission model + migration                           [reused]
+
+components/{deck,chrome,hero/tunnel,sections}/   ← RETIRED prior front-end (on disk, unused)
+CLAUDE.md / PROGRESS.md   Plan + append-only log (full prior-site history retained)
 ```
 
 ---
 
-## Design system
+## How the experience works
 
-Tokens are wired into Tailwind `theme.extend` **and** CSS variables — never hard‑coded.
+**The world.** `OrbWorldCanvas` renders the night sky and the Helix orb in one R3F scene with one camera.
+At rest the camera sits back so the orb reads as a glowing mark high in frame, with the landing copy below.
 
-| Token | Value | Use |
-| --- | --- | --- |
-| `--bg` | `#FAF9F6` | Canvas (warm off‑white) — base palette |
-| `--ink` | `#0E1116` | Primary text |
-| `--accent` | `#2563EB` | Links, CTAs, focus rings |
-| `--muted` | `#6B7280` | Secondary text |
-| `--hairline` | `rgba(14,17,22,0.10)` | 1px rules / underlines |
+**The dive.** `lib/dive.ts` holds one mutable `depth` scalar read every frame by the scene (no React churn).
+`Hero.tsx` tweens it with a small rAF loop; the canvas's `CameraRig` maps it to a continuous flight:
 
-A `[data-theme="dark"]` scope re‑values these tokens for the full‑dark site (applied on `<body>`). Type: **Instrument Serif** for large, tight‑leading headings; **Inter** for body/UI. Motion language is deliberately restrained — ease‑out, 0.6–1.2s, no bounce/spin (“do less”).
+- `0 → 1` rest → **core** (About): the camera rises to meet the orb and flies in.
+- `1 → 2` core → **quantum field** (Projects): it keeps plunging; `QuantumField` blooms in.
+- `2 → 3` quantum → **singularity** (Contact): the field collapses, `Singularity` ignites, and the camera
+  pulls back and slowly orbits the black hole. The custom **lens effect** warps the frame here.
 
-> Note: the 3D shader colours (cool blues → teal → indigo → white) are **artwork parameters**, not part of the five semantic design tokens.
+Because it's one scalar, *any* transition is smooth — including section‑to‑section (About's "go deeper →
+Projects", "Continue to Contact", and the "Back to …" links). Reduced‑motion jumps instead of flying.
 
----
-
-## Architecture & key concepts
-
-### The panel deck (snap engine)
-
-`components/deck/PanelDeck.tsx` owns the snap experience. A GSAP `Observer` translates wheel/trackpad/touch into a single `goToPanel(index)` call — the **one entry point** also used by keyboard (`Arrow`/`Page`/`Home`/`End`/`Space`), nav clicks, and hash deep‑links. During a transition the input is locked (no double‑skip), with a belt‑and‑braces timeout in case `onComplete` is ever pre‑empted.
-
-Panels are absolutely stacked and **every** adjacent pair animates with the cinematic “dive into the void” warp (see below):
-
-- `0↔1` (Welcome↔Projects) — **warp dive**
-- `1↔2` (Projects↔Contact) — **warp dive**
-
-Non‑adjacent jumps (e.g. nav from Welcome straight to Contact) animate as fast **chained warp legs**, with the total duration capped.
-
-The deck‑vs‑native decision is recomputed on resize/orientation and on live reduced‑motion toggles, rebuilding cleanly across the `768px` breakpoint.
-
-### The particle tunnel
-
-`components/hero/tunnel/TunnelCanvas.tsx` is the heavy three.js/R3F chunk, only ever reached via `dynamic(() => import(...), { ssr: false })` so it stays out of First Load JS. It’s a GPU starfield‑tunnel: ~1,900 points on the wall of a cylinder around −Z, flowing toward the camera and recycling (modulo over the tunnel depth) for an endless rush. All motion lives in the vertex/fragment shaders — there’s no per‑frame CPU simulation. Features:
-
-- **Constant base flow** per particle (slow), plus a small, hard‑bounded **cursor‑proximity lift** toward the tunnel mouth (it can never run away fast, and never depends on elapsed time).
-- **Cinematic colour flashing** — each particle drifts through a cool palette, phase‑offset by a per‑particle random so the field shimmers rather than pulsing in unison.
-- **Coordinated sparks** — particles are binned into small spatial clusters (`aGroup`); each cluster occasionally flashes its 2+ neighbours bright together for a brief instant.
-- **Light‑speed warp** — radial streaks driven by the dive (see next section).
-
-The time‑varying flow (proximity + warp) is **integrated on the CPU** into a single `uFlow` uniform and added in the shader, so a changing speed never teleports particles (multiplying a changing speed by absolute time would).
-
-### The “dive into the void” warp
-
-Scrolling between any two sections triggers a coordinated warp:
-
-- `lib/warp.ts` holds a shared **dive progress** scalar (`0` = at rest on any panel, ramping `0→1` across a transition). `PanelDeck` scrubs it from each leg’s GSAP timeline; the tunnel reads it every frame.
-- The shader turns it into a **pulse** — `uWarp = sin(dive·π)` — which peaks mid‑transition and is `0` at both ends. Because it’s a symmetric pulse, the same `0→1` scrub serves both forward and reverse on every leg, so the particles light‑speed (and stretch into radial streaks) **only during the scroll**, then settle to calm. They are never stuck at light‑speed on the inner pages, and never warp on load.
-- The panel content **hand‑off is staggered** (outgoing scales up + fades out over the first ~55% as the warp builds; incoming fades in over the last ~60% as it settles) so the two panels never overlap at full opacity. The bright mid‑dive particles cover the gap.
-- The particle tunnel itself is **site‑wide** — calm particles are visible behind every section.
-
-### Preloader & reveal choreography
-
-`components/chrome/Preloader.tsx` shows a percentage counter driven by **real** load signals: `document.fonts.ready` (so the serif headline paints in its final face — the CLS‑sensitive bit) and the window `load` event. The displayed number eases toward its target on rAF so it always counts smoothly to 100, with a tasteful minimum duration and a hard max‑duration fail‑safe so it can never trap the user. On completion it locks/releases body scroll and fires `markRevealStarted()`.
-
-`lib/reveal.ts` is a tiny **latched pub/sub** that decouples “when the site is ready to be seen” (the preloader) from “what happens on reveal” (the hero entrance — eyebrow → headline line‑by‑line via `SplitText` → sub → CTA underline draw → scroll cue). Because it’s latched, a late‑subscribing consumer still fires correctly.
-
-### Full‑dark theming
-
-The site is dark on every section. `[data-theme="dark"]` is applied on `<body>`, all panels are transparent over a site‑wide dark gradient + grain backdrop, and chrome (top bar, section nav) carries the dark scope explicitly so legibility never depends on an ancestor attribute.
-
-### Fallbacks & accessibility
-
-`prefers-reduced-motion`, mobile (`<768px`), no‑WebGL, and pre‑reveal states all fall back to **native vertical scroll + a static dark backdrop**, with snapping, the tunnel canvas, and entrance animations disabled (instant final states). Accessibility groundwork includes a single `<h1>`, a skip link, programmatic focus management on panel change (focus is never stranded, and form fields are never stolen from), `aria-current` on the active nav item, and labelled landmark regions. *(A full WCAG 2.1 AA audit is scheduled for Phase 6.)*
+**Contact = the real thing.** The cinematic console in the singularity is wired to the same
+`submitContact` Server Action as before: shared Zod validation, Prisma persist, Resend owner + sender
+emails, and the full security gate (honeypot, time‑trap, Turnstile, Upstash rate limit, salted IP hash).
 
 ---
 
-## What’s been done (changelog)
+## Deployment (Vercel)
 
-> Detailed, append‑only records live in `PROGRESS.md`; the live task checklist lives in `CLAUDE.md`.
+It's a standard Next.js 14 app, so **Vercel builds and renders it with no special "mapping"** — the
+three.js / postprocessing work is shipped as ordinary client chunks (loaded in the browser, `ssr:false`),
+the `/` route is server‑rendered per request (for the nonce CSP), and `middleware.ts` runs on the edge.
+There are **no new routes** in the rebuild — it's still the single `/` page — so nothing to remap.
 
-- **Phase 0 — Foundation & design system.** Next.js 14 + TS strict + Tailwind + ESLint/Prettier; design tokens wired to Tailwind + CSS vars; self‑hosted fonts; folder structure; `siteConfig` with the swappable “Systems” label.
-- **Phase 1 — Static panel shell + nav + preloader.** Four full‑viewport panels with real copy; top bar + numbered section nav; real‑progress percentage preloader.
-- **Phase 2 — GSAP snap engine.** `Observer` panel deck with `goToPanel` as the single entry point; input lock; `100svh` handling; reduced‑motion + mobile native‑scroll fallbacks.
-- **Phase 3 → 3R — Cinematic Landing redesign.** Replaced the original hero object with the **particle tunnel**; reworked the deck into **directional transitions**; introduced the **full‑dark** palette site‑wide.
-- **Phase 3R.1 — Landing tunnel feel (cinematic lighting).** Constant slow flow with a subtle bounded proximity lift; per‑particle cinematic colour flashing; occasional coordinated sparks between neighbouring particles. Also fixed a shader **precision‑mismatch bug** that had stopped the tunnel from rendering at all.
-- **Phase 3R.2 — “Dive into the void” warp.** Site‑wide particle persistence; a transient light‑speed **warp pulse** on the dive leg; CPU‑integrated flow (no teleport on speed change); staggered panel hand‑off (no overlap).
-- **Structure update — three‑panel flow.** Removed the About panel; the flow is now **Welcome → Projects → Contact**. The warp dive is now the transition on **every** leg (in both directions). “Landing” is relabelled **Welcome**; “Systems” is relabelled **Projects** (internal hash stays `#systems`). Added themed **GitHub + LinkedIn** social marks to the hero.
-- **Projects showcase (in‑session).** The Projects panel became the interactive centrepiece: three glassmorphic terminal cards (hover‑resumed typing, cursor 3D tilt, scan‑line) → a full‑screen, scroll‑locked case study (cinematic zoom, neural‑field backdrop, live latency dashboard, media gallery, CTAs). Added a deck‑lock so the overlay’s scroll isn’t eaten by the snap engine; the deck always opens on Welcome.
-- **White‑world / chrome‑bust (in‑session).** An orb toggle flips the Welcome panel to a light theme where the galaxy funnels into a head‑gazing chrome bust (inner stencil‑masked galaxy, embedded face screen), with post‑FX. Desktop + WebGL only.
-- **Phase 4 — Backend.** Prisma `ContactSubmission` model + migration (`20260611040603_init`, applied); shared Zod schema; contact **Server Action** (validate → persist → owner + sender emails); in‑place success/error states. The form is **live**, not visual‑only.
-- **Phase 5 — Security hardening.** Honeypot + time‑trap + server‑verified Cloudflare Turnstile; Upstash sliding‑window rate limit (fail‑closed); email‑injection defenses; security headers + per‑request nonce **CSP** (no `unsafe-inline` script); salted SHA‑256 IP hashing (raw IP never stored).
-- **Phase 6 — Performance, a11y & SEO polish.** Code‑split the form out of First Load (≈145 kB); WCAG 2.1 AA on the dark theme; metadata / OG image / Twitter / sitemap / robots / manifest.
-- **Phase 7 — Deploy.** Shipped to **Vercel** (`vercel-build` runs `prisma migrate deploy` before `next build`; `binaryTargets` includes the serverless runtime). Custom domain + production smoke test are Gabe‑run acceptance items.
-- **Phase 8 — Full‑app audit & cleanup.** Multi‑agent sweep: removed dead code, added the explicit `three-stdlib` dep, end‑to‑end security re‑review (incl. sanitising leaked secrets out of `.env.example` — see the security note below), data‑pipeline verification, perf + a11y re‑check on **both** the dark and white themes, and this docs reconciliation.
+What Vercel needs (already in place from the prior deployment):
 
-All of the above pass `tsc`, `next lint`, and `next build` with three.js (and the white‑world feature) isolated in async chunks. Visual/interaction and live‑production acceptance is reviewed per‑phase by Gabe.
+- **Env vars** set in the Vercel project (the list above).
+- **Prisma** — `postinstall` runs `prisma generate`; run `prisma migrate deploy` in the release step. The
+  rebuild did **not** change the schema, so there's no new migration.
+- **Custom domain / DNS** — already mapped; pushing to `main` triggers the deploy.
 
-> **Security note (Phase 8):** real API keys (Resend, Turnstile secret, Upstash token, IP‑hash salt) had been committed to `.env.example` and pushed to the public repo. The file is now sanitised to placeholders, **but those credentials must be rotated** — removing them from the file does not undo the exposure (they remain in git history). Rotation steps are tracked with the PM.
-
----
-
-## Roadmap
-
-All eight planned phases are built (Phase 8 audit complete pending its gate). Remaining items are Gabe‑run / operational, not code:
-
-- **Credential rotation** (Phase 8 follow‑up) — rotate the four leaked secrets and update Vercel env + local `.env`.
-- **Live‑production acceptance** — securityheaders.com / Mozilla Observatory scans, live Lighthouse, a real prod contact submit (row + both emails), and social‑unfurl on the production URL.
-- **Dependency upgrade** — `next@14.2.35` carries the CSP‑nonce XSS advisory (GHSA‑ffhc‑5mcf‑pf4q); plan a patched/upgraded release.
-- **Projects content** — replace the placeholder case‑study copy/media with real projects.
+The new dependencies (`@react-three/postprocessing`, `postprocessing`) are committed to `package.json`, so
+`npm install` on Vercel picks them up automatically.
 
 ---
 
 ## Conventions
 
-- **TypeScript strict**, ESLint + Prettier enforced.
-- Components touching `window`, WebGL, or GSAP start with `"use client"`; the hero 3D is `dynamic(..., { ssr: false })`.
-- **Do not** use CSS `scroll-snap-type` (the deck is the snap engine), and **do not** `npx shadcn add <arbitrary-registry-url>` (vendor primitives in manually after review).
-- Small, reviewable, conventional commits.
+- **TypeScript strict**, ESLint + Prettier enforced; small, reviewable, conventional commits.
+- Anything touching `window` / WebGL starts with `"use client"`; the world + form are `dynamic(..., { ssr: false })`.
+- Design tokens are CSS variables (never hard‑coded); 3D shader colours are artwork, not the semantic tokens.
 
 ---
 
 ## Project governance
 
-This project is built with a documented, phase‑gated plan. **`CLAUDE.md` is the source of truth** for scope and the live task checklist; **`PROGRESS.md`** is the append‑only completion log. The `.claude/agents/` directory defines the specialist roles (frontend, backend, security, QA, PM) used to drive the build.
+**`CLAUDE.md` is the source of truth** for scope and history; **`PROGRESS.md`** is the append‑only
+completion log. Both retain the full record of the prior nine‑phase site, whose backend, security, and
+deployment continue to power this rebuild.
 
 ---
 
