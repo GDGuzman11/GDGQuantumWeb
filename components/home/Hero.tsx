@@ -2,26 +2,26 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { HelixMark } from '@/components/helix/HelixMark';
-import { HeroStage } from '@/components/home/HeroStage';
 import { Intro } from '@/components/home/Intro';
 import { setDive, type DiveSection } from '@/lib/dive';
 
 /**
  * Enter-the-orb hero controller (Stage 1).
  *
- * The landing shows the Helix + intro with two entry points (About, Projects).
- * Choosing one drives the shared dive signal 0→1: the Helix CameraRig flies the
- * camera INTO the orb (inward for About, outward along the orbits for Projects),
- * the landing copy dissolves, and a themed interior fades in over the orb (which
- * keeps glowing behind it, so the flight reads as unbroken). Back / Esc reverse
- * the dive. The interior CONTENT is placeholder for now — Stage 2/3 fill it.
+ * The orb itself lives in the full-screen world canvas (components/world); this
+ * is the DOM overlay: the intro copy + two entry points, plus the dive tween
+ * that drives the shared signal 0→1. Choosing About flies the camera INTO the
+ * orb (the whole screen becomes its interior); Projects pulls OUT along the
+ * orbits. As the camera flies, the landing copy dissolves and a themed interior
+ * fades in over the now-full-screen orb (which keeps glowing behind it, so the
+ * flight reads as one unbroken move). Back / Esc reverse it.
  *
+ * Interior CONTENT is placeholder for now — Stage 2/3 fill it.
  * Reduced-motion: no flight — entering/leaving jumps instantly.
  */
 
-const IN_MS = 1400;
-const OUT_MS = 1100;
+const IN_MS = 1600;
+const OUT_MS = 1200;
 
 function reducedMotion(): boolean {
   return (
@@ -107,11 +107,11 @@ export function Hero() {
       }
     };
     window.addEventListener('keydown', onKey);
-    const prevOverflow = document.documentElement.style.overflow;
+    const prev = document.documentElement.style.overflow;
     document.documentElement.style.overflow = 'hidden';
     return () => {
       window.removeEventListener('keydown', onKey);
-      document.documentElement.style.overflow = prevOverflow;
+      document.documentElement.style.overflow = prev;
     };
   }, [section, back]);
 
@@ -119,16 +119,13 @@ export function Hero() {
 
   return (
     <>
-      <HeroStage className="flex flex-col items-center gap-6 sm:gap-8">
-        <HelixMark />
-        <div ref={fadeRef}>
-          <Intro />
-          <div className="mt-10 flex items-center justify-center gap-8">
-            <EntryButton label="About" onClick={() => enter('about')} />
-            <EntryButton label="Projects" onClick={() => enter('projects')} />
-          </div>
+      <div ref={fadeRef}>
+        <Intro />
+        <div className="mt-10 flex items-center justify-center gap-8">
+          <EntryButton label="About" onClick={() => enter('about')} />
+          <EntryButton label="Projects" onClick={() => enter('projects')} />
         </div>
-      </HeroStage>
+      </div>
 
       {section && typeof document !== 'undefined'
         ? createPortal(
@@ -137,7 +134,7 @@ export function Hero() {
               role="dialog"
               aria-modal="true"
               aria-label={section === 'about' ? 'About' : 'Projects'}
-              className="fixed inset-0 z-[80] flex items-center justify-center overflow-y-auto bg-[rgba(2,3,7,0.82)] px-6 py-20 backdrop-blur-sm"
+              className="fixed inset-0 z-[80] flex items-center justify-center overflow-y-auto bg-[rgba(3,4,9,0.55)] px-6 py-20 backdrop-blur-md"
               style={{ opacity: 0 }}
             >
               <button
@@ -145,7 +142,10 @@ export function Hero() {
                 onClick={back}
                 className="group fixed left-6 top-6 z-10 inline-flex items-center gap-2 font-sans text-xs uppercase tracking-[0.22em] text-white/70 transition-colors duration-300 hover:text-white focus:outline-none focus-visible:text-white sm:left-8 sm:top-8"
               >
-                <span aria-hidden className="transition-transform duration-300 group-hover:-translate-x-1">
+                <span
+                  aria-hidden
+                  className="transition-transform duration-300 group-hover:-translate-x-1"
+                >
                   &larr;
                 </span>
                 Back to the orb
@@ -186,14 +186,14 @@ function EntryButton({ label, onClick }: { label: string; onClick: () => void })
 function Interior({ section }: { section: Exclude<DiveSection, null> }) {
   if (section === 'about') {
     return (
-      <div className="max-w-2xl text-center">
-        <p className="font-mono text-[11px] uppercase tracking-[0.32em] text-white/50">
+      <div className="max-w-2xl text-center [text-shadow:0_2px_30px_rgba(0,0,0,0.85)]">
+        <p className="font-mono text-[11px] uppercase tracking-[0.32em] text-white/55">
           01 · About
         </p>
         <h2 className="mt-5 font-serif text-[clamp(2rem,5vw,3.5rem)] leading-[1.05] tracking-tight text-ink">
           The person behind the build.
         </h2>
-        <p className="mx-auto mt-6 max-w-xl font-sans text-base leading-relaxed text-white/70 sm:text-lg">
+        <p className="mx-auto mt-6 max-w-xl font-sans text-base leading-relaxed text-white/75 sm:text-lg">
           You&rsquo;ve flown into the core. This is where the story lives &mdash;
           who I am, how I think, and why I chase the hard problems. Real content
           materialises here next.
@@ -202,14 +202,14 @@ function Interior({ section }: { section: Exclude<DiveSection, null> }) {
     );
   }
   return (
-    <div className="max-w-3xl text-center">
-      <p className="font-mono text-[11px] uppercase tracking-[0.32em] text-white/50">
+    <div className="max-w-3xl text-center [text-shadow:0_2px_30px_rgba(0,0,0,0.85)]">
+      <p className="font-mono text-[11px] uppercase tracking-[0.32em] text-white/55">
         02 · Projects
       </p>
       <h2 className="mt-5 font-serif text-[clamp(2rem,5vw,3.5rem)] leading-[1.05] tracking-tight text-ink">
         Selected work, in orbit.
       </h2>
-      <p className="mx-auto mt-6 max-w-xl font-sans text-base leading-relaxed text-white/70 sm:text-lg">
+      <p className="mx-auto mt-6 max-w-xl font-sans text-base leading-relaxed text-white/75 sm:text-lg">
         Out here along the orbits is where the projects live. The case studies
         are materialising &mdash; each one will sit on its own orbit you can
         travel to.

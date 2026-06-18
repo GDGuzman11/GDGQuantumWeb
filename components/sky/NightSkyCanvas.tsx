@@ -278,7 +278,7 @@ function makeMaterial(): THREE.ShaderMaterial {
 
 type SkyProps = { animate: boolean };
 
-function Sky({ animate }: SkyProps) {
+export function Sky({ animate }: SkyProps) {
   const { gl } = useThree();
   const group = useRef<THREE.Group>(null);
 

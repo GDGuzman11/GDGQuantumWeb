@@ -137,7 +137,7 @@ function makeGlowTexture(): CanvasTexture {
 }
 
 /** The R3F scene contents — the orb itself. Animates autonomously. */
-function OrbScene() {
+export function OrbScene() {
   const glowTex = useMemo(makeGlowTexture, []);
 
   // --- White outline geometry for one fractured halo ------------------------

@@ -1,26 +1,24 @@
-import { NightSky } from '@/components/sky/NightSky';
+import { OrbWorld } from '@/components/world/OrbWorld';
 import { Hero } from '@/components/home/Hero';
 import { SocialLinks } from '@/components/home/SocialLinks';
 
 /**
  * GDG site — REBUILD (started 2026-06-13).
  *
- * The previous cinematic snap-deck frontend (preloader, GSAP Observer deck,
- * particle tunnel, Projects showcase, Contact panel) has been retired from the
- * page; the rebuild starts from a clean black night sky. The backend + security
- * (contact Server Action, Prisma, email, CSP/headers) remain intact for re-wiring
- * as the new design takes shape.
- *
- * Landing = a calm, sparkling night sky with faint, randomly-shaped distant
- * galaxies (components/sky/NightSky), the Helix "Ethereal Halo" logo, and an
- * intro statement that doubles as the opening / About (components/home/Intro).
+ * One full-screen WebGL world (stars + galaxies + the Helix orb) sits behind a
+ * DOM hero. Choosing About/Projects flies the single camera INTO the orb so the
+ * whole screen becomes its interior (components/world + components/home/Hero).
+ * The backend + security (contact Server Action, Prisma, email, CSP/headers)
+ * remain intact for re-wiring as the design grows.
  */
 export default function Home() {
   return (
     <main id="content" className="relative min-h-[100svh] w-full bg-black">
-      <NightSky />
+      {/* Full-screen world: night sky + Helix orb, one camera you fly into. */}
+      <OrbWorld />
 
-      <section className="relative z-10 mx-auto flex min-h-[100svh] max-w-3xl items-center justify-center px-6 py-20 text-center">
+      {/* Hero copy + entry points, anchored low so the orb reads above it. */}
+      <section className="relative z-10 flex min-h-[100svh] flex-col items-center justify-end px-6 pb-[16vh] text-center sm:pb-[14vh]">
         <Hero />
       </section>
 
