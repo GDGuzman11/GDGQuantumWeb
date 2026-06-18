@@ -1,5 +1,6 @@
 import { NightSky } from '@/components/sky/NightSky';
 import { HelixMark } from '@/components/helix/HelixMark';
+import { HeroStage } from '@/components/home/HeroStage';
 import { Intro } from '@/components/home/Intro';
 import { SocialLinks } from '@/components/home/SocialLinks';
 
@@ -21,9 +22,11 @@ export default function Home() {
     <main id="content" className="relative min-h-[100svh] w-full bg-black">
       <NightSky />
 
-      <section className="relative z-10 mx-auto flex min-h-[100svh] max-w-3xl flex-col items-center justify-center gap-6 px-6 py-20 text-center sm:gap-8">
-        <HelixMark />
-        <Intro />
+      <section className="relative z-10 mx-auto flex min-h-[100svh] max-w-3xl items-center justify-center px-6 py-20 text-center">
+        <HeroStage className="flex flex-col items-center gap-6 sm:gap-8">
+          <HelixMark />
+          <Intro />
+        </HeroStage>
       </section>
 
       {/* Social marks pinned bottom-centre (safe-area aware). */}

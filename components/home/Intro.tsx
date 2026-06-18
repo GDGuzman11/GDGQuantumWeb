@@ -24,21 +24,39 @@ export function Intro() {
         }}
       />
 
-      <h1
-        className="font-serif text-[clamp(2rem,6vw,4.25rem)] leading-[1.02] tracking-tight text-ink [text-shadow:0_2px_40px_rgba(0,0,0,0.65),0_0_26px_rgba(126,223,255,0.22)]"
-        style={{ animation: 'gdg-holo-in 1.25s ease-out 0.45s both' }}
-      >
-        Let&rsquo;s build something that didn&rsquo;t exist this morning.
-      </h1>
+      {/* Text group — relative so the drifting scanline sweeps through it. */}
+      <div className="relative">
+        {/* Living scanline — drifts down through the header every few seconds. */}
+        <div
+          aria-hidden
+          className="pointer-events-none absolute left-0 right-0 h-px"
+          style={{
+            background:
+              'linear-gradient(90deg, transparent, rgba(126,223,255,0.6), transparent)',
+            filter: 'blur(0.5px)',
+            animation: 'gdg-holo-scan 7s linear 2.6s infinite',
+          }}
+        />
 
-      <p
-        className="mx-auto mt-6 max-w-xl font-sans text-base leading-relaxed text-muted [text-shadow:0_1px_24px_rgba(0,0,0,0.7)] sm:text-lg"
-        style={{ animation: 'gdg-holo-in 1.25s ease-out 0.95s both' }}
-      >
-        I&rsquo;m a developer chasing the hard problems &mdash; I want to know how
-        everything works, then use it to build things that feel impossible. Got
-        one of those? Let&rsquo;s talk.
-      </p>
+        <h1
+          className="font-serif text-[clamp(2rem,6vw,4.25rem)] leading-[1.02] tracking-tight text-ink [text-shadow:0_2px_40px_rgba(0,0,0,0.65),0_0_22px_rgba(126,223,255,0.22)]"
+          style={{
+            animation:
+              'gdg-holo-in 1.25s ease-out 0.45s both, gdg-holo-live 6s ease-in-out 2.2s infinite',
+          }}
+        >
+          Let&rsquo;s build something that didn&rsquo;t exist this morning.
+        </h1>
+
+        <p
+          className="mx-auto mt-6 max-w-xl font-sans text-base leading-relaxed text-muted [text-shadow:0_1px_24px_rgba(0,0,0,0.7)] sm:text-lg"
+          style={{ animation: 'gdg-holo-in 1.25s ease-out 0.95s both' }}
+        >
+          I&rsquo;m a developer chasing the hard problems &mdash; I want to know
+          how everything works, then use it to build things that feel
+          impossible. Got one of those? Let&rsquo;s talk.
+        </p>
+      </div>
     </div>
   );
 }
