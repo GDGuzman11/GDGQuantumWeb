@@ -151,7 +151,12 @@ export function Hero() {
                     ? 'Projects'
                     : 'Contact'
               }
-              className="fixed inset-0 z-[80] flex items-center justify-center overflow-y-auto bg-[rgba(3,4,9,0.55)] px-6 py-20 backdrop-blur-md"
+              className={[
+                'fixed inset-0 z-[80] flex items-center justify-center overflow-y-auto bg-[rgba(3,4,9,0.55)] px-6 py-20',
+                // Keep the singularity crisp behind Contact; soften the busier
+                // core/quantum backdrops behind About/Projects for legibility.
+                section === 'contact' ? '' : 'backdrop-blur-md',
+              ].join(' ')}
               style={{ opacity: 0 }}
             >
               <button
