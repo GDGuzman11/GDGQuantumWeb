@@ -28,17 +28,16 @@ export function Intro() {
         className="font-serif text-[clamp(2rem,6vw,4.25rem)] leading-[1.02] tracking-tight text-ink [text-shadow:0_2px_40px_rgba(0,0,0,0.65),0_0_26px_rgba(126,223,255,0.22)]"
         style={{ animation: 'gdg-holo-in 1.25s ease-out 0.45s both' }}
       >
-        I build what doesn&rsquo;t exist yet.
+        Let&rsquo;s build something that didn&rsquo;t exist this morning.
       </h1>
 
       <p
         className="mx-auto mt-6 max-w-xl font-sans text-base leading-relaxed text-muted [text-shadow:0_1px_24px_rgba(0,0,0,0.7)] sm:text-lg"
         style={{ animation: 'gdg-holo-in 1.25s ease-out 0.95s both' }}
       >
-        A developer drawn to hard problems &mdash; I push what software can do,
-        learn exactly how it works underneath, and turn that into something real
-        for the people I build for. If it hasn&rsquo;t been done yet, that&rsquo;s
-        the part I like.
+        I&rsquo;m a developer chasing the hard problems &mdash; I want to know how
+        everything works, then use it to build things that feel impossible. Got
+        one of those? Let&rsquo;s talk.
       </p>
     </div>
   );
