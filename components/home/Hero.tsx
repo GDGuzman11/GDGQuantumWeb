@@ -64,6 +64,9 @@ export function Hero() {
   const enter = useCallback(
     (s: Exclude<DiveSection, null>) => {
       setSection(s);
+      // about + contact settle at the core (depth 1); projects plunges to the
+      // quantum field (depth 2). Contact's bespoke behaviour is still TBD —
+      // this is a placeholder dive so the button works.
       const to = s === 'projects' ? 2 : 1;
       if (reducedMotion()) {
         depthRef.current = to;
@@ -126,6 +129,7 @@ export function Hero() {
         <div className="mt-10 flex items-center justify-center gap-8">
           <PrimaryLink label="About" onClick={() => enter('about')} />
           <PrimaryLink label="Projects" onClick={() => enter('projects')} />
+          <PrimaryLink label="Contact" onClick={() => enter('contact')} />
         </div>
       </div>
 
@@ -135,7 +139,13 @@ export function Hero() {
               ref={overlayRef}
               role="dialog"
               aria-modal="true"
-              aria-label={section === 'about' ? 'About' : 'Projects'}
+              aria-label={
+                section === 'about'
+                  ? 'About'
+                  : section === 'projects'
+                    ? 'Projects'
+                    : 'Contact'
+              }
               className="fixed inset-0 z-[80] flex items-center justify-center overflow-y-auto bg-[rgba(3,4,9,0.55)] px-6 py-20 backdrop-blur-md"
               style={{ opacity: 0 }}
             >
@@ -215,6 +225,24 @@ function Interior({
       </div>
     );
   }
+
+  if (section === 'contact') {
+    return (
+      <div className="max-w-2xl text-center [text-shadow:0_2px_30px_rgba(0,0,0,0.85)]">
+        <p className="font-mono text-[11px] uppercase tracking-[0.32em] text-white/55">
+          03 · Contact
+        </p>
+        <h2 className="mt-5 font-serif text-[clamp(2rem,5vw,3.5rem)] leading-[1.05] tracking-tight text-ink">
+          Let&rsquo;s build something together.
+        </h2>
+        <p className="mx-auto mt-6 max-w-xl font-sans text-base leading-relaxed text-white/75 sm:text-lg">
+          Got a hard problem in mind? The way to reach me &mdash; the form and
+          the links &mdash; materialises here next.
+        </p>
+      </div>
+    );
+  }
+
   return (
     <div className="max-w-3xl text-center [text-shadow:0_2px_30px_rgba(0,0,0,0.85)]">
       <p className="font-mono text-[11px] uppercase tracking-[0.32em] text-white/55">

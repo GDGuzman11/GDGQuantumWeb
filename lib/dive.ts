@@ -10,7 +10,7 @@
  *   1 = the core            → "About" (the story chamber)
  *   2 = the quantum field   → "Projects" (deeper, past the core)
  */
-export type DiveSection = 'about' | 'projects' | null;
+export type DiveSection = 'about' | 'projects' | 'contact' | null;
 
 let depth = 0;
 
