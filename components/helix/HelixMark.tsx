@@ -11,10 +11,15 @@ import dynamic from 'next/dynamic';
  */
 const HelixLogo = dynamic(() => import('./HelixLogo'), { ssr: false });
 
-export function HelixMark() {
+export function HelixMark({ className }: { className?: string }) {
   return (
-    <div className="pointer-events-none absolute inset-0 z-10 flex items-center justify-center">
-      <HelixLogo className="h-[min(72vmin,560px)] w-[min(72vmin,560px)]" />
+    <div
+      className={[
+        'pointer-events-none aspect-square w-[min(46vmin,400px)]',
+        className ?? '',
+      ].join(' ')}
+    >
+      <HelixLogo className="h-full w-full" />
     </div>
   );
 }

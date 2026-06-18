@@ -1,5 +1,6 @@
 import { NightSky } from '@/components/sky/NightSky';
 import { HelixMark } from '@/components/helix/HelixMark';
+import { Intro } from '@/components/home/Intro';
 
 /**
  * GDG site — REBUILD (started 2026-06-13).
@@ -10,18 +11,19 @@ import { HelixMark } from '@/components/helix/HelixMark';
  * (contact Server Action, Prisma, email, CSP/headers) remain intact for re-wiring
  * as the new design takes shape.
  *
- * Step 1: a calm, sparkling night sky with faint, randomly-shaped distant
- * galaxies (see components/sky/NightSky), with the Helix "Ethereal Halo" logo
- * centered over it (components/helix/HelixMark).
+ * Landing = a calm, sparkling night sky with faint, randomly-shaped distant
+ * galaxies (components/sky/NightSky), the Helix "Ethereal Halo" logo, and an
+ * intro statement that doubles as the opening / About (components/home/Intro).
  */
 export default function Home() {
   return (
-    <main
-      id="content"
-      className="relative h-[100svh] w-full overflow-hidden bg-black"
-    >
+    <main id="content" className="relative min-h-[100svh] w-full bg-black">
       <NightSky />
-      <HelixMark />
+
+      <section className="relative z-10 mx-auto flex min-h-[100svh] max-w-3xl flex-col items-center justify-center gap-6 px-6 py-20 text-center sm:gap-8">
+        <HelixMark />
+        <Intro />
+      </section>
     </main>
   );
 }
