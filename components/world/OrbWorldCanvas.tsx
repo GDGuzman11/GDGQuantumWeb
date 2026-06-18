@@ -1,7 +1,9 @@
 'use client';
 
 import { Canvas, useFrame, useThree } from '@react-three/fiber';
+import { Bloom, EffectComposer } from '@react-three/postprocessing';
 import { Sky } from '@/components/sky/NightSkyCanvas';
+import { Lens } from '@/components/world/LensEffect';
 import { OrbScene } from '@/components/helix/HelixLogo';
 import { QuantumField } from '@/components/world/QuantumField';
 import { Singularity } from '@/components/world/Singularity';
@@ -93,6 +95,19 @@ export default function OrbWorldCanvas({ animate = true }: { animate?: boolean }
       <group position={[0, ORB_Y, 0]}>
         <Singularity />
       </group>
+
+      {/* Cinematic post: bloom (everything bright blazes) + gravitational
+          lensing that warps the frame around the black hole on the Contact leg. */}
+      <EffectComposer>
+        <Lens />
+        <Bloom
+          intensity={1.05}
+          luminanceThreshold={0.2}
+          luminanceSmoothing={0.7}
+          mipmapBlur
+          radius={0.7}
+        />
+      </EffectComposer>
     </Canvas>
   );
 }

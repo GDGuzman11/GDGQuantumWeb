@@ -2,9 +2,16 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
+import dynamic from 'next/dynamic';
 import { Intro } from '@/components/home/Intro';
-import { ContactFormLazy } from '@/components/sections/ContactFormLazy';
 import { setDepth, type DiveSection } from '@/lib/dive';
+
+// Code-split: the form (RHF + Zod + Turnstile + server action graph) loads only
+// when the Contact singularity is opened, never on first paint.
+const TransmitForm = dynamic(
+  () => import('@/components/home/TransmitForm').then((m) => m.TransmitForm),
+  { ssr: false },
+);
 
 /**
  * Enter-the-orb hero controller.
@@ -263,7 +270,7 @@ function Interior({
         </div>
 
         {/* The real pipeline: persists + emails (security gate intact). */}
-        <ContactFormLazy />
+        <TransmitForm />
 
         <div className="mt-10 text-center">
           <PrimaryLink
