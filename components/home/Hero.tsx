@@ -10,11 +10,14 @@ import { setDepth, type DiveSection } from '@/lib/dive';
  *
  * The orb lives in the full-screen world canvas; this is the DOM overlay (intro
  * copy + entry points) plus the tween that drives the shared dive DEPTH:
- *   0 = rest · 1 = the core (About) · 2 = the quantum field (Projects).
- * Because it's one continuous scalar, About → Projects animates smoothly as a
- * deeper plunge — that's the "Continue to Projects" action inside About.
+ *   0 = rest · 1 = the core (About / Contact) · 2 = the quantum field (Projects).
+ * One continuous scalar, so ANY leg animates smoothly — landing→section AND
+ * section→section (About→Projects, Projects→About/Contact).
  *
- * Reduced-motion: no flight — entering/continuing/leaving jumps instantly.
+ * Contact's bespoke behaviour is still TBD; for now it settles at the core
+ * (depth 1) as a placeholder.
+ *
+ * Reduced-motion: no flight — navigation jumps instantly.
  */
 
 function reducedMotion(): boolean {
@@ -26,6 +29,11 @@ function reducedMotion(): boolean {
 
 function easeInOutCubic(k: number): number {
   return k < 0.5 ? 4 * k * k * k : 1 - Math.pow(-2 * k + 2, 3) / 2;
+}
+
+/** Target dive depth per destination. */
+function depthOf(s: Exclude<DiveSection, null>): number {
+  return s === 'projects' ? 2 : 1; // about + contact → core (placeholder for contact)
 }
 
 export function Hero() {
@@ -61,33 +69,22 @@ export function Hero() {
     [applyOpacities],
   );
 
-  const enter = useCallback(
+  /** Go to any section from anywhere (landing or another interior). */
+  const navigate = useCallback(
     (s: Exclude<DiveSection, null>) => {
       setSection(s);
-      // about + contact settle at the core (depth 1); projects plunges to the
-      // quantum field (depth 2). Contact's bespoke behaviour is still TBD —
-      // this is a placeholder dive so the button works.
-      const to = s === 'projects' ? 2 : 1;
+      const to = depthOf(s);
       if (reducedMotion()) {
         depthRef.current = to;
         setDepth(to);
         requestAnimationFrame(() => applyOpacities(to));
         return;
       }
-      animateDepth(to, s === 'projects' ? 2400 : 1600);
+      const dist = Math.abs(to - depthRef.current);
+      animateDepth(to, 700 + dist * 700);
     },
     [animateDepth, applyOpacities],
   );
-
-  const continueToProjects = useCallback(() => {
-    setSection('projects');
-    if (reducedMotion()) {
-      depthRef.current = 2;
-      setDepth(2);
-      return;
-    }
-    animateDepth(2, 1300);
-  }, [animateDepth]);
 
   const back = useCallback(() => {
     const finish = () => {
@@ -127,9 +124,9 @@ export function Hero() {
       <div ref={fadeRef}>
         <Intro />
         <div className="mt-10 flex items-center justify-center gap-8">
-          <PrimaryLink label="About" onClick={() => enter('about')} />
-          <PrimaryLink label="Projects" onClick={() => enter('projects')} />
-          <PrimaryLink label="Contact" onClick={() => enter('contact')} />
+          <PrimaryLink label="About" onClick={() => navigate('about')} />
+          <PrimaryLink label="Projects" onClick={() => navigate('projects')} />
+          <PrimaryLink label="Contact" onClick={() => navigate('contact')} />
         </div>
       </div>
 
@@ -163,9 +160,9 @@ export function Hero() {
                 Back to the orb
               </button>
 
-              {/* Keyed so the content re-materialises when About → Projects. */}
+              {/* Keyed so the content re-materialises when the section changes. */}
               <div key={section} style={{ animation: 'gdg-holo-in 0.7s ease-out both' }}>
-                <Interior section={section} onContinue={continueToProjects} />
+                <Interior section={section} onNavigate={navigate} />
               </div>
             </div>,
             document.body,
@@ -175,23 +172,41 @@ export function Hero() {
   );
 }
 
-function PrimaryLink({ label, onClick }: { label: string; onClick: () => void }) {
+function PrimaryLink({
+  label,
+  onClick,
+  direction = 'right',
+}: {
+  label: string;
+  onClick: () => void;
+  direction?: 'left' | 'right';
+}) {
   return (
     <button
       type="button"
       onClick={onClick}
-      className="group relative font-sans text-xs uppercase tracking-[0.28em] text-white/75 transition-colors duration-300 hover:text-white focus:outline-none focus-visible:text-white"
+      className="group relative inline-flex items-center gap-2 font-sans text-xs uppercase tracking-[0.28em] text-white/75 transition-colors duration-300 hover:text-white focus:outline-none focus-visible:text-white"
     >
+      {direction === 'left' ? (
+        <span
+          aria-hidden
+          className="inline-block transition-transform duration-300 group-hover:-translate-x-1"
+        >
+          &larr;
+        </span>
+      ) : null}
       <span>{label}</span>
+      {direction === 'right' ? (
+        <span
+          aria-hidden
+          className="inline-block transition-transform duration-300 group-hover:translate-x-1"
+        >
+          &rarr;
+        </span>
+      ) : null}
       <span
         aria-hidden
-        className="ml-2 inline-block transition-transform duration-300 group-hover:translate-x-1"
-      >
-        &rarr;
-      </span>
-      <span
-        aria-hidden
-        className="absolute -bottom-1 left-0 h-px w-0 bg-white/60 transition-all duration-300 group-hover:w-[calc(100%-1.25rem)]"
+        className="absolute -bottom-1 left-0 h-px w-0 bg-white/60 transition-all duration-300 group-hover:w-full"
       />
     </button>
   );
@@ -200,10 +215,10 @@ function PrimaryLink({ label, onClick }: { label: string; onClick: () => void })
 /** Placeholder interior worlds (content lands in later stages). */
 function Interior({
   section,
-  onContinue,
+  onNavigate,
 }: {
   section: Exclude<DiveSection, null>;
-  onContinue: () => void;
+  onNavigate: (s: Exclude<DiveSection, null>) => void;
 }) {
   if (section === 'about') {
     return (
@@ -220,7 +235,7 @@ function Interior({
           materialises here next.
         </p>
         <div className="mt-10">
-          <PrimaryLink label="Go deeper · Projects" onClick={onContinue} />
+          <PrimaryLink label="Go deeper · Projects" onClick={() => onNavigate('projects')} />
         </div>
       </div>
     );
@@ -243,6 +258,7 @@ function Interior({
     );
   }
 
+  // Projects
   return (
     <div className="max-w-3xl text-center [text-shadow:0_2px_30px_rgba(0,0,0,0.85)]">
       <p className="font-mono text-[11px] uppercase tracking-[0.32em] text-white/55">
@@ -256,6 +272,10 @@ function Interior({
         smallest scale, where everything is built from first principles. The
         case studies are materialising here.
       </p>
+      <div className="mt-10 flex items-center justify-center gap-10">
+        <PrimaryLink label="Back to About" direction="left" onClick={() => onNavigate('about')} />
+        <PrimaryLink label="Continue to Contact" onClick={() => onNavigate('contact')} />
+      </div>
     </div>
   );
 }
