@@ -25,6 +25,7 @@ const PROJECTS_Z = 15; // pulled back into the orbital field
 // The orb sits HIGH in the scene so it reads above the (bottom-anchored) hero
 // copy at rest; the camera rises to meet it as the dive flies in.
 const ORB_Y = 2.4;
+const ORB_SCALE = 1.7; // 0.7× bigger than the base orb
 
 function easeInOutCubic(k: number): number {
   return k < 0.5 ? 4 * k * k * k : 1 - Math.pow(-2 * k + 2, 3) / 2;
@@ -63,7 +64,7 @@ export default function OrbWorldCanvas({ animate = true }: { animate?: boolean }
     >
       <CameraRig />
       <Sky animate={animate} />
-      <group position={[0, ORB_Y, 0]}>
+      <group position={[0, ORB_Y, 0]} scale={ORB_SCALE}>
         <OrbScene />
       </group>
     </Canvas>
