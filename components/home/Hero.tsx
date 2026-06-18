@@ -207,12 +207,12 @@ function Interior({ section }: { section: Exclude<DiveSection, null> }) {
         02 · Projects
       </p>
       <h2 className="mt-5 font-serif text-[clamp(2rem,5vw,3.5rem)] leading-[1.05] tracking-tight text-ink">
-        Selected work, in orbit.
+        Down at the quantum level.
       </h2>
       <p className="mx-auto mt-6 max-w-xl font-sans text-base leading-relaxed text-white/75 sm:text-lg">
-        Out here along the orbits is where the projects live. The case studies
-        are materialising &mdash; each one will sit on its own orbit you can
-        travel to.
+        You&rsquo;ve fallen past the core into the quantum field &mdash; the
+        smallest scale, where everything is built from first principles. The
+        case studies are materialising here.
       </p>
     </div>
   );

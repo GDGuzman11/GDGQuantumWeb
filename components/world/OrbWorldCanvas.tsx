@@ -3,6 +3,7 @@
 import { Canvas, useFrame, useThree } from '@react-three/fiber';
 import { Sky } from '@/components/sky/NightSkyCanvas';
 import { OrbScene } from '@/components/helix/HelixLogo';
+import { QuantumField } from '@/components/world/QuantumField';
 import { getDive } from '@/lib/dive';
 
 /**
@@ -20,8 +21,8 @@ import { getDive } from '@/lib/dive';
  */
 
 const REST_Z = 10.5;
-const ABOUT_Z = 0.4; // deep inside the orb
-const PROJECTS_Z = 15; // pulled back into the orbital field
+const ABOUT_Z = 0.9; // arrives AT the core (the story chamber)
+const PROJECTS_Z = 0.12; // plunges PAST the core, down to the quantum field
 // The orb sits HIGH in the scene so it reads above the (bottom-anchored) hero
 // copy at rest; the camera rises to meet it as the dive flies in.
 const ORB_Y = 2.4;
@@ -66,6 +67,7 @@ export default function OrbWorldCanvas({ animate = true }: { animate?: boolean }
       <Sky animate={animate} />
       <group position={[0, ORB_Y, 0]} scale={ORB_SCALE}>
         <OrbScene />
+        <QuantumField />
       </group>
     </Canvas>
   );
