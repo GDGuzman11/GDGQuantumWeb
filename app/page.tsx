@@ -1,6 +1,7 @@
 import { NightSky } from '@/components/sky/NightSky';
 import { HelixMark } from '@/components/helix/HelixMark';
 import { Intro } from '@/components/home/Intro';
+import { SocialLinks } from '@/components/home/SocialLinks';
 
 /**
  * GDG site — REBUILD (started 2026-06-13).
@@ -24,6 +25,14 @@ export default function Home() {
         <HelixMark />
         <Intro />
       </section>
+
+      {/* Social marks pinned bottom-centre (safe-area aware). */}
+      <footer
+        className="pointer-events-none absolute inset-x-0 bottom-0 z-10 flex justify-center"
+        style={{ paddingBottom: 'max(2rem, env(safe-area-inset-bottom))' }}
+      >
+        <SocialLinks />
+      </footer>
     </main>
   );
 }
