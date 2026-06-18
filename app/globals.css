@@ -268,3 +268,26 @@
     opacity: 1;
   }
 }
+
+/* AI terminal glitch (Contact / HELIX line) — an occasional flicker + micro-
+   shift, like a transmission catching. Reduced-motion collapses it. */
+@keyframes gdg-glitch {
+  0%,
+  90%,
+  100% {
+    opacity: 1;
+    transform: translateX(0);
+  }
+  91% {
+    opacity: 0.35;
+    transform: translateX(-1px);
+  }
+  93% {
+    opacity: 1;
+    transform: translateX(1px);
+  }
+  95% {
+    opacity: 0.6;
+    transform: translateX(0);
+  }
+}

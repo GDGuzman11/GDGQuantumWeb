@@ -24,7 +24,8 @@ import { getDepth } from '@/lib/dive';
 const REST_Z = 10.5;
 const ABOUT_Z = 0.9; // arrives AT the core (the story chamber)
 const PROJECTS_Z = 0.12; // plunges PAST the core, down to the quantum field
-const SINGULARITY_Z = 0.04; // the very bottom — the singularity (Contact)
+const SINGULARITY_Z = 6; // pull BACK to a cinematic vantage to behold the black hole
+const DRIFT = 1.4; // amplitude of the slow orbital camera sway at the singularity
 // The orb sits HIGH in the scene so it reads above the (bottom-anchored) hero
 // copy at rest; the camera rises to meet it as the dive flies in.
 const ORB_Y = 2.4;
@@ -36,23 +37,26 @@ function easeInOutCubic(k: number): number {
 
 function CameraRig() {
   const camera = useThree((s) => s.camera);
-  useFrame(() => {
+  useFrame((state) => {
     const d = getDepth();
     if (d <= 1) {
       // rest → core (and rise to meet the orb)
       const e = easeInOutCubic(Math.min(1, Math.max(0, d)));
-      camera.position.z = REST_Z + (ABOUT_Z - REST_Z) * e;
-      camera.position.y = ORB_Y * e;
+      camera.position.set(0, ORB_Y * e, REST_Z + (ABOUT_Z - REST_Z) * e);
+      camera.rotation.set(0, 0, 0); // look straight down -z
     } else if (d <= 2) {
-      // core → quantum (continue the plunge, already at the orb's height)
+      // core → quantum (continue the plunge)
       const e = easeInOutCubic(Math.min(1, d - 1));
-      camera.position.z = ABOUT_Z + (PROJECTS_Z - ABOUT_Z) * e;
-      camera.position.y = ORB_Y;
+      camera.position.set(0, ORB_Y, ABOUT_Z + (PROJECTS_Z - ABOUT_Z) * e);
+      camera.rotation.set(0, 0, 0);
     } else {
-      // quantum → singularity (the final collapse)
+      // quantum → singularity: pull BACK to behold the black hole, then slowly
+      // orbit it (the cinematic hero shot), always framed on centre.
       const e = easeInOutCubic(Math.min(1, d - 2));
-      camera.position.z = PROJECTS_Z + (SINGULARITY_Z - PROJECTS_Z) * e;
-      camera.position.y = ORB_Y;
+      const z = PROJECTS_Z + (SINGULARITY_Z - PROJECTS_Z) * e;
+      const ang = state.clock.elapsedTime * 0.12;
+      camera.position.set(Math.sin(ang) * DRIFT * e, ORB_Y + 0.4 * e, z);
+      camera.lookAt(0, ORB_Y, 0);
     }
   });
   return null;
@@ -82,6 +86,11 @@ export default function OrbWorldCanvas({ animate = true }: { animate?: boolean }
       <group position={[0, ORB_Y, 0]} scale={ORB_SCALE}>
         <OrbScene />
         <QuantumField />
+      </group>
+
+      {/* Singularity in its own (unscaled) group — framed for the pulled-back
+          cinematic Contact camera. */}
+      <group position={[0, ORB_Y, 0]}>
         <Singularity />
       </group>
     </Canvas>

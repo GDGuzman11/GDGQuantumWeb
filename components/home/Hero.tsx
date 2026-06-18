@@ -252,7 +252,10 @@ function Interior({
           <h2 className="mt-5 font-serif text-[clamp(1.9rem,5vw,3.25rem)] leading-[1.05] tracking-tight text-ink">
             Transmit through the singularity.
           </h2>
-          <p className="mx-auto mt-5 max-w-md font-mono text-xs leading-relaxed text-[#9fb4d8]">
+          <p
+            className="mx-auto mt-5 max-w-md font-mono text-xs leading-relaxed text-[#9fb4d8]"
+            style={{ animation: 'gdg-glitch 5s linear infinite' }}
+          >
             <span className="text-white/85">&gt; HELIX</span> online at the event
             horizon. Whatever you send collapses to a point &mdash; and reaches
             me on the other side.
