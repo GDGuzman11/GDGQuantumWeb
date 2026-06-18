@@ -211,24 +211,10 @@
 }
 
 
-/* Hologram projection entrance (landing intro). A light ray from the Helix core
-   shoots down and "draws" the headline + statement into being: each line
-   materialises out of a blur with a couple of quick flickers, like a projector
-   catching. The global prefers-reduced-motion guard collapses these to ~0s, so
-   reduced-motion users simply see the final text (no beam, no flicker). */
-@keyframes gdg-holo-beam {
-  0% {
-    transform: scaleY(0);
-    opacity: 0;
-  }
-  55% {
-    opacity: 0.85;
-  }
-  100% {
-    transform: scaleY(1);
-    opacity: 0.4;
-  }
-}
+/* Hologram entrance (landing intro). Each line materialises out of a blur with
+   a couple of quick flickers, like a projector catching. The global
+   prefers-reduced-motion guard collapses these to ~0s, so reduced-motion users
+   simply see the final text (no flicker). */
 @keyframes gdg-holo-in {
   0% {
     opacity: 0;
