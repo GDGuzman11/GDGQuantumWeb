@@ -151,12 +151,7 @@ export function Hero() {
                     ? 'Projects'
                     : 'Contact'
               }
-              className={[
-                'fixed inset-0 z-[80] flex items-center justify-center overflow-y-auto bg-[rgba(3,4,9,0.55)] px-6 py-20',
-                // Keep the singularity crisp behind Contact; soften the busier
-                // core/quantum backdrops behind About/Projects for legibility.
-                section === 'contact' ? '' : 'backdrop-blur-md',
-              ].join(' ')}
+              className="fixed inset-0 z-[80] flex items-center justify-center overflow-y-auto bg-[rgba(3,4,9,0.55)] px-6 py-20 backdrop-blur-md"
               style={{ opacity: 0 }}
             >
               <button
@@ -256,28 +251,18 @@ function Interior({
 
   if (section === 'contact') {
     return (
-      <div className="w-full max-w-lg [text-shadow:0_2px_30px_rgba(0,0,0,0.9)]">
-        <div className="text-center">
-          <p className="font-mono text-[11px] uppercase tracking-[0.32em] text-white/55">
+      <div className="w-full max-w-lg">
+        {/* Dark glass console — contrasts the blazing singularity behind it while
+            staying in the cosmic theme. */}
+        <div className="rounded-2xl border border-white/12 bg-[rgba(6,8,14,0.62)] p-6 shadow-[0_20px_70px_-25px_rgba(0,0,0,0.95)] sm:p-8">
+          <p className="text-center font-mono text-[11px] uppercase tracking-[0.32em] text-white/55">
             &infin; · Contact · Singularity
           </p>
-          <h2 className="mt-5 font-serif text-[clamp(1.9rem,5vw,3.25rem)] leading-[1.05] tracking-tight text-ink">
-            Transmit through the singularity.
-          </h2>
-          <p
-            className="mx-auto mt-5 max-w-md font-mono text-xs leading-relaxed text-[#9fb4d8]"
-            style={{ animation: 'gdg-glitch 5s linear infinite' }}
-          >
-            <span className="text-white/85">&gt; HELIX</span> online at the event
-            horizon. Whatever you send collapses to a point &mdash; and reaches
-            me on the other side.
-          </p>
+          {/* The real pipeline: persists + emails (security gate intact). */}
+          <TransmitForm />
         </div>
 
-        {/* The real pipeline: persists + emails (security gate intact). */}
-        <TransmitForm />
-
-        <div className="mt-10 text-center">
+        <div className="mt-8 text-center">
           <PrimaryLink
             label="Back to Projects"
             direction="left"
