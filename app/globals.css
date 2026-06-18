@@ -241,8 +241,8 @@
 }
 
 /* Living hologram (landing header) — once projected, the headline stays "on":
-   its cyan glow breathes and it flickers now and then, like a sustained
-   projection. Paired with a drifting scanline. Reduced-motion collapses both. */
+   its glow breathes and it flickers now and then, like a sustained projection.
+   Reduced-motion collapses it. */
 @keyframes gdg-holo-live {
   0%,
   100% {
@@ -266,21 +266,5 @@
   }
   96.5% {
     opacity: 1;
-  }
-}
-@keyframes gdg-holo-scan {
-  0% {
-    top: -6%;
-    opacity: 0;
-  }
-  10% {
-    opacity: 0.5;
-  }
-  90% {
-    opacity: 0.5;
-  }
-  100% {
-    top: 106%;
-    opacity: 0;
   }
 }
