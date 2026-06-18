@@ -19,9 +19,12 @@ import { getDive } from '@/lib/dive';
  * interior); "projects" pulls it OUT along the orbits.
  */
 
-const REST_Z = 9.5;
+const REST_Z = 10.5;
 const ABOUT_Z = 0.4; // deep inside the orb
 const PROJECTS_Z = 15; // pulled back into the orbital field
+// The orb sits HIGH in the scene so it reads above the (bottom-anchored) hero
+// copy at rest; the camera rises to meet it as the dive flies in.
+const ORB_Y = 2.4;
 
 function easeInOutCubic(k: number): number {
   return k < 0.5 ? 4 * k * k * k : 1 - Math.pow(-2 * k + 2, 3) / 2;
@@ -34,6 +37,7 @@ function CameraRig() {
     const e = easeInOutCubic(Math.min(1, Math.max(0, progress)));
     const toZ = section === 'projects' ? PROJECTS_Z : ABOUT_Z;
     camera.position.z = REST_Z + (toZ - REST_Z) * e;
+    camera.position.y = ORB_Y * e; // rest: camera at y0 (orb reads high); dive: rise into the orb
   });
   return null;
 }
@@ -59,7 +63,9 @@ export default function OrbWorldCanvas({ animate = true }: { animate?: boolean }
     >
       <CameraRig />
       <Sky animate={animate} />
-      <OrbScene />
+      <group position={[0, ORB_Y, 0]}>
+        <OrbScene />
+      </group>
     </Canvas>
   );
 }
