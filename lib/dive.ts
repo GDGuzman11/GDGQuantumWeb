@@ -1,25 +1,23 @@
 /**
- * Shared "dive" signal for the enter-the-orb navigation (Stage 1).
+ * Shared "dive depth" for the enter-the-orb navigation.
  *
- * A plain mutable singleton (NOT React state) read every frame by the Helix
- * scene's CameraRig, and written by the Hero controller's tween. This mirrors
- * the latched-scalar pattern used elsewhere for WebGL signals: the DOM drives a
- * value, the render loop reads it, and no React re-render happens per frame.
+ * A plain mutable singleton (NOT React state) read every frame by the world's
+ * CameraRig + QuantumField, written by the Hero controller's tween. One scalar
+ * along a continuous descent so ANY leg animates smoothly (including About →
+ * Projects):
  *
- * `progress` 0 = resting logo, 1 = fully inside. `section` decides the camera's
- * destination: 'about' dives INWARD to the core, 'projects' pulls OUTWARD along
- * the orbits.
+ *   0 = resting logo (camera back, orb among the stars)
+ *   1 = the core            → "About" (the story chamber)
+ *   2 = the quantum field   → "Projects" (deeper, past the core)
  */
 export type DiveSection = 'about' | 'projects' | null;
 
-let progress = 0;
-let section: DiveSection = null;
+let depth = 0;
 
-export function setDive(p: number, s: DiveSection): void {
-  progress = p;
-  section = s;
+export function setDepth(d: number): void {
+  depth = d;
 }
 
-export function getDive(): { progress: number; section: DiveSection } {
-  return { progress, section };
+export function getDepth(): number {
+  return depth;
 }

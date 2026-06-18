@@ -4,7 +4,7 @@ import { Canvas, useFrame, useThree } from '@react-three/fiber';
 import { Sky } from '@/components/sky/NightSkyCanvas';
 import { OrbScene } from '@/components/helix/HelixLogo';
 import { QuantumField } from '@/components/world/QuantumField';
-import { getDive } from '@/lib/dive';
+import { getDepth } from '@/lib/dive';
 
 /**
  * Unified full-screen world — the night sky AND the Helix orb in ONE R3F canvas
@@ -35,11 +35,18 @@ function easeInOutCubic(k: number): number {
 function CameraRig() {
   const camera = useThree((s) => s.camera);
   useFrame(() => {
-    const { progress, section } = getDive();
-    const e = easeInOutCubic(Math.min(1, Math.max(0, progress)));
-    const toZ = section === 'projects' ? PROJECTS_Z : ABOUT_Z;
-    camera.position.z = REST_Z + (toZ - REST_Z) * e;
-    camera.position.y = ORB_Y * e; // rest: camera at y0 (orb reads high); dive: rise into the orb
+    const d = getDepth();
+    if (d <= 1) {
+      // rest → core (and rise to meet the orb)
+      const e = easeInOutCubic(Math.min(1, Math.max(0, d)));
+      camera.position.z = REST_Z + (ABOUT_Z - REST_Z) * e;
+      camera.position.y = ORB_Y * e;
+    } else {
+      // core → quantum (continue the plunge, already at the orb's height)
+      const e = easeInOutCubic(Math.min(1, d - 1));
+      camera.position.z = ABOUT_Z + (PROJECTS_Z - ABOUT_Z) * e;
+      camera.position.y = ORB_Y;
+    }
   });
   return null;
 }

@@ -33,8 +33,7 @@
  */
 
 import { useMemo, useRef, type CSSProperties } from "react";
-import { Canvas, useFrame, useThree } from "@react-three/fiber";
-import { getDive } from "@/lib/dive";
+import { Canvas, useFrame } from "@react-three/fiber";
 import {
   AdditiveBlending,
   BufferGeometry,
@@ -348,28 +347,6 @@ export function OrbScene() {
   );
 }
 
-/**
- * Camera dive (enter-the-orb nav). Reads the shared dive signal each frame and
- * flies the camera along z: at rest (progress 0) it sits at z=4 — the original
- * framing, so the logo looks byte-for-byte the same — then eases INWARD to the
- * core for "about", or OUTWARD along the orbits for "projects". Camera-only; it
- * touches none of the orb's geometry/materials.
- */
-function CameraRig() {
-  const camera = useThree((s) => s.camera);
-  useFrame(() => {
-    const { progress, section } = getDive();
-    // easeInOutCubic
-    const e =
-      progress < 0.5
-        ? 4 * progress * progress * progress
-        : 1 - Math.pow(-2 * progress + 2, 3) / 2;
-    const toZ = section === "projects" ? 9.5 : 0.55;
-    camera.position.z = 4 + (toZ - 4) * e;
-  });
-  return null;
-}
-
 export interface HelixLogoProps {
   /** Optional className for sizing the wrapper (e.g. Tailwind "h-40 w-40"). */
   className?: string;
@@ -398,7 +375,6 @@ export function HelixLogo({ className, style }: HelixLogoProps) {
           scene.background = null;
         }}
       >
-        <CameraRig />
         <OrbScene />
       </Canvas>
     </div>

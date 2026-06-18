@@ -1,7 +1,7 @@
 import { useMemo } from 'react';
 import { useFrame } from '@react-three/fiber';
 import * as THREE from 'three';
-import { getDive } from '@/lib/dive';
+import { getDepth } from '@/lib/dive';
 
 /**
  * Quantum field at the orb's core — a dense cloud of subatomic points that
@@ -115,15 +115,13 @@ export function QuantumField() {
   );
 
   useFrame((state) => {
-    const { progress, section } = getDive();
+    const d = getDepth();
     const u = material.uniforms;
     u.uTime.value = state.clock.elapsedTime;
     u.uPixelRatio.value = state.gl.getPixelRatio();
-    // Reveal only on the deep half of the PROJECTS dive.
-    const target =
-      section === 'projects'
-        ? Math.min(1, Math.max(0, (progress - 0.3) / 0.7))
-        : 0;
+    // Reveal across the core→quantum leg (depth 1.3 → 2): a smoothstep.
+    const x = Math.min(1, Math.max(0, (d - 1.3) / 0.7));
+    const target = x * x * (3 - 2 * x);
     u.uReveal.value += (target - u.uReveal.value) * 0.1;
   });
 

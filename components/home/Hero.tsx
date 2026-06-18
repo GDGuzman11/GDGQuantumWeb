@@ -3,25 +3,19 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { Intro } from '@/components/home/Intro';
-import { setDive, type DiveSection } from '@/lib/dive';
+import { setDepth, type DiveSection } from '@/lib/dive';
 
 /**
- * Enter-the-orb hero controller (Stage 1).
+ * Enter-the-orb hero controller.
  *
- * The orb itself lives in the full-screen world canvas (components/world); this
- * is the DOM overlay: the intro copy + two entry points, plus the dive tween
- * that drives the shared signal 0→1. Choosing About flies the camera INTO the
- * orb (the whole screen becomes its interior); Projects pulls OUT along the
- * orbits. As the camera flies, the landing copy dissolves and a themed interior
- * fades in over the now-full-screen orb (which keeps glowing behind it, so the
- * flight reads as one unbroken move). Back / Esc reverse it.
+ * The orb lives in the full-screen world canvas; this is the DOM overlay (intro
+ * copy + entry points) plus the tween that drives the shared dive DEPTH:
+ *   0 = rest · 1 = the core (About) · 2 = the quantum field (Projects).
+ * Because it's one continuous scalar, About → Projects animates smoothly as a
+ * deeper plunge — that's the "Continue to Projects" action inside About.
  *
- * Interior CONTENT is placeholder for now — Stage 2/3 fill it.
- * Reduced-motion: no flight — entering/leaving jumps instantly.
+ * Reduced-motion: no flight — entering/continuing/leaving jumps instantly.
  */
-
-const IN_MS = 1600;
-const OUT_MS = 1200;
 
 function reducedMotion(): boolean {
   return (
@@ -39,26 +33,26 @@ export function Hero() {
 
   const fadeRef = useRef<HTMLDivElement>(null); // landing copy (fades on dive)
   const overlayRef = useRef<HTMLDivElement>(null); // interior (fades in on dive)
-  const progressRef = useRef(0);
-  const sectionRef = useRef<DiveSection>(null);
+  const depthRef = useRef(0);
   const rafRef = useRef(0);
 
-  const applyOpacities = useCallback((p: number) => {
-    if (fadeRef.current) fadeRef.current.style.opacity = String(1 - p);
-    if (overlayRef.current) overlayRef.current.style.opacity = String(p);
+  const applyOpacities = useCallback((d: number) => {
+    const o = Math.min(1, Math.max(0, d)); // first unit of descent fades the UI
+    if (fadeRef.current) fadeRef.current.style.opacity = String(1 - o);
+    if (overlayRef.current) overlayRef.current.style.opacity = String(o);
   }, []);
 
-  const animateTo = useCallback(
+  const animateDepth = useCallback(
     (to: number, dur: number, onDone?: () => void) => {
       cancelAnimationFrame(rafRef.current);
-      const from = progressRef.current;
+      const from = depthRef.current;
       const start = performance.now();
       const tick = (t: number) => {
         const k = Math.min(1, (t - start) / dur);
-        const p = from + (to - from) * easeInOutCubic(k);
-        progressRef.current = p;
-        setDive(p, sectionRef.current);
-        applyOpacities(p);
+        const d = from + (to - from) * easeInOutCubic(k);
+        depthRef.current = d;
+        setDepth(d);
+        applyOpacities(d);
         if (k < 1) rafRef.current = requestAnimationFrame(tick);
         else onDone?.();
       };
@@ -68,36 +62,44 @@ export function Hero() {
   );
 
   const enter = useCallback(
-    (s: DiveSection) => {
-      sectionRef.current = s;
+    (s: Exclude<DiveSection, null>) => {
       setSection(s);
+      const to = s === 'projects' ? 2 : 1;
       if (reducedMotion()) {
-        progressRef.current = 1;
-        setDive(1, s);
-        requestAnimationFrame(() => applyOpacities(1));
+        depthRef.current = to;
+        setDepth(to);
+        requestAnimationFrame(() => applyOpacities(to));
         return;
       }
-      animateTo(1, IN_MS);
+      animateDepth(to, s === 'projects' ? 2400 : 1600);
     },
-    [animateTo, applyOpacities],
+    [animateDepth, applyOpacities],
   );
+
+  const continueToProjects = useCallback(() => {
+    setSection('projects');
+    if (reducedMotion()) {
+      depthRef.current = 2;
+      setDepth(2);
+      return;
+    }
+    animateDepth(2, 1300);
+  }, [animateDepth]);
 
   const back = useCallback(() => {
     const finish = () => {
-      sectionRef.current = null;
-      setDive(0, null);
+      setDepth(0);
       setSection(null);
     };
     if (reducedMotion()) {
-      progressRef.current = 0;
+      depthRef.current = 0;
       applyOpacities(0);
       finish();
       return;
     }
-    animateTo(0, OUT_MS, finish);
-  }, [animateTo, applyOpacities]);
+    animateDepth(0, depthRef.current > 1.5 ? 1900 : 1200, finish);
+  }, [animateDepth, applyOpacities]);
 
-  // Esc to exit + lock page scroll while inside.
   useEffect(() => {
     if (!section) return;
     const onKey = (e: KeyboardEvent) => {
@@ -122,8 +124,8 @@ export function Hero() {
       <div ref={fadeRef}>
         <Intro />
         <div className="mt-10 flex items-center justify-center gap-8">
-          <EntryButton label="About" onClick={() => enter('about')} />
-          <EntryButton label="Projects" onClick={() => enter('projects')} />
+          <PrimaryLink label="About" onClick={() => enter('about')} />
+          <PrimaryLink label="Projects" onClick={() => enter('projects')} />
         </div>
       </div>
 
@@ -151,7 +153,10 @@ export function Hero() {
                 Back to the orb
               </button>
 
-              <Interior section={section} />
+              {/* Keyed so the content re-materialises when About → Projects. */}
+              <div key={section} style={{ animation: 'gdg-holo-in 0.7s ease-out both' }}>
+                <Interior section={section} onContinue={continueToProjects} />
+              </div>
             </div>,
             document.body,
           )
@@ -160,7 +165,7 @@ export function Hero() {
   );
 }
 
-function EntryButton({ label, onClick }: { label: string; onClick: () => void }) {
+function PrimaryLink({ label, onClick }: { label: string; onClick: () => void }) {
   return (
     <button
       type="button"
@@ -182,8 +187,14 @@ function EntryButton({ label, onClick }: { label: string; onClick: () => void })
   );
 }
 
-/** Placeholder interior worlds (content lands in Stage 2/3). */
-function Interior({ section }: { section: Exclude<DiveSection, null> }) {
+/** Placeholder interior worlds (content lands in later stages). */
+function Interior({
+  section,
+  onContinue,
+}: {
+  section: Exclude<DiveSection, null>;
+  onContinue: () => void;
+}) {
   if (section === 'about') {
     return (
       <div className="max-w-2xl text-center [text-shadow:0_2px_30px_rgba(0,0,0,0.85)]">
@@ -198,6 +209,9 @@ function Interior({ section }: { section: Exclude<DiveSection, null> }) {
           who I am, how I think, and why I chase the hard problems. Real content
           materialises here next.
         </p>
+        <div className="mt-10">
+          <PrimaryLink label="Go deeper · Projects" onClick={onContinue} />
+        </div>
       </div>
     );
   }
