@@ -1,5 +1,6 @@
 import { NightSky } from '@/components/sky/NightSky';
 import { HelixMark } from '@/components/helix/HelixMark';
+import { HelixSigns } from '@/components/helix/HelixSigns';
 
 /**
  * GDG site — REBUILD (started 2026-06-13).
@@ -22,6 +23,7 @@ export default function Home() {
     >
       <NightSky />
       <HelixMark />
+      <HelixSigns />
     </main>
   );
 }
