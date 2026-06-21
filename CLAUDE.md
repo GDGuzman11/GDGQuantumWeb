@@ -136,6 +136,38 @@ REMAINING (BLOCKED ON GABEّS `.env` — provisioning steps were given in chat: 
 
 ---
 
+## A. Active rebuild feature — Orb-tap easter egg (QUEUED for build)
+
+**Owner:** `frontend-engineer` (PM delegates; `qa-reviewer` audits). **Front-end only — NO backend/DB/security/deploy changes.** Part of the 2026-06-17 front-end rebuild (outside the original phase flow), but run with the same protocol: delegate → QA → Human Test Gate → STOP. Full spec: `C:\Users\User\.claude\plans\what-was-the-last-enchanted-bengio.md`.
+
+**Goal:** Tapping/clicking the Helix orb is PURE cinematic feedback with personality — the orb glows in a mood colour + fires a ray at the headline, which erases & rewrites to the next line in an escalating, increasingly sarcastic sequence; the finale redirects to Contact.
+
+**Sequence (tap → headline · orb glow):**
+- [base] "Let's build something that didn't exist this morning."
+- tap 1 → RANDOM line from the 10-line pool · **bright white / vibrant**
+- tap 2 → ANOTHER random line (distinct from tap 1) · **bright white / vibrant**
+- tap 3 → "…really? again?" · **blue** (tone shifts — getting annoyed)
+- tap 4 → "Never give up. 👏 Never surrender. 👏" (clap animation) · **faint** (dim but visible)
+- tap 5 → "Wow. Still clicking. Truly visionary." · **faint**
+- tap 6 → "Okay — you've clicked way too many damn times. Here's the contact info." · **vibrant red** → redirect to Contact (`navigate('contact')`) → reset counter
+- Counter resets after the finale AND on returning to the landing; taps 1–2 re-randomise each cycle.
+
+**10-line pool (editable draft):** Bring the idea — I'll bring the build. · Let's make something the internet hasn't seen yet. · Two heads, one impossible idea. Let's go. · You dream it, I'll make it real. · Let's build something worth staying up for. · Big idea? Let's give it a pulse. · From 'what if' to 'it's live.' · Let's turn your maybe into a demo. · The future's not gonna build itself. · Got a wild one? That's my favourite kind.
+
+**Mechanics:** mood-coloured radial glow flare on the orb + a ray (same colour) shooting orb→headline (`scaleY`, brief) + the headline typewriter-erases then types the next line (caret reuses `gdg-blink`). Reduced-motion → instant text swap, no ray. Mobile → ≥44px tap hotspot, single-fire.
+
+**Files:** NEW `components/home/OrbHotspot.tsx`, `lib/orb-lines.ts`; EDIT `components/home/Hero.tsx` (tapCount state machine; render hotspot; drive Intro; finale `navigate('contact')` + reset; reset in `back()`), `components/home/Intro.tsx` (prop-driven typewriter headline + clap render), `app/globals.css` (`gdg-ray`, `gdg-orb-flash` with colour via a CSS var, `gdg-clap`). REUSE `navigate('contact')`/`lib/dive.ts`, the orb in `OrbWorldCanvas`, `gdg-blink`. Do NOT touch the retired snap-deck files.
+
+**Tasks**
+- [ ] Build the orb-tap easter egg per the spec above (`frontend-engineer`).
+- [ ] QA: `tsc` 0, `lint` 0, `npm run build` exit 0, First Load unchanged; behaviour verified (`qa-reviewer`).
+
+**Human Test Gate (Gabe):**
+- [ ] Tapping the orb glows it + rewrites the headline through the sequence; taps 1–2 random/distinct (bright white), tap 3 blue, taps 4–5 faint (clap on 4), tap 6 red → redirects to Contact, counter resets on return.
+- [ ] Mobile tap works (≥44px, single-fire); reduced-motion does instant swaps (finale still redirects); the About/Projects/Contact nav links are unaffected.
+
+---
+
 ## 1. Project facts (locked)
 
 - **Product:** GDG Quantum — single-page, scroll-snapped premium studio site.
