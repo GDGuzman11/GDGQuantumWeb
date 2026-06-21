@@ -269,6 +269,58 @@
   }
 }
 
+/* Orb-tap easter egg. Tapping the Helix orb flares it in a mood colour and
+   fires a ray at the headline (which rewrites to the next line). Colour is
+   passed via the --flash-color custom property. The global prefers-reduced-
+   motion guard collapses all three to ~0s, so reduced-motion users see no
+   flash / ray / clap (the headline still swaps instantly in Intro). */
+
+/* Mood-coloured radial flare on the orb. */
+@keyframes gdg-orb-flash {
+  0% {
+    opacity: 0;
+    transform: scale(0.6);
+  }
+  30% {
+    opacity: 0.9;
+    transform: scale(1.05);
+  }
+  100% {
+    opacity: 0;
+    transform: scale(1.55);
+  }
+}
+
+/* Ray shooting from the orb down toward the headline (grows from the top). */
+@keyframes gdg-ray {
+  0% {
+    opacity: 0;
+    transform: translateX(-50%) scaleY(0);
+  }
+  22% {
+    opacity: 0.95;
+  }
+  60% {
+    opacity: 0.85;
+    transform: translateX(-50%) scaleY(1);
+  }
+  100% {
+    opacity: 0;
+    transform: translateX(-50%) scaleY(1);
+  }
+}
+
+/* Clapping hands (tap 4 — "Never give up. 👏 Never surrender. 👏"). */
+@keyframes gdg-clap {
+  0%,
+  100% {
+    transform: rotate(-12deg) scale(1);
+  }
+  50% {
+    transform: rotate(12deg) scale(1.18);
+  }
+}
+
 /* AI terminal glitch (Contact / HELIX line) — an occasional flicker + micro-
    shift, like a transmission catching. Reduced-motion collapses it. */
 @keyframes gdg-glitch {

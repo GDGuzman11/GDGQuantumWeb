@@ -159,8 +159,8 @@ REMAINING (BLOCKED ON GABEّS `.env` — provisioning steps were given in chat: 
 **Files:** NEW `components/home/OrbHotspot.tsx`, `lib/orb-lines.ts`; EDIT `components/home/Hero.tsx` (tapCount state machine; render hotspot; drive Intro; finale `navigate('contact')` + reset; reset in `back()`), `components/home/Intro.tsx` (prop-driven typewriter headline + clap render), `app/globals.css` (`gdg-ray`, `gdg-orb-flash` with colour via a CSS var, `gdg-clap`). REUSE `navigate('contact')`/`lib/dive.ts`, the orb in `OrbWorldCanvas`, `gdg-blink`. Do NOT touch the retired snap-deck files.
 
 **Tasks**
-- [ ] Build the orb-tap easter egg per the spec above (`frontend-engineer`).
-- [ ] QA: `tsc` 0, `lint` 0, `npm run build` exit 0, First Load unchanged; behaviour verified (`qa-reviewer`).
+- [x] Build the orb-tap easter egg per the spec above (`frontend-engineer`).
+- [x] QA: `tsc` 0, `lint` 0, `npm run build` exit 0, First Load unchanged; behaviour verified (`qa-reviewer`).
 
 **Human Test Gate (Gabe):**
 - [ ] Tapping the orb glows it + rewrites the headline through the sequence; taps 1–2 random/distinct (bright white), tap 3 blue, taps 4–5 faint (clap on 4), tap 6 red → redirects to Contact, counter resets on return.

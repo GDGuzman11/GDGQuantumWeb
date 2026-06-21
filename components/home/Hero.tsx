@@ -4,6 +4,8 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import dynamic from 'next/dynamic';
 import { Intro } from '@/components/home/Intro';
+import { OrbHotspot } from '@/components/home/OrbHotspot';
+import { BASE_HEADLINE, orbStep, type OrbMood } from '@/lib/orb-lines';
 import { setDepth, type DiveSection } from '@/lib/dive';
 
 // Code-split: the form (RHF + Zod + Turnstile + server action graph) loads only
@@ -46,6 +48,20 @@ function depthOf(s: Exclude<DiveSection, null>): number {
 
 export function Hero() {
   const [section, setSection] = useState<DiveSection>(null);
+
+  // --- Orb-tap easter egg (landing only) ---------------------------------
+  // Headline + mood are driven into Intro; `pulse` triggers the typewriter and
+  // the orb flash/ray on each tap. The counter + last-random live in refs (no
+  // re-render needed) and reset after the finale and on returning to landing.
+  const [headline, setHeadline] = useState(BASE_HEADLINE);
+  const [mood, setMood] = useState<OrbMood>('base');
+  const [clap, setClap] = useState(false);
+  const [flashColor, setFlashColor] = useState('#ffffff');
+  const [pulse, setPulse] = useState(0);
+  const tapRef = useRef(0);
+  const lastRandomRef = useRef<string | null>(null);
+  const lastTapAtRef = useRef(0); // debounce: one tap = one advance (no touch+click double-fire)
+  const finaleRef = useRef(false);
 
   const fadeRef = useRef<HTMLDivElement>(null); // landing copy (fades on dive)
   const overlayRef = useRef<HTMLDivElement>(null); // interior (fades in on dive)
@@ -94,10 +110,53 @@ export function Hero() {
     [animateDepth, applyOpacities],
   );
 
+  /** Reset the orb-tap sequence back to the resting headline. */
+  const resetOrb = useCallback(() => {
+    tapRef.current = 0;
+    lastRandomRef.current = null;
+    finaleRef.current = false;
+    setHeadline(BASE_HEADLINE);
+    setMood('base');
+    setClap(false);
+  }, []);
+
+  /** Advance the orb-tap easter egg one step (landing only). */
+  const onOrbTap = useCallback(() => {
+    if (section || finaleRef.current) return; // inert off-landing / during the finale
+    const now =
+      typeof performance !== 'undefined' ? performance.now() : Date.now();
+    if (now - lastTapAtRef.current < 280) return; // single-fire debounce
+    lastTapAtRef.current = now;
+
+    const next = tapRef.current + 1;
+    const step = orbStep(next, lastRandomRef.current);
+
+    setHeadline(step.headline);
+    setMood(step.mood);
+    setClap(step.clap);
+    setFlashColor(step.color);
+    setPulse((p) => p + 1);
+
+    if (step.finale) {
+      // Show the red finale line, then dive to Contact and reset the counter.
+      finaleRef.current = true;
+      const delay = reducedMotion() ? 350 : 1150;
+      window.setTimeout(() => {
+        navigate('contact');
+        resetOrb();
+      }, delay);
+      return;
+    }
+
+    if (step.randomLine) lastRandomRef.current = step.headline;
+    tapRef.current = next;
+  }, [section, navigate, resetOrb]);
+
   const back = useCallback(() => {
     const finish = () => {
       setDepth(0);
       setSection(null);
+      resetOrb(); // returning to the landing resets the orb-tap sequence
     };
     if (reducedMotion()) {
       depthRef.current = 0;
@@ -106,7 +165,7 @@ export function Hero() {
       return;
     }
     animateDepth(0, 600 + depthRef.current * 600, finish); // longer climb from deeper
-  }, [animateDepth, applyOpacities]);
+  }, [animateDepth, applyOpacities, resetOrb]);
 
   useEffect(() => {
     if (!section) return;
@@ -130,7 +189,10 @@ export function Hero() {
   return (
     <>
       <div ref={fadeRef}>
-        <Intro />
+        {!section ? (
+          <OrbHotspot onTap={onOrbTap} flashKey={pulse} flashColor={flashColor} />
+        ) : null}
+        <Intro headline={headline} mood={mood} clap={clap} pulse={pulse} />
         <div className="mt-10 flex items-center justify-center gap-8">
           <PrimaryLink label="About" onClick={() => navigate('about')} />
           <PrimaryLink label="Projects" onClick={() => navigate('projects')} />
