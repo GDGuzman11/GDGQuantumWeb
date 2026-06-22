@@ -50,3 +50,8 @@ yarn-error.log*
 
 # private, machine-local notes / guides — never commit (public repo)
 /private/
+
+# local reference / scratch folder (private working docs, screenshots, source
+# assets) — never commit (public repo). The app keeps its own copies of anything
+# it actually uses (e.g. components/helix/HelixLogo.tsx).
+/Screenshots/
