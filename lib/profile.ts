@@ -20,9 +20,9 @@ export const socialUrls = {
 /** Person facts for structured data + metadata. */
 export const profile = {
   name: 'Gabe De Guzman',
-  jobTitle: 'Senior Technical Consultant · AI & Full-Stack Engineer',
+  jobTitle: 'Senior Technical Consultant · AI & Full-Stack Developer',
   description:
-    'Gabe De Guzman is a software engineer who works across the whole stack, from production databases and Linux infrastructure to Helix, a local-first AI assistant, and cinematic WebGL on the web.',
+    'Gabe De Guzman is a software developer who works across the whole stack, from production databases and Linux infrastructure to Helix, a local-first AI assistant, and cinematic WebGL on the web.',
   knowsAbout: [
     'AI systems',
     'Local-first AI assistants',
@@ -55,19 +55,19 @@ export const about = {
    */
   headers: [
     'From production databases to AI that thinks. Hi, I’m Gabe.',
-    'A full-stack engineer with a soft spot for problems that need the whole stack.',
+    'A full-stack developer with a soft spot for problems that need the whole stack.',
     'I turn “what if” into running software.',
-    'Engineer by trade. Builder by obsession. Curious about everything.',
+    'Developer by trade. Builder by obsession. Curious about everything.',
     'The developer behind the systems, the AI, and the orb you’re flying through.',
     'Full-stack by craft, from the database all the way up to the black hole.',
     'I like the hard problems. The ones that need a bit of everything.',
     'Where infrastructure meets imagination. Come on in.',
-    'A software engineer quietly obsessed with how everything works.',
+    'A software developer quietly obsessed with how everything works.',
     'One builder, the whole stack, and a soft spot for the impossible.',
   ] as const,
   /** Section ① — the intro that sets the story. */
   intro:
-    'I’m Gabe, a software engineer who’s happiest with a problem big enough to need the whole stack. By day I keep production databases healthy and well-fed as a senior technical consultant. Off the clock I build things like Helix, a local-first AI assistant, mostly to find out whether I can. So far the answer keeps coming back yes.',
+    'Hi, I’m Gabe, a software developer who loves turning big ideas into real, working software. By day I keep production databases healthy and well-fed as a senior technical consultant. Off the clock I build things like Helix, a local-first AI assistant, mostly to find out whether I can. So far the answer keeps coming back yes.',
   /** Section ③ — the closing that reels them in (ties back, own flair). */
   closing:
     'The logos are just the tools, though. The real work is turning a vague “wouldn’t it be cool if” into something that actually runs: a database that holds, an interface that breathes, an AI that remembers your name. If your idea sounds a little unreasonable, that’s usually my favourite place to start.',
