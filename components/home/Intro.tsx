@@ -164,9 +164,9 @@ export function Intro({
           className="mx-auto mt-6 max-w-xl font-sans text-base leading-relaxed text-muted [text-shadow:0_1px_24px_rgba(0,0,0,0.7)] sm:text-lg"
           style={{ animation: 'gdg-holo-in 1.25s ease-out 0.95s both' }}
         >
-          I&rsquo;m a developer chasing the hard problems &mdash; I want to know
-          how everything works, then use it to build things that feel
-          impossible. Got one of those? Let&rsquo;s talk.
+          I&rsquo;m a developer chasing the hard problems. I want to know how
+          everything works, then use it to build things that feel impossible.
+          Got one of those? Let&rsquo;s talk.
         </p>
       </div>
     </div>

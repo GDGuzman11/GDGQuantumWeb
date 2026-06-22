@@ -21,8 +21,7 @@ export interface Panel {
 
 export const siteConfig = {
   brand: 'GDG QUANTUM',
-  description:
-    'GDG Quantum — a premium studio building considered digital systems.',
+  description: 'A premium studio building considered digital systems.',
   panels: [
     { index: '01', label: 'Welcome', id: 'home', hash: 'home' },
     { index: '02', label: SYSTEMS_LABEL, id: 'systems', hash: 'systems' },

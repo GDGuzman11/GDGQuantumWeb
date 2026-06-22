@@ -11,7 +11,7 @@ import { siteConfig } from '@/lib/site-config';
  * rather than a live render — the spec's "hero render as OG image" intent.
  */
 export const runtime = 'edge';
-export const alt = `${siteConfig.brand} — ${siteConfig.description}`;
+export const alt = `${siteConfig.brand} · ${siteConfig.description}`;
 export const size = { width: 1200, height: 630 };
 export const contentType = 'image/png';
 

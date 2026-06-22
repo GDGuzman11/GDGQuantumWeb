@@ -29,7 +29,7 @@ export function SeoContent() {
 
       <h2>Projects</h2>
       <p>
-        Selected work, including Helix — a local-first AI assistant — and this
+        Selected work, including Helix (a local-first AI assistant) and this
         cinematic WebGL site. Fly into the orb to explore the case studies.
       </p>
 

@@ -7,7 +7,7 @@ import './globals.css';
 
 // Identity-forward title/description so the site ranks for Gabe by name AND for
 // his craft (recruiters/VCs/partners searching either). The brand still leads.
-const title = `${siteConfig.brand} — ${profile.name} · AI & Full-Stack Engineer`;
+const title = `${siteConfig.brand} · ${profile.name} · AI & Full-Stack Engineer`;
 const description = profile.description;
 
 export const metadata: Metadata = {
