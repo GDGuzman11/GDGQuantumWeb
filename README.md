@@ -18,9 +18,12 @@ lensing, ending at a cinematic singularity where the (real, working) contact for
 > **Status: front‑end rebuild in progress.** This is a ground‑up reimagining of the front end (the prior
 > nine‑phase snap‑deck site is retired). The **backend + security + infrastructure are reused intact** —
 > the contact form genuinely persists a row and sends owner + sender emails, behind the same Turnstile /
-> rate‑limit / nonce‑CSP hardening, deployed on Vercel. Section interior *content* is placeholder, the 3D
-> framing/pacing is being visually tuned, and a mobile pass is still to come. The previous site's full
-> history is preserved in `CLAUDE.md` / `PROGRESS.md` and in git.
+> rate‑limit / nonce‑CSP hardening, deployed on Vercel. The **About** interior is now built (a randomized
+> header, an intro, a real brand‑logo stack table, and a closing) and the landing has an orb‑tap easter
+> egg; the **Projects** and **Contact** interior *content* is still placeholder, the 3D framing/pacing is
+> being visually tuned, and a mobile pass is still to come. SEO is hardened for the single‑page WebGL app
+> (crawlable server‑rendered section copy + `Person`/`ProfilePage` structured data + identity metadata).
+> The previous site's full history is preserved in `CLAUDE.md` / `PROGRESS.md` and in git.
 
 ---
 
@@ -42,9 +45,19 @@ lensing, ending at a cinematic singularity where the (real, working) contact for
   envelope (honeypot, time‑trap, Turnstile, rate limit, salted IP hash).
 - **Living landing copy.** A big serif statement that materialises in and keeps a subtle "living hologram"
   glow, with a whisper of pointer‑parallax depth, and LinkedIn / GitHub / Upwork marks pinned bottom‑centre.
+- **The core (About).** Flying in reveals a story chamber: a randomized header (re‑rolls each visit), a
+  short intro, a **stack table** of real brand logos grouped Languages / Frameworks / Tools, and a
+  closing line. The brand‑logo path data is baked in at author time (no runtime dependency) and
+  lazy‑loaded with the interior, so it never touches First Load.
+- **SEO for a WebGL single‑pager.** Because navigation is a camera dive (no URL change) and the
+  interiors are client‑only, the section copy + full tech list are also server‑rendered as crawlable
+  `sr-only` HTML, alongside `Person`/`ProfilePage` JSON‑LD (carrying the per‑request CSP nonce) and
+  identity‑forward metadata — all sourced from one `lib/profile.ts`.
+- **Living landing extras.** An orb‑tap easter egg: tapping the Helix orb glows it, fires a coloured
+  ray, and typewriter‑rewrites the headline through an escalating, increasingly sarcastic run.
 - **Correctness‑first fallbacks.** `prefers-reduced-motion` jumps between states (no flight); no‑WebGL
   shows a CSS starfield; the heavy three.js + postprocessing stack is async‑isolated so `/` First Load
-  stays ≈ **91 kB**.
+  stays ≈ **94 kB**.
 
 ---
 
@@ -127,8 +140,12 @@ components/
   home/
     Hero.tsx               DOM overlay: intro + About/Projects/Contact + per-section interior + dive tween
     Intro.tsx              The <h1> statement + sub (materialise-in, living-hologram glow)
+    OrbHotspot.tsx         Orb-tap easter-egg target (glow + ray; Hero owns the state machine)
+    AboutInterior.tsx      The core's About: randomized header + intro + brand-logo stack table + closing (lazy)
+    PrimaryLink.tsx        Shared underline-on-hover link (used by Hero + AboutInterior)
+    SeoContent.tsx         Server-rendered, crawlable sr-only copy of every section (SEO for the WebGL pager)
     HeroStage.tsx          Whisper pointer-parallax wrapper (rAF, reduced-motion safe)
-    SocialLinks.tsx        LinkedIn / GitHub / Upwork marks, bottom-centre
+    SocialLinks.tsx        LinkedIn / GitHub / Upwork marks, bottom-centre (hrefs from lib/profile)
     TransmitForm.tsx       Cinematic contact form → the real submitContact pipeline (lazy-loaded)
   helix/
     HelixLogo.tsx          The "Ethereal Halo" orb (verbatim asset; exports OrbScene for the world)
@@ -137,6 +154,10 @@ components/
 
 lib/
   dive.ts                 Shared dive-depth scalar (0 rest · 1 core · 2 quantum · 3 singularity)
+  profile.ts              Single source of truth for "who Gabe is": About copy, profile + social URLs
+  tech-stack.ts           The stack table grouped Languages / Frameworks / Tools (+ flat names for SEO)
+  tech-icons.ts           Brand-logo SVG paths baked in from simple-icons at author time (no runtime dep)
+  orb-lines.ts            Orb-tap easter-egg copy + escalation/finale resolver
   webgl.ts · use-reduced-motion.ts · fonts.ts · site-url.ts · schema.ts
 
 app/actions/contact.ts    Server Action (security gate → validate → persist → email)  [reused]

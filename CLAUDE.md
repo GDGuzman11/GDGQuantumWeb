@@ -79,10 +79,31 @@ THE NEW EXPERIENCE (all new files under app/page.tsx + components/{world,home,he
   console (mono labels, glowing `Transmit ▸`) in a contrast panel over the blurred singularity —
   SAME RHF+Zod+submitContact pipeline + full security envelope as the old ContactForm; code-split
   (lazy) so it stays out of First Load.
-QA: tsc 0, lint 0, `npm run build` exit 0 throughout; `/` First Load ~91 kB (down from ~175) with
-three.js + postprocessing async-isolated; `/` is `force-dynamic` (nonce CSP). All committed on `main`
-(24 commits ahead of origin at the time of writing — being pushed now). OPEN: framing/pacing/bloom/
-lensing are visually tuned by Gabe; About/Projects/Contact interior CONTENT is placeholder; mobile
+SHIPPED SINCE (2026-06-21, Gabe-driven in main session; subagent harness was stalling, so per the
+§0 precedent the main session did impl + QA directly):
+- ORB-TAP EASTER EGG (`lib/orb-lines.ts`, `components/home/OrbHotspot.tsx`; drives `Intro.tsx` via
+  `Hero.tsx`): tapping the orb glows it + fires a coloured ray + typewriter-rewrites the headline
+  through an escalating sarcastic run (taps 1-2 random/distinct white, 3 blue, 4-5 faint w/ clap on
+  4, 6 red FINALE that waits for the line to finish typing, then dives to Contact + resets). Sarcasm
+  is POOLED (4 blue + 3 clap + 4 faint, no immediate repeat). Reduced-motion = instant swaps. BUILT +
+  QA-green; Human Test Gate (real-phone) still PENDING Gabe.
+- ABOUT INTERIOR is now BUILT (replaces the placeholder), to Gabe's 3-section spec: ① a RANDOMIZED
+  header (re-rolls each visit, no immediate repeat; 10-line pool in `lib/profile.ts`), ② a STACK
+  TABLE of real brand logos grouped Languages/Frameworks/Tools (`lib/tech-stack.ts` +
+  `lib/tech-icons.ts` = simple-icons paths baked in at author time, NO runtime dep; union of Helix +
+  the day job + this site), ③ a CLOSING line. New `components/home/AboutInterior.tsx` (lazy `ssr:false`
+  so the ~45 kB logo data stays OUT of First Load) + shared `components/home/PrimaryLink.tsx`. Copy:
+  confident-not-arrogant, light humour, and "software DEVELOPER" (Gabe is NOT an engineer); em dashes
+  removed site-wide.
+- SEO HARDENED (front-end only, single-page WebGL): new `components/home/SeoContent.tsx` server-renders
+  the About/Projects/Contact copy + full tech-name list as crawlable `sr-only` HTML (the cinematic
+  interiors are client-only portals); `Person`/`ProfilePage` JSON-LD in `app/page.tsx` carrying the
+  per-request CSP nonce (no policy change); identity-forward metadata in `app/layout.tsx` (title/
+  description/keywords/`og:profile`, all driven from `lib/profile.ts`). Verified present in SSR HTML.
+QA: tsc 0, lint 0, `npm run build` exit 0; `/` First Load ~94 kB (three.js + postprocessing + the
+About logo data all async-isolated; `<h1>` still LCP); `/` is `force-dynamic` (nonce CSP). All on
+`main` (auto-committed by the repo watcher; pushed to origin). OPEN: framing/pacing/bloom/lensing are
+visually tuned by Gabe; PROJECTS + CONTACT interior CONTENT still placeholder (About now done); mobile
 pass not yet done for the new experience; old retired component files pending deletion; unused
 `gdg-glitch` keyframe in globals.css. The nine-phase history below is RETAINED as the record of the
 prior site (its front-end is superseded; its backend/security/deploy still power this rebuild).
