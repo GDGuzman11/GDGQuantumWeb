@@ -2,9 +2,13 @@ import type { Metadata, Viewport } from 'next';
 import { inter, instrumentSerif } from '@/lib/fonts';
 import { siteConfig } from '@/lib/site-config';
 import { siteUrl } from '@/lib/site-url';
+import { profile } from '@/lib/profile';
 import './globals.css';
 
-const title = `${siteConfig.brand} — Considered digital systems`;
+// Identity-forward title/description so the site ranks for Gabe by name AND for
+// his craft (recruiters/VCs/partners searching either). The brand still leads.
+const title = `${siteConfig.brand} — ${profile.name} · AI & Full-Stack Engineer`;
+const description = profile.description;
 
 export const metadata: Metadata = {
   // metadataBase makes the relative OG/Twitter image + canonical URLs absolute.
@@ -13,27 +17,33 @@ export const metadata: Metadata = {
     default: title,
     template: `%s · ${siteConfig.brand}`,
   },
-  description: siteConfig.description,
+  description,
   applicationName: siteConfig.brand,
   keywords: [
+    'Gabe De Guzman',
     'GDG Quantum',
-    'digital studio',
-    'web design',
-    'product engineering',
-    'design systems',
-    'creative development',
+    'AI systems engineer',
+    'full-stack developer',
+    'Helix AI assistant',
+    'local-first AI',
+    'PostgreSQL',
+    'Linux',
+    'WebGL developer',
+    'Next.js',
+    'Three.js',
+    'software engineer portfolio',
   ],
-  authors: [{ name: 'Gabe De Guzman' }],
-  creator: 'Gabe De Guzman',
+  authors: [{ name: profile.name }],
+  creator: profile.name,
   alternates: {
     canonical: '/',
   },
   openGraph: {
-    type: 'website',
+    type: 'profile',
     url: '/',
     siteName: siteConfig.brand,
     title,
-    description: siteConfig.description,
+    description,
     // app/opengraph-image.tsx is picked up automatically; declaring it here is
     // not required, but locale + type are.
     locale: 'en_US',
@@ -41,7 +51,7 @@ export const metadata: Metadata = {
   twitter: {
     card: 'summary_large_image',
     title,
-    description: siteConfig.description,
+    description,
   },
   robots: {
     index: true,

@@ -1,6 +1,30 @@
+import { headers } from 'next/headers';
 import { OrbWorld } from '@/components/world/OrbWorld';
 import { Hero } from '@/components/home/Hero';
 import { SocialLinks } from '@/components/home/SocialLinks';
+import { SeoContent } from '@/components/home/SeoContent';
+import { profile } from '@/lib/profile';
+import { siteUrl } from '@/lib/site-url';
+
+/**
+ * Person / ProfilePage structured data — the biggest SEO lever for a personal
+ * site (rich-result + knowledge-panel eligibility). Serialized into a JSON-LD
+ * script below, stamped with the per-request CSP nonce so the strict
+ * `script-src` (no unsafe-inline) allows it.
+ */
+const profileJsonLd = {
+  '@context': 'https://schema.org',
+  '@type': 'ProfilePage',
+  mainEntity: {
+    '@type': 'Person',
+    name: profile.name,
+    jobTitle: profile.jobTitle,
+    description: profile.description,
+    url: siteUrl,
+    knowsAbout: profile.knowsAbout,
+    sameAs: profile.sameAs,
+  },
+};
 
 /**
  * GDG site — REBUILD (started 2026-06-13).
@@ -12,8 +36,21 @@ import { SocialLinks } from '@/components/home/SocialLinks';
  * remain intact for re-wiring as the design grows.
  */
 export default function Home() {
+  const nonce = headers().get('x-nonce') ?? undefined;
+
   return (
     <main id="content" className="relative min-h-[100svh] w-full bg-black">
+      {/* Person/ProfilePage structured data (crawlers read this; nonce satisfies CSP). */}
+      <script
+        type="application/ld+json"
+        nonce={nonce}
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(profileJsonLd) }}
+      />
+
+      {/* Crawlable, server-rendered copy of the section content (the cinematic
+          interiors are client-only). Visually offscreen; fully indexable. */}
+      <SeoContent />
+
       {/* Full-screen world: night sky + Helix orb, one camera you fly into. */}
       <OrbWorld />
 

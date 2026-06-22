@@ -6,6 +6,7 @@ import dynamic from 'next/dynamic';
 import { Intro } from '@/components/home/Intro';
 import { OrbHotspot } from '@/components/home/OrbHotspot';
 import { BASE_HEADLINE, orbStep, type OrbMood } from '@/lib/orb-lines';
+import { about } from '@/lib/profile';
 import { setDepth, type DiveSection } from '@/lib/dive';
 
 // Code-split: the form (RHF + Zod + Turnstile + server action graph) loads only
@@ -305,14 +306,40 @@ function Interior({
         <p className="font-mono text-[11px] uppercase tracking-[0.32em] text-white/55">
           01 · About
         </p>
-        <h2 className="mt-5 font-serif text-[clamp(2rem,5vw,3.5rem)] leading-[1.05] tracking-tight text-ink">
-          The person behind the build.
+        {/* Signature line — the one statement that is him. */}
+        <h2 className="mt-5 font-serif text-[clamp(1.9rem,4.6vw,3.25rem)] leading-[1.08] tracking-tight text-ink">
+          {about.signature}
         </h2>
-        <p className="mx-auto mt-6 max-w-xl font-sans text-base leading-relaxed text-white/75 sm:text-lg">
-          You&rsquo;ve flown into the core. This is where the story lives &mdash;
-          who I am, how I think, and why I chase the hard problems. Real content
-          materialises here next.
-        </p>
+
+        {/* The Trinity — three facets of who he is (identity, not projects). A
+            real list with text labels; the glyphs are decorative. */}
+        <ul className="mx-auto mt-10 grid max-w-xl gap-5 text-left">
+          {about.trinity.map((f, i) => (
+            <li
+              key={f.facet}
+              className="flex items-start gap-4"
+              style={{
+                animation: `gdg-holo-in 0.7s ease-out ${0.15 + i * 0.18}s both`,
+              }}
+            >
+              <span
+                aria-hidden
+                className="mt-0.5 select-none font-serif text-2xl leading-none text-[#7fdfff] [text-shadow:0_0_18px_rgba(126,223,255,0.65)]"
+              >
+                {f.glyph}
+              </span>
+              <span>
+                <span className="block font-mono text-[10px] uppercase tracking-[0.3em] text-white/55">
+                  {f.facet}
+                </span>
+                <span className="mt-1 block font-sans text-[0.95rem] leading-relaxed text-white/80">
+                  {f.line}
+                </span>
+              </span>
+            </li>
+          ))}
+        </ul>
+
         <div className="mt-10">
           <PrimaryLink label="Go deeper · Projects" onClick={() => onNavigate('projects')} />
         </div>
