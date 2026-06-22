@@ -41,37 +41,34 @@ export const profile = {
   sameAs: [socialUrls.linkedin, socialUrls.github, socialUrls.upwork],
 } as const;
 
-/** A single Trinity facet: a decorative glyph + a real text label + one line. */
-export interface AboutFacet {
-  glyph: string;
-  facet: string;
-  line: string;
-}
-
 /**
- * The About "who I am" copy — Signature line × Trinity. Used verbatim by both
- * the cinematic interior and the SEO block so they stay identical.
+ * The About copy — three beats: a randomized header, an intro, the stack table
+ * (lib/tech-stack.ts), and a closing line. Used by the cinematic interior and
+ * the crawlable SEO block so the public copy stays identical.
  */
 export const about = {
-  /** Big serif identity statement (the core's signature line). */
-  signature:
-    'I build whole systems alone — from the database, to the black hole, to the voice that answers back.',
-  /** Three facets of who Gabe is — identity, not a project list. */
-  trinity: [
-    {
-      glyph: '⬡',
-      facet: 'Systems',
-      line: 'Production DBA & infrastructure consultant — Linux, Postgres/Oracle, and the integrations utilities run on.',
-    },
-    {
-      glyph: '◈',
-      facet: 'AI & Builder',
-      line: 'I architect complete systems solo — like Helix, a local-first AI assistant with a memory that learns, forgets, and reasons.',
-    },
-    {
-      glyph: '✦',
-      facet: 'Drive',
-      line: 'I build to prove a hunch: that the right work feels like play — and pays for the view.',
-    },
-  ] satisfies AboutFacet[],
+  /**
+   * The header re-rolls on each visit to the About section (a different one
+   * every time, never repeating back-to-back). Professional + SEO + curious +
+   * welcoming. The first is the SSR/crawlable default (the rest are picked
+   * client-side once you dive in).
+   */
+  headers: [
+    'From production databases to AI that thinks — meet the builder.',
+    'A full-stack engineer who builds whole systems, solo.',
+    'I turn “what if” into running software.',
+    'Engineer by trade. Builder by obsession. Curious about everything.',
+    'The developer behind the systems, the AI, and the orb you’re flying through.',
+    'Full-stack by craft — from the database up to the black hole.',
+    'I build the hard things end to end, alone.',
+    'Where infrastructure meets imagination — meet Gabe.',
+    'A software engineer quietly obsessed with how everything works.',
+    'One builder, the whole stack — and a habit of shipping the impossible.',
+  ] as const,
+  /** Section ① — the intro that sets the story. */
+  intro:
+    'I’m Gabe — a software engineer who builds entire systems alone, from the production databases that keep real infrastructure running to a local-first AI that reasons and remembers. By day, a senior technical consultant. The rest of the time, I’m building things that didn’t exist this morning.',
+  /** Section ③ — the closing that reels them in (ties back, own flair). */
+  closing:
+    'But the stack is just vocabulary. What I really do is give wild ideas a pulse — a database that holds, an interface that breathes, an AI that remembers your name. If you’ve got something that shouldn’t be possible yet, that’s exactly where I like to start.',
 } as const;

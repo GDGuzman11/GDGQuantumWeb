@@ -5,6 +5,7 @@ import { createPortal } from 'react-dom';
 import dynamic from 'next/dynamic';
 import { Intro } from '@/components/home/Intro';
 import { OrbHotspot } from '@/components/home/OrbHotspot';
+import { PrimaryLink } from '@/components/home/PrimaryLink';
 import { BASE_HEADLINE, orbStep, type OrbMood } from '@/lib/orb-lines';
 import { about } from '@/lib/profile';
 import { setDepth, type DiveSection } from '@/lib/dive';
@@ -15,6 +16,23 @@ const TransmitForm = dynamic(
   () => import('@/components/home/TransmitForm').then((m) => m.TransmitForm),
   { ssr: false },
 );
+
+// Code-split: the About interior carries ~45 kB of brand-logo path data, so it
+// loads only when you dive into the core — never in First Load.
+const AboutInterior = dynamic(
+  () => import('@/components/home/AboutInterior').then((m) => m.AboutInterior),
+  { ssr: false },
+);
+
+/** Pick a random About header, never the same one twice in a row. */
+let lastHeaderIdx = -1;
+function pickAboutHeader(): string {
+  const n = about.headers.length;
+  let i = Math.floor(Math.random() * n);
+  if (i === lastHeaderIdx) i = (i + 1) % n;
+  lastHeaderIdx = i;
+  return about.headers[i];
+}
 
 /**
  * Enter-the-orb hero controller.
@@ -49,6 +67,8 @@ function depthOf(s: Exclude<DiveSection, null>): number {
 
 export function Hero() {
   const [section, setSection] = useState<DiveSection>(null);
+  // Re-rolled each time the core is opened, so About greets you differently.
+  const [aboutHeader, setAboutHeader] = useState<string>(about.headers[0]);
 
   // --- Orb-tap easter egg (landing only) ---------------------------------
   // Headline + mood are driven into Intro; `pulse` triggers the typewriter and
@@ -97,6 +117,7 @@ export function Hero() {
   /** Go to any section from anywhere (landing or another interior). */
   const navigate = useCallback(
     (s: Exclude<DiveSection, null>) => {
+      if (s === 'about') setAboutHeader(pickAboutHeader()); // re-roll the greeting
       setSection(s);
       const to = depthOf(s);
       if (reducedMotion()) {
@@ -242,7 +263,7 @@ export function Hero() {
 
               {/* Keyed so the content re-materialises when the section changes. */}
               <div key={section} style={{ animation: 'gdg-holo-in 0.7s ease-out both' }}>
-                <Interior section={section} onNavigate={navigate} />
+                <Interior section={section} header={aboutHeader} onNavigate={navigate} />
               </div>
             </div>,
             document.body,
@@ -252,99 +273,18 @@ export function Hero() {
   );
 }
 
-function PrimaryLink({
-  label,
-  onClick,
-  direction = 'right',
-}: {
-  label: string;
-  onClick: () => void;
-  direction?: 'left' | 'right';
-}) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      className="group relative inline-flex items-center gap-2 font-sans text-xs uppercase tracking-[0.28em] text-white/75 transition-colors duration-300 hover:text-white focus:outline-none focus-visible:text-white"
-    >
-      {direction === 'left' ? (
-        <span
-          aria-hidden
-          className="inline-block transition-transform duration-300 group-hover:-translate-x-1"
-        >
-          &larr;
-        </span>
-      ) : null}
-      <span>{label}</span>
-      {direction === 'right' ? (
-        <span
-          aria-hidden
-          className="inline-block transition-transform duration-300 group-hover:translate-x-1"
-        >
-          &rarr;
-        </span>
-      ) : null}
-      <span
-        aria-hidden
-        className="absolute -bottom-1 left-0 h-px w-0 bg-white/60 transition-all duration-300 group-hover:w-full"
-      />
-    </button>
-  );
-}
-
-/** Placeholder interior worlds (content lands in later stages). */
+/** Interior worlds for each dive destination. */
 function Interior({
   section,
+  header,
   onNavigate,
 }: {
   section: Exclude<DiveSection, null>;
+  header: string;
   onNavigate: (s: Exclude<DiveSection, null>) => void;
 }) {
   if (section === 'about') {
-    return (
-      <div className="max-w-2xl text-center [text-shadow:0_2px_30px_rgba(0,0,0,0.85)]">
-        <p className="font-mono text-[11px] uppercase tracking-[0.32em] text-white/55">
-          01 · About
-        </p>
-        {/* Signature line — the one statement that is him. */}
-        <h2 className="mt-5 font-serif text-[clamp(1.9rem,4.6vw,3.25rem)] leading-[1.08] tracking-tight text-ink">
-          {about.signature}
-        </h2>
-
-        {/* The Trinity — three facets of who he is (identity, not projects). A
-            real list with text labels; the glyphs are decorative. */}
-        <ul className="mx-auto mt-10 grid max-w-xl gap-5 text-left">
-          {about.trinity.map((f, i) => (
-            <li
-              key={f.facet}
-              className="flex items-start gap-4"
-              style={{
-                animation: `gdg-holo-in 0.7s ease-out ${0.15 + i * 0.18}s both`,
-              }}
-            >
-              <span
-                aria-hidden
-                className="mt-0.5 select-none font-serif text-2xl leading-none text-[#7fdfff] [text-shadow:0_0_18px_rgba(126,223,255,0.65)]"
-              >
-                {f.glyph}
-              </span>
-              <span>
-                <span className="block font-mono text-[10px] uppercase tracking-[0.3em] text-white/55">
-                  {f.facet}
-                </span>
-                <span className="mt-1 block font-sans text-[0.95rem] leading-relaxed text-white/80">
-                  {f.line}
-                </span>
-              </span>
-            </li>
-          ))}
-        </ul>
-
-        <div className="mt-10">
-          <PrimaryLink label="Go deeper · Projects" onClick={() => onNavigate('projects')} />
-        </div>
-      </div>
-    );
+    return <AboutInterior header={header} onNavigate={onNavigate} />;
   }
 
   if (section === 'contact') {

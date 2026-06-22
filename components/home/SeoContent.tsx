@@ -1,4 +1,5 @@
 import { about, profile } from '@/lib/profile';
+import { TECH_STACK } from '@/lib/tech-stack';
 
 /**
  * Crawlable, server-rendered copy of the site's section content.
@@ -16,15 +17,15 @@ export function SeoContent() {
   return (
     <section className="sr-only" aria-label={`About ${profile.name}`}>
       <h2>About {profile.name}</h2>
-      <p>{about.signature}</p>
-      <dl>
-        {about.trinity.map((f) => (
-          <div key={f.facet}>
-            <dt>{f.facet}</dt>
-            <dd>{f.line}</dd>
-          </div>
-        ))}
-      </dl>
+      <p>{about.headers[0]}</p>
+      <p>{about.intro}</p>
+      {TECH_STACK.map((group) => (
+        <p key={group.label}>
+          <strong>{group.label}:</strong>{' '}
+          {group.items.map((t) => t.name).join(', ')}
+        </p>
+      ))}
+      <p>{about.closing}</p>
 
       <h2>Projects</h2>
       <p>
