@@ -138,19 +138,28 @@ export function Hero() {
     setPulse((p) => p + 1);
 
     if (step.finale) {
-      // Show the red finale line, then dive to Contact and reset the counter.
+      // Arm the finale; the actual dive waits until the red line has FULLY typed
+      // out (Intro fires onTyped when it lands) so we never redirect mid-sentence.
       finaleRef.current = true;
-      const delay = reducedMotion() ? 350 : 1150;
-      window.setTimeout(() => {
-        navigate('contact');
-        resetOrb();
-      }, delay);
       return;
     }
 
     if (step.randomLine) lastRandomRef.current = step.headline;
     tapRef.current = next;
-  }, [section, navigate, resetOrb]);
+  }, [section]);
+
+  /**
+   * Intro signals here once a line has fully landed. Only the armed finale acts:
+   * let the red line breathe for a beat, then dive to Contact and reset.
+   */
+  const onIntroTyped = useCallback(() => {
+    if (!finaleRef.current) return;
+    const dwell = reducedMotion() ? 500 : 900;
+    window.setTimeout(() => {
+      navigate('contact');
+      resetOrb();
+    }, dwell);
+  }, [navigate, resetOrb]);
 
   const back = useCallback(() => {
     const finish = () => {
@@ -192,7 +201,7 @@ export function Hero() {
         {!section ? (
           <OrbHotspot onTap={onOrbTap} flashKey={pulse} flashColor={flashColor} />
         ) : null}
-        <Intro headline={headline} mood={mood} clap={clap} pulse={pulse} />
+        <Intro headline={headline} mood={mood} clap={clap} pulse={pulse} onTyped={onIntroTyped} />
         <div className="mt-10 flex items-center justify-center gap-8">
           <PrimaryLink label="About" onClick={() => navigate('about')} />
           <PrimaryLink label="Projects" onClick={() => navigate('projects')} />

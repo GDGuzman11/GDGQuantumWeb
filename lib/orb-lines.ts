@@ -7,7 +7,9 @@
  * Contact and the counter resets.
  *
  * Pure data + a tiny resolver — no DOM, no React — so it stays trivially
- * editable and adds nothing to the client bundle's runtime weight.
+ * editable and adds nothing to the client bundle's runtime weight. (The only
+ * state is a small module-level "last pick per slot" memory so the sarcastic
+ * lines don't repeat the same line two cycles in a row.)
  */
 
 /** The landing's resting headline (also the document's single <h1> content). */
@@ -25,6 +27,32 @@ export const ORB_LINES: readonly string[] = [
   'Let’s turn your maybe into a demo.',
   'The future’s not gonna build itself.',
   'Got a wild one? That’s my favourite kind.',
+] as const;
+
+/**
+ * The escalating sarcastic lines. Each tap-slot has its own pool so the run
+ * doesn't sound canned cycle after cycle; `pickFromPool` avoids replaying the
+ * same line two cycles in a row. Tap 3 = annoyed (blue), tap 4 = the clap slot
+ * (faint — lines carry 👏 so the clap animation reads), tap 5 = lame (faint).
+ */
+export const SARCASM_BLUE: readonly string[] = [
+  '…really? again?',
+  'Seriously? Another one?',
+  'You’re still poking it?',
+  'Okay, that tickles. Stop.',
+] as const;
+
+export const SARCASM_CLAP: readonly string[] = [
+  'Never give up. 👏 Never surrender. 👏',
+  'Clap 👏 for 👏 the persistence. 👏',
+  'Bravo. 👏 Truly. 👏 Bravo. 👏',
+] as const;
+
+export const SARCASM_FAINT: readonly string[] = [
+  'Wow. Still clicking. Truly visionary.',
+  'Incredible stamina. No notes.',
+  'This is the content now, apparently.',
+  'You and this orb — name a better duo.',
 ] as const;
 
 /** Mood drives the orb-flash / ray colour AND the headline glow styling. */
@@ -59,6 +87,19 @@ export function pickRandomLine(exclude?: string | null): string {
   return pool[Math.floor(Math.random() * pool.length)];
 }
 
+// Remember the last index served per sarcastic slot so a given slot never shows
+// the same line two cycles running. Keyed by slot; reset is unnecessary.
+const lastPick: Record<string, number> = {};
+
+/** Pick from a sarcastic pool, avoiding an immediate repeat of that slot. */
+function pickFromPool(pool: readonly string[], key: string): string {
+  if (pool.length <= 1) return pool[0];
+  let i = Math.floor(Math.random() * pool.length);
+  if (i === lastPick[key]) i = (i + 1) % pool.length;
+  lastPick[key] = i;
+  return pool[i];
+}
+
 /**
  * Resolve the step for a given tap count (1..6+).
  * `lastRandom` is the line shown on tap 1, so tap 2 picks a distinct one.
@@ -85,7 +126,7 @@ export function orbStep(tap: number, lastRandom?: string | null): OrbStep {
       };
     case 3:
       return {
-        headline: '…really? again?',
+        headline: pickFromPool(SARCASM_BLUE, 'blue'),
         mood: 'blue',
         color: MOOD_COLOR.blue,
         clap: false,
@@ -94,7 +135,7 @@ export function orbStep(tap: number, lastRandom?: string | null): OrbStep {
       };
     case 4:
       return {
-        headline: 'Never give up. 👏 Never surrender. 👏',
+        headline: pickFromPool(SARCASM_CLAP, 'clap'),
         mood: 'faint',
         color: MOOD_COLOR.faint,
         clap: true,
@@ -103,7 +144,7 @@ export function orbStep(tap: number, lastRandom?: string | null): OrbStep {
       };
     case 5:
       return {
-        headline: 'Wow. Still clicking. Truly visionary.',
+        headline: pickFromPool(SARCASM_FAINT, 'faint'),
         mood: 'faint',
         color: MOOD_COLOR.faint,
         clap: false,

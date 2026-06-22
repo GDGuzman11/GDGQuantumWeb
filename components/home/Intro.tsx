@@ -77,11 +77,14 @@ export function Intro({
   mood = 'base',
   clap = false,
   pulse = 0,
+  onTyped,
 }: {
   headline?: string;
   mood?: OrbMood;
   clap?: boolean;
   pulse?: number;
+  /** Fires once the new line has fully landed (typed out, or instant-swapped). */
+  onTyped?: () => void;
 }) {
   const [display, setDisplay] = useState(headline);
   const displayRef = useRef(headline);
@@ -102,6 +105,7 @@ export function Intro({
     // Base reset (after finale / back) and reduced-motion both snap instantly.
     if (mood === 'base' || reducedMotion()) {
       setDisplay(headline);
+      onTyped?.(); // the line has "landed" — let the finale redirect proceed
       return;
     }
 
@@ -125,6 +129,8 @@ export function Intro({
         chars = target.slice(0, chars.length + 1);
         setDisplay(chars.join(''));
         timer = setTimeout(type, 30);
+      } else {
+        onTyped?.(); // fully typed — the finale waits for this before diving
       }
     };
 
