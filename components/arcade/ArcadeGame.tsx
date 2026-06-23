@@ -28,7 +28,7 @@ export function ArcadeGame() {
   const [snap, setSnap] = useState<Snapshot | null>(null);
 
   const onSnapshot = useCallback((s: Snapshot) => setSnap(s), []);
-  const { fire, setMove } = useGameLoop(canvasRef, engineRef, reduce, onSnapshot);
+  const { setMove } = useGameLoop(canvasRef, engineRef, reduce, onSnapshot);
 
   const start = useCallback(
     (diff: Difficulty) => {
@@ -63,12 +63,7 @@ export function ArcadeGame() {
         {mode === 'battle' && snap && !gameOver && (
           <>
             <Hud snap={snap} />
-            <Controls
-              snap={snap}
-              onMoveStart={(d) => setMove(d)}
-              onMoveEnd={() => setMove(0)}
-              onFire={fire}
-            />
+            <Controls snap={snap} onMoveStart={(d) => setMove(d)} onMoveEnd={() => setMove(0)} />
           </>
         )}
 
@@ -92,7 +87,7 @@ export function ArcadeGame() {
               ))}
             </div>
             <p className="mt-6 max-w-xs text-center font-pixel text-[7px] leading-relaxed text-white/35 sm:text-[8px]">
-              MOVE THE POINTER TO AIM · ◀ ▶ TO DRIVE · FIRE TO SHOOT
+              POINTER TO AIM · A / D OR ◀ ▶ TO DRIVE · CLICK / RELEASE TO FIRE
             </p>
           </Overlay>
         )}

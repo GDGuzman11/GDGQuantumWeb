@@ -28,6 +28,10 @@ import { computeAiShot, type Difficulty } from './ai';
 
 const BLAST_R = 38;
 const MAX_DMG = 42;
+/** Slope resistance: climbing rise (px per move step) above this is impassable. */
+const MAX_CLIMB = 3.4;
+/** Extra fuel multiplier per px of uphill rise. */
+const SLOPE_FUEL = 2.6;
 
 export interface EngineOpts {
   seed: number;
@@ -97,14 +101,25 @@ export class ArcadeEngine {
     return { dir: { x: dx / dist, y: dy / dist }, power };
   }
 
-  /** Drive the current tank horizontally (dir = -1 left, +1 right). */
+  /**
+   * Drive the current tank horizontally (dir = -1 left, +1 right). Slope-aware:
+   * climbing a rise costs extra fuel and a steep enough wall is impassable;
+   * downhill is cheap.
+   */
   move(dir: -1 | 1): void {
     if (this.phase !== 'aim') return;
     const t = this.current;
     if (t.moveLeft <= 0) return;
-    const step = Math.min(MOVE_SPEED, t.moveLeft);
-    const nx = Math.max(20, Math.min(GAME_W - 20, t.x + dir * step));
-    t.moveLeft -= Math.abs(nx - t.x);
+    const x = t.x;
+    const nx = Math.max(20, Math.min(GAME_W - 20, x + dir * MOVE_SPEED));
+    const dx = Math.abs(nx - x);
+    if (dx < 0.01) return;
+    // rise > 0 means the surface gets higher (smaller y) ahead → uphill.
+    const rise = heightAt(this.terrain, x) - heightAt(this.terrain, nx);
+    if (rise > MAX_CLIMB) return; // too steep to climb
+    const cost = dx * (1 + Math.max(0, rise) * SLOPE_FUEL);
+    if (cost > t.moveLeft) return;
+    t.moveLeft -= cost;
     t.x = nx;
   }
 

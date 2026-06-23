@@ -27,21 +27,10 @@ export function useGameLoop(
 ) {
   const pointer = useRef<{ x: number; y: number } | null>(null);
   const aim = useRef<AimView>({ dir: { x: 1, y: -1 }, power: 0, active: false });
-  const moveDir = useRef<-1 | 0 | 1>(0);
+  const moveDir = useRef<-1 | 0 | 1>(0); // from the on-screen ◀ ▶ buttons (touch)
+  const keyDir = useRef<-1 | 0 | 1>(0); // from A/D / arrow keys (desktop)
   const aiPending = useRef(false);
   const lastSnap = useRef(0);
-
-  // Latest aim handles for the Fire button.
-  const fire = useCallback(() => {
-    const eng = engineRef.current;
-    if (!eng || !aim.current.active) return;
-    if (eng.phase !== 'aim' || eng.current.side !== 'player') return;
-    const a = eng.aimFromPointer(
-      pointer.current ? pointer.current.x : eng.current.x + 80,
-      pointer.current ? pointer.current.y : eng.muzzle(eng.current).y - 80,
-    );
-    eng.fire(a.dir, a.power);
-  }, [engineRef]);
 
   const setMove = useCallback((dir: -1 | 0 | 1) => {
     moveDir.current = dir;
@@ -76,9 +65,35 @@ export function useGameLoop(
     };
     const onMove = (e: PointerEvent) => toGame(e.clientX, e.clientY);
     const onLeave = () => (pointer.current = null);
+    // Left-click (desktop) / touch release (mobile) = FIRE at the current aim.
+    const onUp = (e: PointerEvent) => {
+      if (e.button !== 0) return;
+      toGame(e.clientX, e.clientY);
+      const eng = engineRef.current;
+      if (!eng || eng.phase !== 'aim' || eng.current.side !== 'player' || !pointer.current) return;
+      const a = eng.aimFromPointer(pointer.current.x, pointer.current.y);
+      eng.fire(a.dir, a.power);
+    };
     canvas.addEventListener('pointermove', onMove);
     canvas.addEventListener('pointerdown', onMove);
+    canvas.addEventListener('pointerup', onUp);
     canvas.addEventListener('pointerleave', onLeave);
+
+    // Keyboard movement: A/D or ←/→ drive the tank while held.
+    const keyToDir = (k: string): -1 | 0 | 1 =>
+      k === 'a' || k === 'arrowleft' ? -1 : k === 'd' || k === 'arrowright' ? 1 : 0;
+    const onKeyDown = (e: KeyboardEvent) => {
+      const d = keyToDir(e.key.toLowerCase());
+      if (d === 0) return;
+      if (e.key.startsWith('Arrow')) e.preventDefault();
+      keyDir.current = d;
+    };
+    const onKeyUp = (e: KeyboardEvent) => {
+      const d = keyToDir(e.key.toLowerCase());
+      if (d !== 0 && keyDir.current === d) keyDir.current = 0;
+    };
+    window.addEventListener('keydown', onKeyDown);
+    window.addEventListener('keyup', onKeyUp);
 
     const frame = (now: number) => {
       if (disposed) return;
@@ -86,9 +101,10 @@ export function useGameLoop(
       prev = now;
       const eng = engineRef.current;
       if (eng) {
-        // Continuous tank movement while a move button is held (player turn).
-        if (moveDir.current !== 0 && eng.phase === 'aim' && eng.current.side === 'player') {
-          eng.move(moveDir.current);
+        // Continuous tank movement while a key or move button is held (player turn).
+        const md = keyDir.current || moveDir.current;
+        if (md !== 0 && eng.phase === 'aim' && eng.current.side === 'player') {
+          eng.move(md);
         }
         // Aim from the pointer (player's turn).
         if (eng.phase === 'aim' && eng.current.side === 'player' && pointer.current) {
@@ -130,9 +146,12 @@ export function useGameLoop(
       ro.disconnect();
       canvas.removeEventListener('pointermove', onMove);
       canvas.removeEventListener('pointerdown', onMove);
+      canvas.removeEventListener('pointerup', onUp);
       canvas.removeEventListener('pointerleave', onLeave);
+      window.removeEventListener('keydown', onKeyDown);
+      window.removeEventListener('keyup', onKeyUp);
     };
   }, [canvasRef, engineRef, reduceMotion, onSnapshot]);
 
-  return { fire, setMove };
+  return { setMove };
 }

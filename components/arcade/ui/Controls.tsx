@@ -3,20 +3,19 @@
 import type { Snapshot } from '../engine/types';
 
 /**
- * Bottom overlay controls: hold ◀ ▶ to drive the tank left/right (limited per
- * turn), and a big FIRE button. Aiming itself is done by moving the pointer
- * over the screen (mouse/touch). Buttons are ≥44px for touch.
+ * Bottom overlay controls. Aiming is by pointer; **firing is left-click on
+ * desktop / touch-release on mobile** (handled on the canvas, see useGameLoop).
+ * These on-screen ◀ ▶ buttons drive the tank left/right (mainly for touch —
+ * desktop can also use A/D or the arrow keys). Buttons are ≥44px for touch.
  */
 export function Controls({
   snap,
   onMoveStart,
   onMoveEnd,
-  onFire,
 }: {
   snap: Snapshot;
   onMoveStart: (dir: -1 | 1) => void;
   onMoveEnd: () => void;
-  onFire: () => void;
 }) {
   const player = snap.tanks.find((t) => t.side === 'player')!;
   const yourTurn = snap.canFire;
@@ -27,19 +26,12 @@ export function Controls({
       <div className="pointer-events-auto flex items-center gap-2">
         <MoveButton label="◀" disabled={!yourTurn} onStart={() => onMoveStart(-1)} onEnd={onMoveEnd} />
         <MoveButton label="▶" disabled={!yourTurn} onStart={() => onMoveStart(1)} onEnd={onMoveEnd} />
-        <span className="ml-1 font-pixel text-[7px] text-white/45 sm:text-[8px]">
-          FUEL {moveLeft}
-        </span>
+        <span className="ml-1 font-pixel text-[7px] text-white/45 sm:text-[8px]">FUEL {moveLeft}</span>
       </div>
 
-      <button
-        type="button"
-        onClick={onFire}
-        disabled={!yourTurn}
-        className="pointer-events-auto min-h-[48px] rounded-lg border border-[#aef5c8]/40 bg-[#aef5c8]/10 px-6 font-pixel text-[10px] uppercase tracking-wider text-[#aef5c8] shadow-[0_0_24px_-6px_rgba(174,245,200,0.7)] transition-colors hover:bg-[#aef5c8]/20 focus:outline-none focus-visible:ring-2 focus-visible:ring-[#aef5c8] disabled:cursor-not-allowed disabled:opacity-30 sm:text-[12px]"
-      >
-        Fire
-      </button>
+      <span className="pointer-events-none mb-3 font-pixel text-[7px] uppercase tracking-wider text-[#aef5c8]/70 sm:text-[8px]">
+        {yourTurn ? 'click / release to fire' : 'enemy turn…'}
+      </span>
     </div>
   );
 }
