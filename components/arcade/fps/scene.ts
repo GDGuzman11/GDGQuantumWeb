@@ -62,8 +62,12 @@ export function buildWorld(level: Level3D): World {
   const ladMat = new THREE.MeshBasicMaterial({ color: '#7fdfff' });
   disposables.push(ladMat);
   for (const l of level.ladders) {
-    for (let y = l.y0 + 0.3; y < l.y1; y += 0.5) {
-      const rung = new THREE.Mesh(new THREE.BoxGeometry(l.sx, 0.08, l.sz), ladMat);
+    // Thin rungs spanning the ladder's wide axis (faces ±z if sx>sz, else ±x).
+    const along = l.sx >= l.sz;
+    const rw = along ? l.sx : 0.1;
+    const rd = along ? 0.1 : l.sz;
+    for (let y = l.y0 + 0.35; y < l.y1; y += 0.45) {
+      const rung = new THREE.Mesh(new THREE.BoxGeometry(rw, 0.06, rd), ladMat);
       rung.position.set(l.x, y, l.z);
       scene.add(rung);
       disposables.push(rung.geometry);

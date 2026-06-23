@@ -62,13 +62,13 @@ function building(boxes: Box[], ladders: Ladder[], cx: number, cz: number, bw: n
   }
 
   // Ladder A: GROUND → 2nd, on the −z face. Step off onto a −z landing nub.
-  ladders.push({ x: cx, z: cz - half - 0.4, y0: 0, y1: F2 + 0.2, sx: 1.4, sz: 0.8 });
-  boxes.push({ x: cx, y: F2 - slab / 2, z: cz - half - 0.2, sx: 1.8, sy: slab, sz: 0.8, tex: 3 });
+  ladders.push({ x: cx, z: cz - half - 0.35, y0: 0, y1: F2 + 0.2, sx: 0.9, sz: 0.45 });
+  boxes.push({ x: cx, y: F2 - slab / 2, z: cz - half - 0.2, sx: 1.6, sy: slab, sz: 0.8, tex: 3 });
 
   // Ladder B: 2nd → 3rd, on the +x face — a DIFFERENT spot, so you cross the
   // 2nd floor to reach it. No direct ground→3rd route. Step off onto a +x nub.
-  ladders.push({ x: cx + half + 0.4, z: cz, y0: F2, y1: F3 + 0.2, sx: 0.8, sz: 1.4 });
-  boxes.push({ x: cx + half + 0.2, y: F3 - slab / 2, z: cz, sx: 0.8, sy: slab, sz: 1.8, tex: 3 });
+  ladders.push({ x: cx + half + 0.35, z: cz, y0: F2, y1: F3 + 0.2, sx: 0.45, sz: 0.9 });
+  boxes.push({ x: cx + half + 0.2, y: F3 - slab / 2, z: cz, sx: 0.8, sy: slab, sz: 1.6, tex: 3 });
 }
 
 export function makeArena3D(enemyCount: number, seed: number): Level3D {
@@ -85,22 +85,30 @@ export function makeArena3D(enemyCount: number, seed: number): Level3D {
   boxes.push({ x: -half, y: WALL_H / 2, z: 0, sx: 0.6, sy: WALL_H, sz: size, tex: 0 });
   boxes.push({ x: half, y: WALL_H / 2, z: 0, sx: 0.6, sy: WALL_H, sz: size, tex: 0 });
 
-  // cover pillars (kept off the centre + edges so lanes/sightlines stay open)
-  const pillars = Math.round(size * 0.8);
+  // Multi-level perch towers FIRST, so cover pillars can avoid them.
+  const sites = [
+    { x: half * 0.5, z: half * 0.5, bw: 7 },
+    { x: -half * 0.5, z: -half * 0.45, bw: 7 },
+    { x: -half * 0.55, z: half * 0.5, bw: 6 },
+  ];
+  if (size > 70) sites.push({ x: half * 0.5, z: -half * 0.55, bw: 6 });
+  for (const s of sites) building(boxes, ladders, s.x, s.z, s.bw);
+
+  // Cover pillars — skip the spawn and a clearance ring around each tower (so
+  // nothing blocks the buildings or their ladder approaches).
+  const pillars = Math.round(size * 0.7);
   for (let i = 0; i < pillars; i++) {
     const x = (r() * 2 - 1) * (half - 3);
     const z = (r() * 2 - 1) * (half - 3);
-    if (Math.hypot(x, z) < 4) continue; // keep spawn clear
+    if (Math.hypot(x, z) < 5) continue; // spawn clear
+    const nearBuilding = sites.some(
+      (s) => Math.abs(x - s.x) < s.bw / 2 + 3 && Math.abs(z - s.z) < s.bw / 2 + 3,
+    );
+    if (nearBuilding) continue;
     const h = 1.5 + r() * 2.5;
-    const s = 1 + r() * 1.4;
-    boxes.push({ x, y: h / 2, z, sx: s, sy: h, sz: s, tex: 1 + Math.floor(r() * 3) });
+    const sdim = 1 + r() * 1.4;
+    boxes.push({ x, y: h / 2, z, sx: sdim, sy: h, sz: sdim, tex: 1 + Math.floor(r() * 3) });
   }
-
-  // Several multi-level perch towers spread around the (now large) arena.
-  building(boxes, ladders, half * 0.5, half * 0.5, 7);
-  building(boxes, ladders, -half * 0.5, -half * 0.45, 7);
-  building(boxes, ladders, -half * 0.55, half * 0.5, 6);
-  if (size > 70) building(boxes, ladders, half * 0.5, -half * 0.55, 6);
 
   return { boxes, ladders, spawn: { x: 0, z: 0, yaw: 0 }, size };
 }
