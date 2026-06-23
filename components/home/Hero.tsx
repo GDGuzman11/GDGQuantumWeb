@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import dynamic from 'next/dynamic';
+import { useRouter } from 'next/navigation';
 import { Intro } from '@/components/home/Intro';
 import { OrbHotspot } from '@/components/home/OrbHotspot';
 import { PrimaryLink } from '@/components/home/PrimaryLink';
@@ -66,6 +67,7 @@ function depthOf(s: Exclude<DiveSection, null>): number {
 }
 
 export function Hero() {
+  const router = useRouter();
   const [section, setSection] = useState<DiveSection>(null);
   // Re-rolled each time the core is opened, so About greets you differently.
   const [aboutHeader, setAboutHeader] = useState<string>(about.headers[0]);
@@ -224,10 +226,11 @@ export function Hero() {
           <OrbHotspot onTap={onOrbTap} flashKey={pulse} flashColor={flashColor} />
         ) : null}
         <Intro headline={headline} mood={mood} clap={clap} pulse={pulse} onTyped={onIntroTyped} />
-        <div className="mt-10 flex items-center justify-center gap-8">
+        <div className="mt-10 flex flex-wrap items-center justify-center gap-x-8 gap-y-4">
           <PrimaryLink label="About" onClick={() => navigate('about')} />
           <PrimaryLink label="Projects" onClick={() => navigate('projects')} />
           <PrimaryLink label="Contact" onClick={() => navigate('contact')} />
+          <PrimaryLink label="Have Fun!" onClick={() => router.push('/arcade')} />
         </div>
       </div>
 

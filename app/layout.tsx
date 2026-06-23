@@ -1,5 +1,5 @@
 import type { Metadata, Viewport } from 'next';
-import { inter, instrumentSerif } from '@/lib/fonts';
+import { inter, instrumentSerif, pressStart } from '@/lib/fonts';
 import { siteConfig } from '@/lib/site-config';
 import { siteUrl } from '@/lib/site-url';
 import { profile } from '@/lib/profile';
@@ -99,7 +99,10 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="en" className={`${inter.variable} ${instrumentSerif.variable}`}>
+    <html
+      lang="en"
+      className={`${inter.variable} ${instrumentSerif.variable} ${pressStart.variable}`}
+    >
       {/* Phase 3R full-dark — the dark token scope is applied on <body> so the
           whole tree (panels, chrome, backdrop, base bg) inherits the dark tokens
           and a dark background, preventing any light flash. The particle tunnel

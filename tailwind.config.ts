@@ -20,6 +20,7 @@ const config: Config = {
         // next/font injects these CSS variables (see lib/fonts.ts).
         sans: ['var(--font-inter)', 'ui-sans-serif', 'system-ui', 'sans-serif'],
         serif: ['var(--font-serif)', 'ui-serif', 'Georgia', 'serif'],
+        pixel: ['var(--font-pixel)', 'ui-monospace', 'monospace'],
       },
     },
   },

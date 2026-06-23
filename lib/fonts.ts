@@ -1,4 +1,4 @@
-import { Inter, Instrument_Serif } from 'next/font/google';
+import { Inter, Instrument_Serif, Press_Start_2P } from 'next/font/google';
 
 /**
  * Self-hosted via next/font (downloaded at build time, served from our origin).
@@ -20,4 +20,13 @@ export const instrumentSerif = Instrument_Serif({
   display: 'swap',
   variable: '--font-serif',
   fallback: ['Georgia', 'serif'],
+});
+
+/** Retro pixel face for the "Have Fun!" arcade (mapped to Tailwind font-pixel). */
+export const pressStart = Press_Start_2P({
+  subsets: ['latin'],
+  weight: '400',
+  display: 'swap',
+  variable: '--font-pixel',
+  fallback: ['ui-monospace', 'monospace'],
 });
