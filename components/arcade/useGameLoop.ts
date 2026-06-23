@@ -146,7 +146,10 @@ export function useGameLoop(
 
         if (now - lastSnap.current > 80) {
           lastSnap.current = now;
-          onSnapshot(eng.snapshot(aim.current.active ? aim.current.power : 0));
+          const ang = aim.current.active
+            ? Math.round((Math.atan2(-aim.current.dir.y, aim.current.dir.x) * 180) / Math.PI)
+            : 0;
+          onSnapshot(eng.snapshot(aim.current.active ? aim.current.power : 0, ang));
         }
       }
       raf = requestAnimationFrame(frame);

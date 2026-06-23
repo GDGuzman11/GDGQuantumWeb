@@ -41,7 +41,7 @@ export function Controls({
           <CycleButton label="▸" disabled={!yourTurn} onClick={() => onCycle(1)} />
         </div>
         <span className="font-pixel text-[6px] uppercase tracking-wider text-[#aef5c8]/60 sm:text-[7px]">
-          {yourTurn ? 'click to fire' : 'enemy turn…'}
+          {yourTurn ? `dmg ${snap.weaponDamage} · click to fire` : 'enemy turn…'}
         </span>
       </div>
     </div>

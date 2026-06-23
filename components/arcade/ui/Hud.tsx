@@ -25,7 +25,9 @@ export function Hud({ snap }: { snap: Snapshot }) {
             style={{ width: `${Math.round(snap.power * 100)}%` }}
           />
         </div>
-        <span className="text-white/45">POWER</span>
+        <span className="text-white/45">
+          POWER · {snap.angle}°
+        </span>
       </div>
 
       <TankBadge label="ENEMY" color="#ff5d7a" hp={ai.health} score={ai.score} alignRight />

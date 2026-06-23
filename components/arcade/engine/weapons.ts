@@ -4,8 +4,7 @@
  * tier-scaled params and themed names. Keeping it generative keeps 90 weapons
  * balanced from one small core instead of 90 hand-written objects.
  */
-import type { Weapon, WeaponKind } from './types';
-import { tankById } from './tanks';
+import type { ExplosionStyle, Weapon, WeaponKind } from './types';
 
 interface Archetype {
   kind: WeaponKind;
@@ -14,6 +13,26 @@ interface Archetype {
   count: number;
   bounces: number;
   terrain: 'carve' | 'mound' | 'none';
+}
+
+/** Per-tank hue range so each weapon gets a unique themed colour. */
+const THEME: Record<string, { h0: number; h1: number; sat: number }> = {
+  rock: { h0: 8, h1: 48, sat: 88 }, // red → amber → gold
+  ice: { h0: 168, h1: 214, sat: 82 }, // teal → cyan → blue
+  energy: { h0: 258, h1: 314, sat: 82 }, // violet → magenta
+};
+
+const FX: ExplosionStyle[] = ['burst', 'shards', 'ring', 'sparkle', 'plume', 'implode'];
+
+function hslToHex(h: number, s: number, l: number): string {
+  s /= 100;
+  l /= 100;
+  const c = (1 - Math.abs(2 * l - 1)) * s;
+  const x = c * (1 - Math.abs(((h / 60) % 2) - 1));
+  const m = l - c / 2;
+  const [r, g, b] = h < 60 ? [c, x, 0] : h < 120 ? [x, c, 0] : h < 180 ? [0, c, x] : h < 240 ? [0, x, c] : h < 300 ? [x, 0, c] : [c, 0, x];
+  const hex = (v: number) => Math.round((v + m) * 255).toString(16).padStart(2, '0');
+  return `#${hex(r)}${hex(g)}${hex(b)}`;
 }
 
 // The ~12 archetypes, in escalating-variety order. Each tank's 30 cycles this
@@ -61,18 +80,25 @@ const NAMES: Record<string, string[]> = {
 };
 
 function buildArsenal(tankId: string): Weapon[] {
-  const def = tankById(tankId);
   const names = NAMES[tankId] ?? NAMES.rock;
+  const th = THEME[tankId] ?? THEME.rock;
+  const n = names.length;
   return names.map((name, i) => {
     const a = ARCHETYPES[i % ARCHETYPES.length];
     const tier = 1 + Math.floor(i / ARCHETYPES.length) * 0.18;
+    // Unique colour (hue swept across the theme range + lightness wobble),
+    // unique explosion FX, and per-weapon modulated damage/blast so no two
+    // weapons read identically.
+    const hue = th.h0 + ((th.h1 - th.h0) * i) / (n - 1);
+    const light = 58 + ((i % 3) - 1) * 7;
     return {
       id: `${tankId}-${i}`,
       name,
       kind: a.kind,
-      blastR: Math.round(a.blastR * tier),
-      damage: Math.round(a.damage * tier),
-      color: def.color,
+      blastR: Math.round(a.blastR * tier * (1 + ((i % 3) - 1) * 0.06)),
+      damage: Math.round(a.damage * tier * (1 + ((i % 5) - 2) * 0.07)),
+      color: hslToHex(hue, th.sat, light),
+      fx: FX[(i * 5) % FX.length],
       count: a.count,
       bounces: a.bounces,
       terrain: a.terrain,

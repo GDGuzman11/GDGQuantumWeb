@@ -139,6 +139,18 @@ function drawTank(ctx: CanvasRenderingContext2D, eng: ArcadeEngine, t: Tank, aim
     ctx.lineTo(m.x + aim.dir.x * len, m.y + aim.dir.y * len);
     ctx.stroke();
     ctx.restore();
+
+    // Live aim angle, drawn just past the arrow tip.
+    const deg = Math.round((Math.atan2(-aim.dir.y, aim.dir.x) * 180) / Math.PI);
+    ctx.save();
+    ctx.font = '12px "Press Start 2P", ui-monospace, monospace';
+    ctx.fillStyle = '#aef5c8';
+    ctx.shadowColor = '#aef5c8';
+    ctx.shadowBlur = 8;
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(`${deg}°`, m.x + aim.dir.x * (len + 16), m.y + aim.dir.y * (len + 16));
+    ctx.restore();
   }
 }
 

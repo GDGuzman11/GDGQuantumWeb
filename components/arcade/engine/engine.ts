@@ -351,7 +351,7 @@ export class ArcadeEngine {
     if (w.terrain === 'mound') mound(this.terrain, x, y, w.blastR);
     else if (w.terrain === 'carve') carve(this.terrain, x, y, w.blastR);
     this.blast = { x, y, r: w.blastR, t: performance.now() };
-    this.particles.explosion(x, y, w.blastR / 38);
+    this.particles.explosion(x, y, w.blastR / 38, w.color, w.fx);
     this.shake = Math.min(22, this.shake + w.blastR * 0.28);
     this.events.push('explosion');
 
@@ -391,14 +391,16 @@ export class ArcadeEngine {
     this.phase = 'aim';
   }
 
-  snapshot(currentPower = 0): Snapshot {
+  snapshot(currentPower = 0, angle = 0): Snapshot {
     return {
       phase: this.phase,
       turn: this.current.side,
       wind: this.wind,
       power: currentPower,
+      angle,
       canFire: this.phase === 'aim' && this.current.side === 'player',
       weaponName: this.currentWeapon?.name ?? '',
+      weaponDamage: this.currentWeapon?.damage ?? 0,
       tanks: this.tanks.map((t) => ({
         side: t.side,
         health: t.health,
@@ -418,6 +420,7 @@ function childWeapon(w: Weapon): Weapon {
     blastR: Math.max(14, Math.round(w.blastR * 0.7)),
     damage: w.damage,
     color: w.color,
+    fx: w.fx,
     count: 0,
     bounces: 0,
     terrain: 'carve',

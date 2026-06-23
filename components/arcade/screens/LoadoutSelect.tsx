@@ -66,7 +66,9 @@ export function LoadoutSelect({
               style={on ? { borderColor: color } : undefined}
             >
               <span className="font-pixel text-[7px] leading-tight text-white sm:text-[8px]">{w.name}</span>
-              <span className="font-pixel text-[5px] uppercase text-white/40 sm:text-[6px]">{w.kind}</span>
+              <span className="font-pixel text-[5px] uppercase text-white/40 sm:text-[6px]">
+                {w.kind} · {w.damage}
+              </span>
             </button>
           );
         })}

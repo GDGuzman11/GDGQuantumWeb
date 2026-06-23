@@ -42,13 +42,17 @@ export type WeaponKind =
   | 'homing'
   | 'beam';
 
+/** Explosion visual styles, so even same-behaviour weapons read differently. */
+export type ExplosionStyle = 'burst' | 'ring' | 'shards' | 'sparkle' | 'plume' | 'implode';
+
 export interface Weapon {
   id: string;
   name: string;
   kind: WeaponKind;
   blastR: number;
   damage: number;
-  color: string;
+  color: string; // unique per weapon (projectile, trail, explosion tint)
+  fx: ExplosionStyle; // unique explosion look
   count: number; // sub-projectiles for cluster / spread / airstrike
   bounces: number; // for bouncer
   terrain: 'carve' | 'mound' | 'none';
@@ -90,8 +94,10 @@ export interface Snapshot {
   turn: Side;
   wind: number;
   power: number; // current aim power (0..1) for the meter
+  angle: number; // current aim angle in degrees (above horizontal)
   canFire: boolean;
   weaponName: string; // the player's currently selected weapon
+  weaponDamage: number; // its damage (so the player sees it differs)
   tanks: { side: Side; health: number; score: number; moveLeft: number }[];
   winner: Side | null;
 }
