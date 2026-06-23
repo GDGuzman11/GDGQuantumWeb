@@ -1,16 +1,15 @@
 import type { Metadata } from 'next';
-import { ArcadeGame } from '@/components/arcade/ArcadeGame';
+import { FpsGame } from '@/components/arcade/FpsGame';
 
 /**
- * "Have Fun!" — STARSHELL arcade. Its own route, so the game's bundle is fully
- * isolated from the `/` landing's First Load (per-route code splitting). The
- * game component is a client component; its heavy engine only instantiates on
- * user action, and the canvas/loop run client-side only.
+ * "Have Fun!" — STARSHELL, a '93-pixel first-person arena shooter. Its own
+ * route, so the game's bundle is fully isolated from the `/` landing's First
+ * Load. Client component; the raycaster/loop run client-side only.
  */
 export const metadata: Metadata = {
   title: 'Have Fun! · STARSHELL',
   description:
-    'STARSHELL — a retro asteroid-field artillery game by Gabe De Guzman. Aim your shot, mind the wind, and out-gun the AI.',
+    'STARSHELL — a retro first-person arena shooter by Gabe De Guzman. Pixel-93 raycaster combat: out-gun the adaptive bots across 20 levels.',
 };
 
 export default function ArcadePage() {
@@ -19,7 +18,7 @@ export default function ArcadePage() {
       id="content"
       className="flex min-h-[100svh] w-full flex-col items-center justify-center bg-black px-3 py-6 sm:px-6"
     >
-      <ArcadeGame />
+      <FpsGame />
     </main>
   );
 }
