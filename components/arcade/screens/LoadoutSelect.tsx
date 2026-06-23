@@ -6,7 +6,7 @@ import type { Weapon } from '../engine/types';
 
 const PICK = 20;
 
-/** Pick 20 of the tank's 30 weapons. AUTO fills a balanced spread of kinds. */
+/** Pick 20 of the tank's 30 weapons. Starts empty; RANDOMIZE rolls a fresh 20. */
 export function LoadoutSelect({
   tankId,
   color,
@@ -23,7 +23,7 @@ export function LoadoutSelect({
     () => [...arsenalFor(tankId)].sort((a, b) => a.kind.localeCompare(b.kind) || a.name.localeCompare(b.name)),
     [tankId],
   );
-  const [sel, setSel] = useState<Set<string>>(() => new Set(autoPick(all).slice(0, PICK)));
+  const [sel, setSel] = useState<Set<string>>(() => new Set());
 
   const toggle = (id: string) =>
     setSel((s) => {
@@ -33,7 +33,16 @@ export function LoadoutSelect({
       return n;
     });
 
-  const auto = () => setSel(new Set(autoPick(all)));
+  // Roll a fresh random 20 (different each press); persists until Deploy.
+  const randomize = () => {
+    const ids = all.map((w) => w.id);
+    for (let i = ids.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [ids[i], ids[j]] = [ids[j], ids[i]];
+    }
+    setSel(new Set(ids.slice(0, PICK)));
+  };
+  const clear = () => setSel(new Set());
   const confirm = () => onConfirm(all.filter((w) => sel.has(w.id)));
 
   return (
@@ -43,8 +52,11 @@ export function LoadoutSelect({
           LOADOUT · {sel.size} / {PICK}
         </p>
         <div className="flex items-center gap-3">
-          <button type="button" onClick={auto} className="font-pixel text-[8px] text-[#aef5c8] hover:text-white sm:text-[9px]">
-            AUTO ✦
+          <button type="button" onClick={randomize} className="font-pixel text-[8px] text-[#aef5c8] hover:text-white sm:text-[9px]">
+            RANDOMIZE ⤨
+          </button>
+          <button type="button" onClick={clear} className="font-pixel text-[8px] text-white/45 hover:text-white sm:text-[9px]">
+            CLEAR
           </button>
           <button type="button" onClick={onBack} className="font-pixel text-[8px] text-white/45 hover:text-white sm:text-[9px]">
             ◂ BACK
@@ -84,24 +96,4 @@ export function LoadoutSelect({
       </button>
     </div>
   );
-}
-
-/** Round-robin across weapon kinds for a balanced 20. */
-function autoPick(all: Weapon[]): string[] {
-  const byKind = new Map<string, Weapon[]>();
-  for (const w of all) {
-    const a = byKind.get(w.kind) ?? [];
-    a.push(w);
-    byKind.set(w.kind, a);
-  }
-  const lists = [...byKind.values()];
-  const out: string[] = [];
-  let i = 0;
-  while (out.length < PICK && i < 400) {
-    const l = lists[i % lists.length];
-    const w = l.shift();
-    if (w) out.push(w.id);
-    i++;
-  }
-  return out;
 }
