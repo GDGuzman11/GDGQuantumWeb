@@ -35,29 +35,43 @@ export interface Level3D {
 
 const WALL_H = 4.5;
 
+/**
+ * An open multi-level perch tower: corner columns, walkable 2nd + 3rd floor
+ * slabs (each with a parapet on two sides, open on +x to shoot DOWN), and two
+ * stacked EXTERNAL ladders on the -z side — climb ground→2nd→3rd by walking
+ * into them. Each floor has a landing nub so you step off the ladder onto it.
+ */
 function building(boxes: Box[], ladders: Ladder[], cx: number, cz: number, bw: number): void {
-  const GH = 3; // ground-storey wall height
   const half = bw / 2;
-  // ground walls (back full, left full, right = low "window" wall to shoot over)
-  boxes.push({ x: cx, y: GH / 2, z: cz - half, sx: bw, sy: GH, sz: 0.4, tex: 1 });
-  boxes.push({ x: cx - half, y: GH / 2, z: cz, sx: 0.4, sy: GH, sz: bw, tex: 1 });
-  boxes.push({ x: cx + half, y: 0.6, z: cz, sx: 0.4, sy: 1.2, sz: bw, tex: 1 }); // window wall
-  // front wall with a doorway gap in the middle
-  boxes.push({ x: cx - bw / 4 - 0.5, y: GH / 2, z: cz + half, sx: bw / 2 - 1, sy: GH, sz: 0.4, tex: 1 });
-  boxes.push({ x: cx + bw / 4 + 0.5, y: GH / 2, z: cz + half, sx: bw / 2 - 1, sy: GH, sz: 0.4, tex: 1 });
-  // upper floor slab
-  boxes.push({ x: cx, y: GH + 0.15, z: cz, sx: bw, sy: 0.3, sz: bw, tex: 3 });
-  // parapet around the top — open on the +x side for shooting down
-  boxes.push({ x: cx, y: GH + 0.75, z: cz - half, sx: bw, sy: 0.9, sz: 0.3, tex: 2 });
-  boxes.push({ x: cx - half, y: GH + 0.75, z: cz, sx: 0.3, sy: 0.9, sz: bw, tex: 2 });
-  boxes.push({ x: cx, y: GH + 0.75, z: cz + half, sx: bw, sy: 0.9, sz: 0.3, tex: 2 });
-  // ladder up to the slab (back-left inside corner)
-  ladders.push({ x: cx - half + 1, z: cz - half + 1, y0: 0, y1: GH + 0.4, sx: 0.9, sz: 0.9 });
+  const F2 = 3; // top of 2nd floor
+  const F3 = 6; // top of 3rd floor
+  const top = F3 + 0.5;
+  const slab = 0.3;
+
+  // corner columns (full height)
+  for (const sx of [-1, 1])
+    for (const sz of [-1, 1])
+      boxes.push({ x: cx + sx * half, y: top / 2, z: cz + sz * half, sx: 0.4, sy: top, sz: 0.4, tex: 0 });
+
+  // 2nd + 3rd floor slabs, each with a parapet on -x and +z (open +x / -z)
+  for (const ft of [F2, F3]) {
+    boxes.push({ x: cx, y: ft - slab / 2, z: cz, sx: bw, sy: slab, sz: bw, tex: 3 });
+    boxes.push({ x: cx - half, y: ft + 0.45, z: cz, sx: 0.25, sy: 0.9, sz: bw, tex: 2 });
+    boxes.push({ x: cx, y: ft + 0.45, z: cz + half, sx: bw, sy: 0.9, sz: 0.25, tex: 2 });
+    // landing nub extending toward the external ladders
+    boxes.push({ x: cx, y: ft - slab / 2, z: cz - half - 0.2, sx: bw, sy: slab, sz: 0.8, tex: 3 });
+  }
+
+  // external stacked ladders on the -z face
+  const zL = cz - half - 0.4;
+  ladders.push({ x: cx - 1.3, z: zL, y0: 0, y1: F2 + 0.2, sx: 1, sz: 0.8 });
+  ladders.push({ x: cx + 1.3, z: zL, y0: F2, y1: F3 + 0.2, sx: 1, sz: 0.8 });
 }
 
 export function makeArena3D(enemyCount: number, seed: number): Level3D {
   const r = rng(seed);
-  const size = 22 + enemyCount * 6;
+  // 4× bigger arenas (2× per side) for expansive, sniper-friendly maps.
+  const size = (22 + enemyCount * 6) * 2;
   const half = size / 2;
   const boxes: Box[] = [];
   const ladders: Ladder[] = [];
@@ -79,9 +93,11 @@ export function makeArena3D(enemyCount: number, seed: number): Level3D {
     boxes.push({ x, y: h / 2, z, sx: s, sy: h, sz: s, tex: 1 + Math.floor(r() * 3) });
   }
 
-  // 1–2 buildings (sniper perches) depending on arena size
-  building(boxes, ladders, half * 0.5, half * 0.5, 6);
-  if (size > 30) building(boxes, ladders, -half * 0.5, -half * 0.45, 6);
+  // Several multi-level perch towers spread around the (now large) arena.
+  building(boxes, ladders, half * 0.5, half * 0.5, 7);
+  building(boxes, ladders, -half * 0.5, -half * 0.45, 7);
+  building(boxes, ladders, -half * 0.55, half * 0.5, 6);
+  if (size > 70) building(boxes, ladders, half * 0.5, -half * 0.55, 6);
 
   return { boxes, ladders, spawn: { x: 0, z: 0, yaw: 0 }, size };
 }
