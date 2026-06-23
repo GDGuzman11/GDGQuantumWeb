@@ -27,12 +27,43 @@ export interface Vec2 {
   y: number;
 }
 
+/** Weapon behaviour archetypes (composed into the 90 weapons). */
+export type WeaponKind =
+  | 'single'
+  | 'heavy'
+  | 'nuke'
+  | 'cluster'
+  | 'spread'
+  | 'airstrike'
+  | 'digger'
+  | 'builder'
+  | 'roller'
+  | 'bouncer'
+  | 'homing'
+  | 'beam';
+
+export interface Weapon {
+  id: string;
+  name: string;
+  kind: WeaponKind;
+  blastR: number;
+  damage: number;
+  color: string;
+  count: number; // sub-projectiles for cluster / spread / airstrike
+  bounces: number; // for bouncer
+  terrain: 'carve' | 'mound' | 'none';
+}
+
 export interface Tank {
   side: Side;
+  tankId: string;
   x: number; // centre x on the terrain (y is derived from terrain height)
   health: number;
   score: number; // cumulative damage dealt
   moveLeft: number; // remaining move budget this turn
+  maxMove: number; // per-turn move budget (perk-adjusted)
+  dmgTakenMul: number; // armour perk (<1 = tougher)
+  blastMul: number; // energy perk (>1 = bigger blasts)
   color: string;
   accent: string;
 }
@@ -44,6 +75,11 @@ export interface Projectile {
   vy: number;
   alive: boolean;
   trail: Vec2[];
+  weapon: Weapon;
+  bounces: number; // remaining bounces (bouncer)
+  child: boolean; // spawned by a cluster (won't re-cluster)
+  rolling: boolean;
+  rollLeft: number; // px of rolling left (roller)
 }
 
 export type Phase = 'aim' | 'flying' | 'resolving' | 'gameover';
@@ -55,6 +91,7 @@ export interface Snapshot {
   wind: number;
   power: number; // current aim power (0..1) for the meter
   canFire: boolean;
+  weaponName: string; // the player's currently selected weapon
   tanks: { side: Side; health: number; score: number; moveLeft: number }[];
   winner: Side | null;
 }

@@ -254,7 +254,7 @@ export function Hero() {
                     ? 'Projects'
                     : 'Contact'
               }
-              className="fixed inset-0 z-[80] flex items-center justify-center overflow-y-auto bg-[rgba(3,4,9,0.55)] px-6 py-20 backdrop-blur-md"
+              className="fixed inset-0 z-[80] flex items-start justify-center overflow-y-auto bg-[rgba(3,4,9,0.55)] px-6 py-16 backdrop-blur-md sm:items-center sm:py-20"
               style={{ opacity: 0 }}
             >
               <button

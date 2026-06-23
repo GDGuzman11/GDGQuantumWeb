@@ -62,7 +62,8 @@ export function render(
 
   drawTerrain(ctx, eng);
   for (const t of eng.tanks) drawTank(ctx, eng, t, aim);
-  drawProjectile(ctx, eng);
+  drawProjectiles(ctx, eng);
+  drawBeam(ctx, eng, now);
   drawBlast(ctx, eng, now);
   eng.particles.draw(ctx);
 
@@ -141,22 +142,46 @@ function drawTank(ctx: CanvasRenderingContext2D, eng: ArcadeEngine, t: Tank, aim
   }
 }
 
-function drawProjectile(ctx: CanvasRenderingContext2D, eng: ArcadeEngine): void {
-  const p = eng.proj;
-  if (!p) return;
+function drawProjectiles(ctx: CanvasRenderingContext2D, eng: ArcadeEngine): void {
+  for (const p of eng.projectiles) {
+    ctx.save();
+    ctx.strokeStyle = hexToRgba(p.weapon.color, 0.45);
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    p.trail.forEach((pt, i) => (i === 0 ? ctx.moveTo(pt.x, pt.y) : ctx.lineTo(pt.x, pt.y)));
+    ctx.stroke();
+    ctx.shadowColor = p.weapon.color;
+    ctx.shadowBlur = 14;
+    ctx.fillStyle = '#fff6d8';
+    ctx.beginPath();
+    ctx.arc(p.x, p.y, p.child ? 3 : 4, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.restore();
+  }
+}
+
+function drawBeam(ctx: CanvasRenderingContext2D, eng: ArcadeEngine, now: number): void {
+  const b = eng.beam;
+  if (!b) return;
+  const age = (now - b.t) / 180;
+  if (age >= 1) return;
   ctx.save();
-  ctx.strokeStyle = 'rgba(174,245,200,0.5)';
-  ctx.lineWidth = 2;
+  ctx.globalAlpha = 1 - age;
+  ctx.strokeStyle = b.color;
+  ctx.lineWidth = 3;
+  ctx.shadowColor = b.color;
+  ctx.shadowBlur = 18;
   ctx.beginPath();
-  p.trail.forEach((pt, i) => (i === 0 ? ctx.moveTo(pt.x, pt.y) : ctx.lineTo(pt.x, pt.y)));
+  ctx.moveTo(b.x0, b.y0);
+  ctx.lineTo(b.x1, b.y1);
   ctx.stroke();
-  ctx.shadowColor = '#ffe9a8';
-  ctx.shadowBlur = 14;
-  ctx.fillStyle = '#fff6d8';
-  ctx.beginPath();
-  ctx.arc(p.x, p.y, 4, 0, Math.PI * 2);
-  ctx.fill();
   ctx.restore();
+}
+
+function hexToRgba(hex: string, a: number): string {
+  const m = /^#?([0-9a-f]{2})([0-9a-f]{2})([0-9a-f]{2})$/i.exec(hex);
+  if (!m) return `rgba(174,245,200,${a})`;
+  return `rgba(${parseInt(m[1], 16)},${parseInt(m[2], 16)},${parseInt(m[3], 16)},${a})`;
 }
 
 function drawBlast(ctx: CanvasRenderingContext2D, eng: ArcadeEngine, now: number): void {

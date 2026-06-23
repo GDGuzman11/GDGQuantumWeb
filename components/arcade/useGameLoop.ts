@@ -73,7 +73,7 @@ export function useGameLoop(
       const eng = engineRef.current;
       if (!eng || eng.phase !== 'aim' || eng.current.side !== 'player' || !pointer.current) return;
       const a = eng.aimFromPointer(pointer.current.x, pointer.current.y);
-      eng.fire(a.dir, a.power);
+      eng.playerFire(a.dir, a.power);
     };
     canvas.addEventListener('pointermove', onMove);
     canvas.addEventListener('pointerdown', onMove);
