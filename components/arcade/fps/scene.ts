@@ -63,8 +63,8 @@ export function buildWorld(level: Level3D): World {
   disposables.push(ladMat);
   for (const l of level.ladders) {
     for (let y = l.y0 + 0.3; y < l.y1; y += 0.5) {
-      const rung = new THREE.Mesh(new THREE.BoxGeometry(l.sx, 0.08, 0.08), ladMat);
-      rung.position.set(l.x, y, l.z + l.sz / 2);
+      const rung = new THREE.Mesh(new THREE.BoxGeometry(l.sx, 0.08, l.sz), ladMat);
+      rung.position.set(l.x, y, l.z);
       scene.add(rung);
       disposables.push(rung.geometry);
     }

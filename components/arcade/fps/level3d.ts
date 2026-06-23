@@ -53,19 +53,22 @@ function building(boxes: Box[], ladders: Ladder[], cx: number, cz: number, bw: n
     for (const sz of [-1, 1])
       boxes.push({ x: cx + sx * half, y: top / 2, z: cz + sz * half, sx: 0.4, sy: top, sz: 0.4, tex: 0 });
 
-  // 2nd + 3rd floor slabs, each with a parapet on -x and +z (open +x / -z)
+  // 2nd + 3rd floor slabs + parapets (open on the −z / +x sides for the ladders
+  // and shoot-down).
   for (const ft of [F2, F3]) {
     boxes.push({ x: cx, y: ft - slab / 2, z: cz, sx: bw, sy: slab, sz: bw, tex: 3 });
     boxes.push({ x: cx - half, y: ft + 0.45, z: cz, sx: 0.25, sy: 0.9, sz: bw, tex: 2 });
     boxes.push({ x: cx, y: ft + 0.45, z: cz + half, sx: bw, sy: 0.9, sz: 0.25, tex: 2 });
-    // landing nub extending toward the external ladders
-    boxes.push({ x: cx, y: ft - slab / 2, z: cz - half - 0.2, sx: bw, sy: slab, sz: 0.8, tex: 3 });
   }
 
-  // external stacked ladders on the -z face
-  const zL = cz - half - 0.4;
-  ladders.push({ x: cx - 1.3, z: zL, y0: 0, y1: F2 + 0.2, sx: 1, sz: 0.8 });
-  ladders.push({ x: cx + 1.3, z: zL, y0: F2, y1: F3 + 0.2, sx: 1, sz: 0.8 });
+  // Ladder A: GROUND → 2nd, on the −z face. Step off onto a −z landing nub.
+  ladders.push({ x: cx, z: cz - half - 0.4, y0: 0, y1: F2 + 0.2, sx: 1.4, sz: 0.8 });
+  boxes.push({ x: cx, y: F2 - slab / 2, z: cz - half - 0.2, sx: 1.8, sy: slab, sz: 0.8, tex: 3 });
+
+  // Ladder B: 2nd → 3rd, on the +x face — a DIFFERENT spot, so you cross the
+  // 2nd floor to reach it. No direct ground→3rd route. Step off onto a +x nub.
+  ladders.push({ x: cx + half + 0.4, z: cz, y0: F2, y1: F3 + 0.2, sx: 0.8, sz: 1.4 });
+  boxes.push({ x: cx + half + 0.2, y: F3 - slab / 2, z: cz, sx: 0.8, sy: slab, sz: 1.8, tex: 3 });
 }
 
 export function makeArena3D(enemyCount: number, seed: number): Level3D {
