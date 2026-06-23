@@ -13,14 +13,14 @@ export function FpsControls({
   onLook,
 }: {
   onMove: (strafe: number, fwd: number) => void;
-  onLook: (dx: number) => void;
+  onLook: (dx: number, dy: number) => void;
 }) {
   const R = 52;
   const stickId = useRef<number | null>(null);
   const origin = useRef({ x: 0, y: 0 });
   const [thumb, setThumb] = useState({ x: 0, y: 0 });
   const lookId = useRef<number | null>(null);
-  const lookLast = useRef(0);
+  const lookLast = useRef({ x: 0, y: 0 });
 
   const update = (clientX: number, clientY: number) => {
     let dx = clientX - origin.current.x;
@@ -40,13 +40,13 @@ export function FpsControls({
         className="pointer-events-auto absolute inset-y-0 right-0 w-[58%] touch-none"
         onPointerDown={(e) => {
           lookId.current = e.pointerId;
-          lookLast.current = e.clientX;
+          lookLast.current = { x: e.clientX, y: e.clientY };
           e.currentTarget.setPointerCapture(e.pointerId);
         }}
         onPointerMove={(e) => {
           if (lookId.current !== e.pointerId) return;
-          onLook(e.clientX - lookLast.current);
-          lookLast.current = e.clientX;
+          onLook(e.clientX - lookLast.current.x, e.clientY - lookLast.current.y);
+          lookLast.current = { x: e.clientX, y: e.clientY };
         }}
         onPointerUp={(e) => {
           if (lookId.current === e.pointerId) lookId.current = null;

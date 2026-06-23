@@ -52,6 +52,25 @@ export function makeArena(enemyCount: number, seed: number): Level {
       for (let x = bx; x < bx + bw && x < w - 2; x++) set(x, y, tex);
   }
 
+  // Sniping lanes — a few long clear corridors cut straight across the arena
+  // so there are real sightlines to snipe down (with the pillars as cover).
+  const lanes = 2 + Math.floor(r() * 2);
+  for (let i = 0; i < lanes; i++) {
+    if (r() < 0.5) {
+      const ly = 2 + Math.floor(r() * (h - 4));
+      for (let x = 1; x < w - 1; x++) {
+        set(x, ly, 0);
+        if (r() < 0.4) set(x, Math.min(h - 2, ly + 1), 0);
+      }
+    } else {
+      const lx = 2 + Math.floor(r() * (w - 4));
+      for (let y = 1; y < h - 1; y++) {
+        set(lx, y, 0);
+        if (r() < 0.4) set(Math.min(w - 2, lx + 1), y, 0);
+      }
+    }
+  }
+
   // Collect open cells; carve the centre clear for the player spawn.
   const cx = Math.floor(w / 2);
   const cy = Math.floor(h / 2);

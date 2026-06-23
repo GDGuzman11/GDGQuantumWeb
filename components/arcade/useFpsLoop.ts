@@ -3,13 +3,14 @@
 import { useCallback, useEffect, useRef } from 'react';
 import { renderView } from './fps/raycaster';
 import { getTextures } from './fps/textures';
-import { movePlayer, rotate, type Player } from './fps/player';
+import { MAX_PITCH, movePlayer, rotate, type Player } from './fps/player';
 import type { Level } from './fps/map';
 
 /** Internal render resolution — low-res, CSS-upscaled for the '93 pixel look. */
 const RW = 480;
 const RH = 270;
-const LOOK_SENS = 0.0024;
+const LOOK_SENS = 0.0024; // horizontal (radians per px)
+const PITCH_SENS = 0.55; // vertical (low-res px of horizon per input px)
 
 export interface FpsGameState {
   level: Level;
@@ -31,12 +32,14 @@ export function useFpsLoop(
   const keys = useRef<Set<string>>(new Set());
   const touchMove = useRef({ fwd: 0, strafe: 0 });
   const lookDX = useRef(0);
+  const lookDY = useRef(0);
 
   const setMoveAxis = useCallback((strafe: number, fwd: number) => {
     touchMove.current = { strafe, fwd };
   }, []);
-  const addLook = useCallback((dx: number) => {
+  const addLook = useCallback((dx: number, dy: number) => {
     lookDX.current += dx;
+    lookDY.current += dy;
   }, []);
 
   useEffect(() => {
@@ -65,7 +68,10 @@ export function useFpsLoop(
       if (!('ontouchstart' in window)) canvas.requestPointerLock?.();
     };
     const onMouse = (e: MouseEvent) => {
-      if (document.pointerLockElement === canvas) lookDX.current += e.movementX;
+      if (document.pointerLockElement === canvas) {
+        lookDX.current += e.movementX;
+        lookDY.current += e.movementY;
+      }
     };
     canvas.addEventListener('click', onClick);
     document.addEventListener('mousemove', onMouse);
@@ -90,6 +96,14 @@ export function useFpsLoop(
         if (lookDX.current !== 0) {
           rotate(g.player, lookDX.current * LOOK_SENS);
           lookDX.current = 0;
+        }
+        if (lookDY.current !== 0) {
+          // Mouse/touch down → look down (horizon shifts up).
+          g.player.pitch = Math.max(
+            -MAX_PITCH,
+            Math.min(MAX_PITCH, g.player.pitch - lookDY.current * PITCH_SENS),
+          );
+          lookDY.current = 0;
         }
         movePlayer(g.player, g.level, fwd, strafe, dt);
         renderView(ctx, g.level, g.player, textures, RW, RH);

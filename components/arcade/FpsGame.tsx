@@ -66,7 +66,7 @@ export function FpsGame() {
               MENU
             </button>
             {isTouch ? (
-              <FpsControls onMove={(s, f) => setMoveAxis(s, f)} onLook={(dx) => addLook(dx)} />
+              <FpsControls onMove={(s, f) => setMoveAxis(s, f)} onLook={(dx, dy) => addLook(dx, dy)} />
             ) : (
               <p className="pointer-events-none absolute bottom-3 left-1/2 z-20 -translate-x-1/2 font-pixel text-[7px] text-white/40">
                 CLICK TO LOOK · WASD MOVE · ESC MENU

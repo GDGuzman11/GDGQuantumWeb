@@ -16,14 +16,17 @@ export function renderView(
   W: number,
   H: number,
 ): void {
+  // Horizon shifts with vertical look (pseudo-pitch).
+  const horizon = H / 2 + p.pitch;
+
   // Ceiling + floor
   ctx.fillStyle = '#0a0c14';
-  ctx.fillRect(0, 0, W, H / 2);
-  const floor = ctx.createLinearGradient(0, H / 2, 0, H);
+  ctx.fillRect(0, 0, W, Math.max(0, horizon));
+  const floor = ctx.createLinearGradient(0, horizon, 0, H);
   floor.addColorStop(0, '#191c26');
   floor.addColorStop(1, '#0c0e16');
   ctx.fillStyle = floor;
-  ctx.fillRect(0, H / 2, W, H / 2);
+  ctx.fillRect(0, Math.max(0, horizon), W, H);
 
   for (let x = 0; x < W; x++) {
     const cameraX = (2 * x) / W - 1;
@@ -72,7 +75,7 @@ export function renderView(
 
     const perp = side === 0 ? sideX - deltaX : sideY - deltaY;
     const lineH = Math.floor(H / Math.max(0.0001, perp));
-    const drawStart = -lineH / 2 + H / 2;
+    const drawStart = -lineH / 2 + horizon;
 
     // Texture column
     let wallX = side === 0 ? p.y + perp * rayY : p.x + perp * rayX;

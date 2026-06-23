@@ -12,8 +12,13 @@ export interface Player {
   dirY: number;
   planeX: number;
   planeY: number;
+  /** Vertical look — a horizon shift in (low-res) pixels. Raycaster pseudo-pitch. */
+  pitch: number;
   health: number;
 }
+
+/** Clamp for vertical look (how far up/down you can crank the horizon). */
+export const MAX_PITCH = 220;
 
 const FOV = 0.66; // ~66° — the Wolf3D/Doom default feel
 const MOVE_SPEED = 3.2; // cells per second
@@ -29,6 +34,7 @@ export function makePlayer(spawn: { x: number; y: number; dir: number }): Player
     dirY,
     planeX: -dirY * FOV,
     planeY: dirX * FOV,
+    pitch: 0,
     health: 100,
   };
 }
@@ -48,9 +54,10 @@ export function rotate(p: Player, a: number): void {
 /** Move with forward (`fwd`) and strafe (`strafe`) in [-1,1], dt in seconds. */
 export function movePlayer(p: Player, lvl: Level, fwd: number, strafe: number, dt: number): void {
   const sp = MOVE_SPEED * dt;
-  // strafe axis = dir rotated 90° (right)
-  const rightX = p.dirY;
-  const rightY = -p.dirX;
+  // strafe axis = dir rotated 90° toward the screen's right (matches the camera
+  // plane), so D strafes right and A strafes left.
+  const rightX = -p.dirY;
+  const rightY = p.dirX;
   const mx = p.dirX * fwd * sp + rightX * strafe * sp;
   const my = p.dirY * fwd * sp + rightY * strafe * sp;
   // Per-axis collision so you slide along walls.
