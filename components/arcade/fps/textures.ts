@@ -77,6 +77,37 @@ export function groundTex(): Tex {
   return c;
 }
 
+/** A billboard enemy sprite — armoured void-construct (transparent bg). */
+export function enemyTex(): Tex {
+  const W = 32;
+  const H = 48;
+  const c = document.createElement('canvas');
+  c.width = W;
+  c.height = H;
+  const x = c.getContext('2d')!;
+  const px = (xx: number, yy: number, w: number, h: number, col: string) => {
+    x.fillStyle = col;
+    x.fillRect(xx, yy, w, h);
+  };
+  // legs
+  px(10, 36, 4, 11, '#2a2f45');
+  px(18, 36, 4, 11, '#2a2f45');
+  // torso (armoured)
+  px(8, 18, 16, 20, '#3b4366');
+  px(8, 18, 16, 3, '#525d8a');
+  // chest core (glow)
+  px(14, 24, 4, 5, '#ff4d5e');
+  px(13, 25, 6, 3, '#ff8a96');
+  // arms
+  px(4, 20, 4, 14, '#2f3651');
+  px(24, 20, 4, 14, '#2f3651');
+  // head / visor
+  px(11, 6, 10, 12, '#343b59');
+  px(12, 10, 8, 3, '#ff4d5e'); // glowing visor
+  px(12, 10, 8, 1, '#ffd0d4');
+  return c;
+}
+
 let cache: Tex[] | null = null;
 /** Lazily build the texture set (client-only). */
 export function getTextures(): Tex[] {

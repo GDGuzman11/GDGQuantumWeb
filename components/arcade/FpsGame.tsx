@@ -4,37 +4,51 @@ import Link from 'next/link';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { CRTFrame } from './ui/CRTFrame';
 import { FpsControls } from './ui/FpsControls';
-import { useFpsLoop, type FpsGameState } from './useFpsLoop';
+import { FpsHud } from './ui/FpsHud';
+import { useFpsLoop, type FpsGameState, type FpsSnapshot } from './useFpsLoop';
 import { makeArena3D } from './fps/level3d';
 import { makePlayer3 } from './fps/physics';
+import { spawnEnemies, type Difficulty } from './fps/enemy';
 
-type Diff = 'normal' | 'hard' | 'nightmare';
 type Mode = 'menu' | 'play';
 
 /**
- * STARSHELL — the "Have Fun!" FPS. A '93-pixel raycaster arena shooter (our own
- * sci-fi/arcade brand). F1: choose difficulty + enemy count (which sizes the
- * map), then walk a textured arena. Shooting, bots, weapons, gold shop, 20
- * levels, and the scoreboard arrive in later phases.
+ * STARSHELL — the "Have Fun!" FPS. A '93-pixel raycaster-style arena shooter
+ * (Three.js). F2: rifle hitscan combat vs line-of-sight-gated adaptive bots,
+ * across a varied warzone city with ladders, ziplines + jump pads. The full
+ * 20-weapon arsenal / loadout / shop land in later phases.
  */
 export function FpsGame() {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const gameRef = useRef<FpsGameState | null>(null);
   const [mode, setMode] = useState<Mode>('menu');
-  const [diff, setDiff] = useState<Diff>('normal');
+  const [diff, setDiff] = useState<Difficulty>('normal');
   const [enemies, setEnemies] = useState(3);
   const [isTouch, setIsTouch] = useState(false);
+  const [snap, setSnap] = useState<FpsSnapshot | null>(null);
 
   useEffect(() => setIsTouch('ontouchstart' in window), []);
 
-  const { setMoveAxis, addLook } = useFpsLoop(canvasRef, gameRef, mode === 'play');
+  const onSnapshot = useCallback((s: FpsSnapshot) => setSnap(s), []);
+  const { setMoveAxis, addLook } = useFpsLoop(canvasRef, gameRef, mode === 'play', onSnapshot);
 
   const start = useCallback(() => {
     const seed = (Date.now() ^ Math.floor(Math.random() * 0xffff)) & 0x7fffffff;
     const level = makeArena3D(enemies, seed);
-    gameRef.current = { level, player: makePlayer3(level.spawn) };
+    gameRef.current = {
+      level,
+      player: makePlayer3(level.spawn),
+      enemies: spawnEnemies(level, enemies, Math.random),
+      difficulty: diff,
+      ammo: 30,
+      reloading: 0,
+      fireCd: 0,
+      status: 'playing',
+      kills: 0,
+    };
+    setSnap(null);
     setMode('play');
-  }, [enemies]);
+  }, [enemies, diff]);
 
   useEffect(() => {
     if (mode !== 'play') return;
@@ -44,6 +58,12 @@ export function FpsGame() {
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
   }, [mode]);
+
+  // Free the mouse when the round ends so the overlay is clickable.
+  const over = mode === 'play' && snap != null && snap.status !== 'playing';
+  useEffect(() => {
+    if (over && document.pointerLockElement) document.exitPointerLock?.();
+  }, [over]);
 
   return (
     <div className="flex w-full flex-col items-center gap-4">
@@ -57,19 +77,16 @@ export function FpsGame() {
       <CRTFrame>
         <canvas ref={canvasRef} className="absolute inset-0 h-full w-full touch-none [image-rendering:pixelated]" />
 
-        {mode === 'play' && (
+        {mode === 'play' && snap && snap.status === 'playing' && (
           <>
-            <div aria-hidden className="pointer-events-none absolute left-1/2 top-1/2 z-20 -translate-x-1/2 -translate-y-1/2 font-pixel text-[14px] text-[#aef5c8]/80">
-              +
-            </div>
+            <FpsHud snap={snap} />
             <button type="button" onClick={() => setMode('menu')} className="absolute right-3 top-3 z-50 font-pixel text-[8px] text-white/55 transition-colors hover:text-white">
               MENU
             </button>
-            {isTouch ? (
-              <FpsControls onMove={(s, f) => setMoveAxis(s, f)} onLook={(dx, dy) => addLook(dx, dy)} />
-            ) : (
-              <p className="pointer-events-none absolute bottom-3 left-1/2 z-20 -translate-x-1/2 font-pixel text-[7px] text-white/40">
-                CLICK TO LOOK · WASD MOVE · SPACE JUMP · WALK INTO LADDERS · ESC MENU
+            {isTouch && <FpsControls onMove={(s, f) => setMoveAxis(s, f)} onLook={(dx, dy) => addLook(dx, dy)} />}
+            {!isTouch && (
+              <p className="pointer-events-none absolute bottom-1 left-1/2 z-20 -translate-x-1/2 font-pixel text-[6px] text-white/35">
+                CLICK = AIM/FIRE · WASD MOVE · SPACE JUMP · R RELOAD · LADDERS/ZIPS: WALK IN · ESC MENU
               </p>
             )}
           </>
@@ -79,10 +96,9 @@ export function FpsGame() {
           <div className="absolute inset-0 z-40 flex flex-col items-center justify-center bg-black/60 px-4 backdrop-blur-[2px]">
             <p className="font-pixel text-[18px] text-[#7fdfff] sm:text-[26px]">STARSHELL</p>
             <p className="mt-2 font-pixel text-[8px] text-white/60 sm:text-[10px]">VOID ARENA</p>
-
             <p className="mt-6 font-pixel text-[7px] text-white/45 sm:text-[8px]">DIFFICULTY</p>
             <div className="mt-2 flex gap-2">
-              {(['normal', 'hard', 'nightmare'] as Diff[]).map((d) => (
+              {(['normal', 'hard', 'nightmare'] as Difficulty[]).map((d) => (
                 <button
                   key={d}
                   type="button"
@@ -95,7 +111,6 @@ export function FpsGame() {
                 </button>
               ))}
             </div>
-
             <p className="mt-5 font-pixel text-[7px] text-white/45 sm:text-[8px]">ENEMIES (SIZES THE MAP)</p>
             <div className="mt-2 flex gap-2">
               {[1, 2, 3, 4, 5].map((n) => (
@@ -111,7 +126,6 @@ export function FpsGame() {
                 </button>
               ))}
             </div>
-
             <button
               type="button"
               onClick={start}
@@ -120,8 +134,25 @@ export function FpsGame() {
               Deploy ▸
             </button>
             <p className="mt-5 max-w-xs text-center font-pixel text-[6px] leading-relaxed text-white/35 sm:text-[8px]">
-              {isTouch ? 'LEFT STICK MOVE · RIGHT DRAG LOOK' : 'CLICK TO LOOK · WASD MOVE · SPACE JUMP'}
+              {isTouch ? 'LEFT STICK MOVE · RIGHT LOOK · AUTO-FIRE ON TARGET' : 'CLICK TO CAPTURE MOUSE, THEN AIM + FIRE'}
             </p>
+          </div>
+        )}
+
+        {over && snap && (
+          <div className="absolute inset-0 z-50 flex flex-col items-center justify-center bg-black/65 px-4 backdrop-blur-[2px]">
+            <p className="font-pixel text-[16px] sm:text-[22px]" style={{ color: snap.status === 'won' ? '#aef5c8' : '#ff5d6e' }}>
+              {snap.status === 'won' ? 'ARENA CLEAR' : 'YOU DIED'}
+            </p>
+            <p className="mt-3 font-pixel text-[8px] text-white/60 sm:text-[10px]">KILLS {snap.kills}</p>
+            <div className="mt-6 flex gap-2">
+              <button type="button" onClick={start} className="min-h-[44px] rounded-md border border-[#aef5c8]/40 bg-[#aef5c8]/10 px-4 font-pixel text-[9px] uppercase text-[#aef5c8] hover:bg-[#aef5c8]/20 sm:text-[11px]">
+                Redeploy
+              </button>
+              <button type="button" onClick={() => setMode('menu')} className="min-h-[44px] rounded-md border border-white/20 bg-white/5 px-4 font-pixel text-[9px] uppercase text-white/70 hover:bg-white/10 sm:text-[11px]">
+                Menu
+              </button>
+            </div>
           </div>
         )}
       </CRTFrame>

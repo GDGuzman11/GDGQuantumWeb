@@ -75,6 +75,25 @@ class Sfx {
     this.ensure();
     this.tone('sawtooth', 260, 80, 0.22, 0.16);
   }
+  shoot(): void {
+    this.ensure();
+    this.noise(0.09, 0.22, 2600);
+    this.tone('square', 360, 150, 0.07, 0.08);
+  }
+  enemyHit(): void {
+    this.ensure();
+    this.tone('square', 900, 1200, 0.05, 0.08);
+  }
+  hurt(): void {
+    this.ensure();
+    this.noise(0.16, 0.26, 900);
+    this.tone('sawtooth', 200, 70, 0.18, 0.12);
+  }
+  reload(): void {
+    this.ensure();
+    this.tone('square', 220, 220, 0.04, 0.07);
+    window.setTimeout(() => this.tone('square', 300, 300, 0.05, 0.07), 180);
+  }
   win(): void {
     this.ensure();
     [523, 659, 784, 1047].forEach((f, i) =>
