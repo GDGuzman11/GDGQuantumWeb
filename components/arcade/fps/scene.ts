@@ -1,10 +1,9 @@
 /**
  * Builds the Three.js world from a Level3D. Low-poly boxes + canvas textures
- * (nearest-filtered) under lighting + light fog, wrapped in a vivid, seeded
- * universe backdrop (nebula sky sphere + a starfield of points — the same
- * Three.js approach as the landing's constellation, turned up). Rendered at low
- * resolution (see useFpsLoop) and CSS-upscaled for the '93 pixel look. Every
- * level's sky is different (seeded), so each arena has its own view.
+ * (nearest-filtered) under bright lighting + light fog, wrapped in a soft,
+ * SEEDED light-shade sky (a smooth colour-graded backdrop — no stars). Every
+ * level's sky is a different blend, so each arena has its own view. Rendered at
+ * low resolution (see useFpsLoop) and CSS-upscaled for the '93 pixel look.
  */
 import * as THREE from 'three';
 import type { Level3D } from './level3d';
@@ -27,108 +26,55 @@ function tex(canvas: HTMLCanvasElement, repeat = 1): THREE.Texture {
   return t;
 }
 
-const PALETTES: string[][] = [
-  ['#3a6ea5', '#7a4bb0', '#c44b8f'],
-  ['#2aa1a1', '#4b6bb0', '#8f4bc4'],
-  ['#b0742a', '#7a4bb0', '#3a6ea5'],
-  ['#4bc47a', '#2aa1a1', '#4b6bb0'],
-  ['#c44b6b', '#8f4bc4', '#4b6bb0'],
+// Each entry = [zenith, mid, horizon] shades for a seeded sky blend.
+const SKIES: string[][] = [
+  ['#0a1330', '#243a72', '#5b7fc4'],
+  ['#10112e', '#3a2f6e', '#7a5bb0'],
+  ['#06121c', '#123a44', '#2aa1a1'],
+  ['#1a1030', '#5a2f5e', '#c4738f'],
+  ['#06101e', '#1e3a5e', '#4b8fc4'],
+  ['#101a14', '#2a5e44', '#5bc48f'],
 ];
 
-/** Seeded nebula backdrop (equirect canvas → sky sphere). */
-function nebula(seed: number): HTMLCanvasElement {
+/** Soft vertical light-shade gradient (equirect canvas → sky sphere). */
+function skyTexture(seed: number): HTMLCanvasElement {
   const r = rng(seed ^ 0x51ed);
   const c = document.createElement('canvas');
-  c.width = 1024;
-  c.height = 512;
+  c.width = 16;
+  c.height = 256;
   const x = c.getContext('2d')!;
-  x.fillStyle = '#05060e';
+  const pal = SKIES[Math.floor(r() * SKIES.length)];
+  const g = x.createLinearGradient(0, 0, 0, c.height);
+  g.addColorStop(0, pal[0]);
+  g.addColorStop(0.55, pal[1]);
+  g.addColorStop(1, pal[2]);
+  x.fillStyle = g;
   x.fillRect(0, 0, c.width, c.height);
-  const pal = PALETTES[Math.floor(r() * PALETTES.length)];
-  x.globalCompositeOperation = 'lighter';
-  for (let i = 0; i < 9; i++) {
-    const cxp = r() * c.width;
-    const cyp = r() * c.height;
-    const rad = 90 + r() * 240;
-    const col = pal[Math.floor(r() * pal.length)];
-    const g = x.createRadialGradient(cxp, cyp, 0, cxp, cyp, rad);
-    g.addColorStop(0, col + 'cc');
-    g.addColorStop(1, col + '00');
-    x.fillStyle = g;
-    x.fillRect(cxp - rad, cyp - rad, rad * 2, rad * 2);
-  }
-  x.globalCompositeOperation = 'source-over';
   return c;
-}
-
-/** Seeded starfield as additive points on a far sphere. */
-function starfield(seed: number, radius: number): THREE.Points {
-  const r = rng(seed ^ 0x9a17);
-  const N = 900;
-  const pos = new Float32Array(N * 3);
-  const col = new Float32Array(N * 3);
-  const tints = [
-    [1, 1, 1],
-    [0.6, 0.8, 1],
-    [1, 0.85, 0.5],
-    [0.8, 0.6, 1],
-    [0.6, 1, 0.9],
-  ];
-  for (let i = 0; i < N; i++) {
-    const u = r() * 2 - 1;
-    const th = r() * Math.PI * 2;
-    const s = Math.sqrt(1 - u * u);
-    pos[i * 3] = Math.cos(th) * s * radius;
-    pos[i * 3 + 1] = Math.abs(u) * radius * 0.9 + 4; // bias above the horizon
-    pos[i * 3 + 2] = Math.sin(th) * s * radius;
-    const t = tints[Math.floor(r() * tints.length)];
-    const b = 0.6 + r() * 0.4;
-    col[i * 3] = t[0] * b;
-    col[i * 3 + 1] = t[1] * b;
-    col[i * 3 + 2] = t[2] * b;
-  }
-  const geo = new THREE.BufferGeometry();
-  geo.setAttribute('position', new THREE.BufferAttribute(pos, 3));
-  geo.setAttribute('color', new THREE.BufferAttribute(col, 3));
-  const mat = new THREE.PointsMaterial({
-    size: 2,
-    sizeAttenuation: false,
-    vertexColors: true,
-    transparent: true,
-    blending: THREE.AdditiveBlending,
-    depthWrite: false,
-    fog: false,
-  });
-  const pts = new THREE.Points(geo, mat);
-  pts.renderOrder = -1;
-  return pts;
 }
 
 export function buildWorld(level: Level3D): World {
   const scene = new THREE.Scene();
-  scene.fog = new THREE.Fog('#0a0e1c', level.size * 0.45, level.size * 1.9);
+  scene.fog = new THREE.Fog('#0e1426', level.size * 0.55, level.size * 2.1);
 
-  // Brighter lighting (it was too dark)
-  scene.add(new THREE.HemisphereLight('#bcd0ff', '#28304a', 1.4));
-  const dir = new THREE.DirectionalLight('#dfe8ff', 1.5);
+  // Bright, even lighting so the arena reads clearly.
+  scene.add(new THREE.HemisphereLight('#cfe0ff', '#3a4366', 1.7));
+  const dir = new THREE.DirectionalLight('#f0f5ff', 1.7);
   dir.position.set(0.4, 1, 0.25);
   scene.add(dir);
-  scene.add(new THREE.AmbientLight('#56607e', 0.6));
+  scene.add(new THREE.AmbientLight('#6b7796', 0.9));
 
   const disposables: { dispose: () => void }[] = [];
 
-  // Universe backdrop — nebula sky sphere + starfield (seeded, unfogged)
-  const skyTex = new THREE.CanvasTexture(nebula(level.seed));
-  skyTex.colorSpace = THREE.SRGBColorSpace;
-  const sky = new THREE.Mesh(
-    new THREE.SphereGeometry(level.size * 3, 32, 16),
-    new THREE.MeshBasicMaterial({ map: skyTex, side: THREE.BackSide, fog: false, depthWrite: false }),
+  // Soft seeded sky (no stars), unfogged so it stays vivid.
+  const sky = new THREE.CanvasTexture(skyTexture(level.seed));
+  sky.colorSpace = THREE.SRGBColorSpace;
+  const skyMesh = new THREE.Mesh(
+    new THREE.SphereGeometry(level.size * 3, 24, 16),
+    new THREE.MeshBasicMaterial({ map: sky, side: THREE.BackSide, fog: false, depthWrite: false }),
   );
-  scene.add(sky);
-  disposables.push(sky.geometry, sky.material as THREE.Material, skyTex);
-  const stars = starfield(level.seed, level.size * 2.4);
-  scene.add(stars);
-  disposables.push(stars.geometry, stars.material as THREE.Material);
+  scene.add(skyMesh);
+  disposables.push(skyMesh.geometry, skyMesh.material as THREE.Material, sky);
 
   // Ground
   const gtex = tex(groundTex(), level.size);
