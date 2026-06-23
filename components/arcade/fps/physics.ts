@@ -14,7 +14,11 @@ export interface Player3 {
   pitch: number;
   onGround: boolean;
   health: number;
+  /** Active zipline ride (index into level.ziplines + progress 0..1). */
+  zip: { i: number; t: number } | null;
 }
+
+const ZIP_SPEED = 16; // units/sec along a zipline
 
 export const EYE = 1.5;
 export const MAX_PITCH = 1.45; // ~83°
@@ -32,7 +36,7 @@ export interface MoveInput {
 }
 
 export function makePlayer3(spawn: { x: number; z: number; yaw: number }): Player3 {
-  return { x: spawn.x, y: 0, z: spawn.z, vy: 0, yaw: spawn.yaw, pitch: 0, onGround: true, health: 100 };
+  return { x: spawn.x, y: 0, z: spawn.z, vy: 0, yaw: spawn.yaw, pitch: 0, onGround: true, health: 100, zip: null };
 }
 
 function overlapXZ(p: Player3, b: Box): boolean {
@@ -59,6 +63,26 @@ function inLadder(p: Player3, l: Ladder): boolean {
 }
 
 export function stepPlayer(p: Player3, lvl: Level3D, input: MoveInput, dt: number): void {
+  // Zipline ride — slide along the line, look freely, drop off at the end.
+  if (p.zip) {
+    const zl = lvl.ziplines[p.zip.i];
+    if (zl) {
+      const len = Math.hypot(zl.x1 - zl.x0, zl.y1 - zl.y0, zl.z1 - zl.z0) || 1;
+      p.zip.t += (ZIP_SPEED * dt) / len;
+      const t = Math.min(1, p.zip.t);
+      p.x = zl.x0 + (zl.x1 - zl.x0) * t;
+      p.y = zl.y0 + (zl.y1 - zl.y0) * t;
+      p.z = zl.z0 + (zl.z1 - zl.z0) * t;
+      p.vy = 0;
+      if (p.zip.t >= 1 || input.jump) {
+        p.zip = null;
+        p.onGround = false;
+      }
+      return;
+    }
+    p.zip = null;
+  }
+
   // Horizontal wish direction from yaw.
   const fX = -Math.sin(p.yaw);
   const fZ = -Math.cos(p.yaw);
@@ -138,5 +162,27 @@ export function stepPlayer(p: Player3, lvl: Level3D, input: MoveInput, dt: numbe
     p.y = 0;
     if (p.vy < 0) p.vy = 0;
     p.onGround = true;
+  }
+
+  // Jump pad — launch on contact.
+  if (p.onGround) {
+    for (const pad of lvl.pads) {
+      if (Math.hypot(p.x - pad.x, p.z - pad.z) < pad.r) {
+        p.vy = pad.power;
+        p.onGround = false;
+        break;
+      }
+    }
+  }
+
+  // Zipline — push forward into a start node to grab it.
+  if (!p.zip && input.fwd > 0.3) {
+    for (let i = 0; i < lvl.ziplines.length; i++) {
+      const zl = lvl.ziplines[i];
+      if (Math.hypot(p.x - zl.x0, p.y - zl.y0, p.z - zl.z0) < 1.8) {
+        p.zip = { i, t: 0 };
+        break;
+      }
+    }
   }
 }

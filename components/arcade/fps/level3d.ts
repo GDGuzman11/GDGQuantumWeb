@@ -32,9 +32,27 @@ export interface Ladder {
   exZ: number;
 }
 
+export interface JumpPad {
+  x: number;
+  z: number;
+  r: number;
+  power: number;
+}
+
+export interface Zipline {
+  x0: number;
+  y0: number;
+  z0: number;
+  x1: number;
+  y1: number;
+  z1: number;
+}
+
 export interface Level3D {
   boxes: Box[];
   ladders: Ladder[];
+  pads: JumpPad[];
+  ziplines: Zipline[];
   spawn: { x: number; z: number; yaw: number };
   size: number;
   seed: number;
@@ -133,6 +151,7 @@ export function makeArena3D(enemyCount: number, seed: number): Level3D {
   boxes.push({ x: half, y: WALL_H / 2, z: 0, sx: 0.6, sy: WALL_H, sz: size, tex: 0 });
 
   const placed: { x: number; z: number; rad: number }[] = [];
+  const perches: { x: number; z: number; deckY: number; half: number }[] = [];
   const tryPlace = (rad: number, minGap: number): { x: number; z: number } | null => {
     for (let t = 0; t < 24; t++) {
       const x = (r() * 2 - 1) * (half - rad - 2);
@@ -151,6 +170,7 @@ export function makeArena3D(enemyCount: number, seed: number): Level3D {
     if (!pos) continue;
     placed.push({ x: pos.x, z: pos.z, rad: bw });
     (r() < 0.6 ? tower3 : tower2)(boxes, ladders, pos.x, pos.z, bw);
+    perches.push({ x: pos.x, z: pos.z, deckY: 3, half: bw / 2 });
   }
   // Then smaller structures fill the gaps (platforms + bunkers).
   const fillers = Math.round(size / 9);
@@ -159,8 +179,12 @@ export function makeArena3D(enemyCount: number, seed: number): Level3D {
     const pos = tryPlace(bw, 5);
     if (!pos) continue;
     placed.push({ x: pos.x, z: pos.z, rad: bw });
-    if (r() < 0.5) platform(boxes, ladders, pos.x, pos.z, bw);
-    else bunker(boxes, pos.x, pos.z, bw, r);
+    if (r() < 0.5) {
+      platform(boxes, ladders, pos.x, pos.z, bw);
+      perches.push({ x: pos.x, z: pos.z, deckY: 2.6, half: bw / 2 });
+    } else {
+      bunker(boxes, pos.x, pos.z, bw, r);
+    }
   }
 
   // Cover pillars (avoid spawn + structures).
@@ -175,5 +199,26 @@ export function makeArena3D(enemyCount: number, seed: number): Level3D {
     boxes.push({ x, y: h / 2, z, sx: s, sy: h, sz: s, tex: 1 + Math.floor(r() * 3) });
   }
 
-  return { boxes, ladders, spawn: { x: 0, z: 0, yaw: 0 }, size, seed };
+  // Ziplines off each perch toward open ground (fast escape/reposition routes).
+  const ziplines: Zipline[] = [];
+  for (const pc of perches) {
+    const d = Math.hypot(pc.x, pc.z) || 1;
+    const dist = size * 0.18;
+    const ex = Math.max(-half + 3, Math.min(half - 3, pc.x - (pc.x / d) * dist));
+    const ez = Math.max(-half + 3, Math.min(half - 3, pc.z - (pc.z / d) * dist));
+    ziplines.push({ x0: pc.x, y0: pc.deckY + 0.3, z0: pc.z - pc.half - 0.4, x1: ex, y1: 1.4, z1: ez });
+  }
+
+  // Jump pads scattered in the open (surprise verticality).
+  const pads: JumpPad[] = [];
+  const padN = Math.round(size / 12);
+  for (let i = 0; i < padN; i++) {
+    const x = (r() * 2 - 1) * (half - 4);
+    const z = (r() * 2 - 1) * (half - 4);
+    if (Math.hypot(x, z) < 6) continue;
+    if (placed.some((p) => Math.abs(x - p.x) < p.rad / 2 + 2 && Math.abs(z - p.z) < p.rad / 2 + 2)) continue;
+    pads.push({ x, z, r: 1.1, power: 13 });
+  }
+
+  return { boxes, ladders, pads, ziplines, spawn: { x: 0, z: 0, yaw: 0 }, size, seed };
 }

@@ -98,6 +98,35 @@ export function buildWorld(level: Level3D): World {
     disposables.push(geo);
   }
 
+  // Jump pads — glowing green discs.
+  const padMat = new THREE.MeshBasicMaterial({ color: '#aef5c8', transparent: true, opacity: 0.65 });
+  disposables.push(padMat);
+  for (const pad of level.pads) {
+    const geo = new THREE.CylinderGeometry(pad.r, pad.r, 0.14, 18);
+    const m = new THREE.Mesh(geo, padMat);
+    m.position.set(pad.x, 0.07, pad.z);
+    scene.add(m);
+    disposables.push(geo);
+  }
+
+  // Ziplines — glowing cyan cables + a marker at the grab end.
+  const zipMat = new THREE.LineBasicMaterial({ color: '#7fdfff' });
+  const nodeMat = new THREE.MeshBasicMaterial({ color: '#7fdfff' });
+  disposables.push(zipMat, nodeMat);
+  for (const z of level.ziplines) {
+    const g = new THREE.BufferGeometry().setFromPoints([
+      new THREE.Vector3(z.x0, z.y0, z.z0),
+      new THREE.Vector3(z.x1, z.y1, z.z1),
+    ]);
+    scene.add(new THREE.Line(g, zipMat));
+    disposables.push(g);
+    const nGeo = new THREE.BoxGeometry(0.5, 0.5, 0.5);
+    const node = new THREE.Mesh(nGeo, nodeMat);
+    node.position.set(z.x0, z.y0, z.z0);
+    scene.add(node);
+    disposables.push(nGeo);
+  }
+
   // Ladder rungs (thin emissive bars, orientation-aware)
   const ladMat = new THREE.MeshBasicMaterial({ color: '#7fdfff' });
   disposables.push(ladMat);
