@@ -5,8 +5,8 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { CRTFrame } from './ui/CRTFrame';
 import { FpsControls } from './ui/FpsControls';
 import { useFpsLoop, type FpsGameState } from './useFpsLoop';
-import { makeArena } from './fps/map';
-import { makePlayer } from './fps/player';
+import { makeArena3D } from './fps/level3d';
+import { makePlayer3 } from './fps/physics';
 
 type Diff = 'normal' | 'hard' | 'nightmare';
 type Mode = 'menu' | 'play';
@@ -31,8 +31,8 @@ export function FpsGame() {
 
   const start = useCallback(() => {
     const seed = (Date.now() ^ Math.floor(Math.random() * 0xffff)) & 0x7fffffff;
-    const level = makeArena(enemies, seed);
-    gameRef.current = { level, player: makePlayer(level.spawn) };
+    const level = makeArena3D(enemies, seed);
+    gameRef.current = { level, player: makePlayer3(level.spawn) };
     setMode('play');
   }, [enemies]);
 
@@ -69,7 +69,7 @@ export function FpsGame() {
               <FpsControls onMove={(s, f) => setMoveAxis(s, f)} onLook={(dx, dy) => addLook(dx, dy)} />
             ) : (
               <p className="pointer-events-none absolute bottom-3 left-1/2 z-20 -translate-x-1/2 font-pixel text-[7px] text-white/40">
-                CLICK TO LOOK · WASD MOVE · ESC MENU
+                CLICK TO LOOK · WASD MOVE · SPACE JUMP · WALK INTO LADDERS · ESC MENU
               </p>
             )}
           </>
@@ -120,7 +120,7 @@ export function FpsGame() {
               Deploy ▸
             </button>
             <p className="mt-5 max-w-xs text-center font-pixel text-[6px] leading-relaxed text-white/35 sm:text-[8px]">
-              {isTouch ? 'LEFT STICK MOVE · RIGHT DRAG LOOK' : 'CLICK TO LOOK · WASD MOVE · ESC FOR MENU'}
+              {isTouch ? 'LEFT STICK MOVE · RIGHT DRAG LOOK' : 'CLICK TO LOOK · WASD MOVE · SPACE JUMP'}
             </p>
           </div>
         )}

@@ -1,28 +1,26 @@
 'use client';
 
 import { useCallback, useEffect, useRef } from 'react';
-import { renderView } from './fps/raycaster';
-import { getTextures } from './fps/textures';
-import { MAX_PITCH, movePlayer, rotate, type Player } from './fps/player';
-import type { Level } from './fps/map';
+import * as THREE from 'three';
+import { buildWorld, type World } from './fps/scene';
+import { EYE, MAX_PITCH, stepPlayer, type Player3 } from './fps/physics';
+import type { Level3D } from './fps/level3d';
 
 /** Internal render resolution — low-res, CSS-upscaled for the '93 pixel look. */
 const RW = 480;
 const RH = 270;
-const LOOK_SENS = 0.0024; // horizontal (radians per px)
-const PITCH_SENS = 0.55; // vertical (low-res px of horizon per input px)
+const LOOK_SENS = 0.0024;
 
 export interface FpsGameState {
-  level: Level;
-  player: Player;
+  level: Level3D;
+  player: Player3;
 }
 
 /**
- * Drives the FPS: sizes the low-res canvas, reads input (WASD + pointer-lock
- * mouse on desktop; left-stick + right-look from touch controls on mobile),
- * steps the player, and renders the raycaster view each frame.
- *
- * Returns imperative handles the on-screen touch controls push input through.
+ * Drives the 3D FPS: a low-res Three.js renderer + perspective camera, input
+ * (WASD + jump + pointer-lock mouse on desktop; left-stick + right-look on
+ * touch), player physics, and per-frame render. Rebuilds the world when the
+ * level changes. Returns handles the on-screen touch controls push input to.
  */
 export function useFpsLoop(
   canvasRef: React.RefObject<HTMLCanvasElement>,
@@ -45,25 +43,27 @@ export function useFpsLoop(
   useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
-    canvas.width = RW;
-    canvas.height = RH;
-    const ctx = canvas.getContext('2d');
-    if (!ctx) return;
-    ctx.imageSmoothingEnabled = false;
-    const textures = getTextures();
+    const renderer = new THREE.WebGLRenderer({ canvas, antialias: false, powerPreference: 'high-performance' });
+    renderer.setPixelRatio(1);
+    renderer.setSize(RW, RH, false);
+    const camera = new THREE.PerspectiveCamera(75, RW / RH, 0.1, 240);
+    camera.rotation.order = 'YXZ';
 
-    const isMoveKey = (k: string) => k === 'w' || k === 'a' || k === 's' || k === 'd' || k.startsWith('arrow');
+    let world: World | null = null;
+    let builtFor: Level3D | null = null;
+
+    const isMoveKey = (k: string) =>
+      k === 'w' || k === 'a' || k === 's' || k === 'd' || k === ' ' || k.startsWith('arrow');
     const onKeyDown = (e: KeyboardEvent) => {
       const k = e.key.toLowerCase();
       if (!isMoveKey(k)) return;
-      if (k.startsWith('arrow')) e.preventDefault();
+      if (k.startsWith('arrow') || k === ' ') e.preventDefault();
       keys.current.add(k);
     };
     const onKeyUp = (e: KeyboardEvent) => keys.current.delete(e.key.toLowerCase());
     window.addEventListener('keydown', onKeyDown);
     window.addEventListener('keyup', onKeyUp);
 
-    // Desktop: click to capture the mouse for look.
     const onClick = () => {
       if (!('ontouchstart' in window)) canvas.requestPointerLock?.();
     };
@@ -85,28 +85,34 @@ export function useFpsLoop(
       prev = now;
       const g = gameRef.current;
       if (g && active) {
+        if (g.level !== builtFor) {
+          world?.dispose();
+          world = buildWorld(g.level);
+          builtFor = g.level;
+        }
+        const p = g.player;
+        // Look
+        if (lookDX.current !== 0) {
+          p.yaw -= lookDX.current * LOOK_SENS;
+          lookDX.current = 0;
+        }
+        if (lookDY.current !== 0) {
+          p.pitch = Math.max(-MAX_PITCH, Math.min(MAX_PITCH, p.pitch - lookDY.current * LOOK_SENS));
+          lookDY.current = 0;
+        }
+        // Move input
         let fwd = touchMove.current.fwd;
         let strafe = touchMove.current.strafe;
         if (keys.current.has('w') || keys.current.has('arrowup')) fwd += 1;
         if (keys.current.has('s') || keys.current.has('arrowdown')) fwd -= 1;
         if (keys.current.has('d') || keys.current.has('arrowright')) strafe += 1;
         if (keys.current.has('a') || keys.current.has('arrowleft')) strafe -= 1;
-        fwd = Math.max(-1, Math.min(1, fwd));
-        strafe = Math.max(-1, Math.min(1, strafe));
-        if (lookDX.current !== 0) {
-          rotate(g.player, lookDX.current * LOOK_SENS);
-          lookDX.current = 0;
-        }
-        if (lookDY.current !== 0) {
-          // Mouse/touch down → look down (horizon shifts up).
-          g.player.pitch = Math.max(
-            -MAX_PITCH,
-            Math.min(MAX_PITCH, g.player.pitch - lookDY.current * PITCH_SENS),
-          );
-          lookDY.current = 0;
-        }
-        movePlayer(g.player, g.level, fwd, strafe, dt);
-        renderView(ctx, g.level, g.player, textures, RW, RH);
+        stepPlayer(p, g.level, { fwd, strafe, jump: keys.current.has(' ') }, dt);
+        // Camera
+        camera.position.set(p.x, p.y + EYE, p.z);
+        camera.rotation.y = p.yaw;
+        camera.rotation.x = p.pitch;
+        if (world) renderer.render(world.scene, camera);
       }
       raf = requestAnimationFrame(frame);
     };
@@ -120,6 +126,8 @@ export function useFpsLoop(
       canvas.removeEventListener('click', onClick);
       document.removeEventListener('mousemove', onMouse);
       if (document.pointerLockElement === canvas) document.exitPointerLock?.();
+      world?.dispose();
+      renderer.dispose();
     };
   }, [canvasRef, gameRef, active]);
 

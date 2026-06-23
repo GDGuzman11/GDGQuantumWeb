@@ -59,6 +59,24 @@ function hazard(): Tex {
   return c;
 }
 
+/** Tiling floor grid — dark metal deck with glowing seams. */
+export function groundTex(): Tex {
+  const c = document.createElement('canvas');
+  c.width = TEX_SIZE;
+  c.height = TEX_SIZE;
+  const x = c.getContext('2d')!;
+  x.fillStyle = '#0e1018';
+  x.fillRect(0, 0, TEX_SIZE, TEX_SIZE);
+  for (let i = 0; i < 300; i++) {
+    x.fillStyle = `rgba(255,255,255,${Math.random() * 0.04})`;
+    x.fillRect(Math.random() * TEX_SIZE, Math.random() * TEX_SIZE, 1, 1);
+  }
+  x.strokeStyle = '#243047';
+  x.lineWidth = 2;
+  x.strokeRect(0, 0, TEX_SIZE, TEX_SIZE);
+  return c;
+}
+
 let cache: Tex[] | null = null;
 /** Lazily build the texture set (client-only). */
 export function getTextures(): Tex[] {
