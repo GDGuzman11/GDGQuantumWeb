@@ -1,0 +1,92 @@
+/**
+ * Generated chiptune SFX via the Web Audio API — no asset files, so nothing for
+ * the CSP to allow. Lazily creates the AudioContext on the first user gesture
+ * (autoplay policy), and is a no-op when muted or unsupported.
+ */
+class Sfx {
+  private ctx: AudioContext | null = null;
+  muted = false;
+
+  /** Call from a user gesture (a menu/fire click) to unlock audio. */
+  ensure(): void {
+    if (this.muted) return;
+    if (!this.ctx) {
+      const AC = window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
+      if (!AC) return;
+      this.ctx = new AC();
+    }
+    if (this.ctx.state === 'suspended') void this.ctx.resume();
+  }
+
+  private tone(
+    type: OscillatorType,
+    f0: number,
+    f1: number,
+    dur: number,
+    gain: number,
+  ): void {
+    const ctx = this.ctx;
+    if (!ctx || this.muted) return;
+    const t = ctx.currentTime;
+    const osc = ctx.createOscillator();
+    const g = ctx.createGain();
+    osc.type = type;
+    osc.frequency.setValueAtTime(f0, t);
+    osc.frequency.exponentialRampToValueAtTime(Math.max(1, f1), t + dur);
+    g.gain.setValueAtTime(gain, t);
+    g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+    osc.connect(g).connect(ctx.destination);
+    osc.start(t);
+    osc.stop(t + dur + 0.02);
+  }
+
+  private noise(dur: number, gain: number, cutoff: number): void {
+    const ctx = this.ctx;
+    if (!ctx || this.muted) return;
+    const t = ctx.currentTime;
+    const n = Math.floor(ctx.sampleRate * dur);
+    const buf = ctx.createBuffer(1, n, ctx.sampleRate);
+    const data = buf.getChannelData(0);
+    for (let i = 0; i < n; i++) data[i] = (Math.random() * 2 - 1) * (1 - i / n);
+    const src = ctx.createBufferSource();
+    src.buffer = buf;
+    const lp = ctx.createBiquadFilter();
+    lp.type = 'lowpass';
+    lp.frequency.setValueAtTime(cutoff, t);
+    lp.frequency.exponentialRampToValueAtTime(Math.max(80, cutoff * 0.2), t + dur);
+    const g = ctx.createGain();
+    g.gain.setValueAtTime(gain, t);
+    g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+    src.connect(lp).connect(g).connect(ctx.destination);
+    src.start(t);
+    src.stop(t + dur);
+  }
+
+  fire(): void {
+    this.ensure();
+    this.tone('square', 520, 120, 0.18, 0.12);
+  }
+  explosion(): void {
+    this.ensure();
+    this.noise(0.5, 0.32, 1400);
+    this.tone('sine', 90, 40, 0.45, 0.18);
+  }
+  hit(): void {
+    this.ensure();
+    this.tone('sawtooth', 260, 80, 0.22, 0.16);
+  }
+  win(): void {
+    this.ensure();
+    [523, 659, 784, 1047].forEach((f, i) =>
+      window.setTimeout(() => this.tone('square', f, f, 0.14, 0.12), i * 110),
+    );
+  }
+  lose(): void {
+    this.ensure();
+    [392, 311, 247, 196].forEach((f, i) =>
+      window.setTimeout(() => this.tone('square', f, f, 0.18, 0.12), i * 130),
+    );
+  }
+}
+
+export const sfx = new Sfx();

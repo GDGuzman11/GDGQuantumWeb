@@ -25,6 +25,10 @@ import {
 } from './types';
 import { carve, generateTerrain, heightAt, rng, type Terrain } from './terrain';
 import { computeAiShot, type Difficulty } from './ai';
+import { ParticleSystem } from './particles';
+
+/** Sound/feedback cues the shell drains each frame to play SFX. */
+export type GameEvent = 'fire' | 'explosion' | 'hit' | 'win' | 'lose';
 
 const BLAST_R = 38;
 const MAX_DMG = 42;
@@ -51,6 +55,10 @@ export class ArcadeEngine {
   difficulty: Difficulty;
   /** Last explosion, for the renderer to flash (cleared after it reads it). */
   blast: { x: number; y: number; r: number; t: number } | null = null;
+  particles = new ParticleSystem();
+  shake = 0;
+  /** Feedback cues queued for the shell to play as SFX, then drain. */
+  events: GameEvent[] = [];
 
   private rand: () => number;
   private acc = 0;
@@ -136,6 +144,8 @@ export class ArcadeEngine {
       alive: true,
       trail: [],
     };
+    this.particles.muzzle(m.x, m.y, dir.x * 3, dir.y * 3);
+    this.events.push('fire');
     this.phase = 'flying';
   }
 
@@ -155,12 +165,17 @@ export class ArcadeEngine {
 
   /** Advance the simulation by real elapsed ms (fixed sub-stepping). */
   update(dtMs: number): void {
-    if (this.phase !== 'flying' || !this.proj) return;
-    this.acc += Math.min(dtMs, 100);
-    while (this.acc >= STEP_MS) {
-      this.acc -= STEP_MS;
-      this.stepProjectile();
-      if (this.phase !== 'flying') break;
+    const dt = Math.min(dtMs, 100);
+    // Particles + screen shake always settle, even between turns.
+    this.particles.update(dt);
+    if (this.shake > 0) this.shake = Math.max(0, this.shake - dt * 0.03);
+    if (this.phase === 'flying' && this.proj) {
+      this.acc += dt;
+      while (this.acc >= STEP_MS) {
+        this.acc -= STEP_MS;
+        this.stepProjectile();
+        if (this.phase !== 'flying') break;
+      }
     }
   }
 
@@ -195,7 +210,11 @@ export class ArcadeEngine {
   private explode(x: number, y: number): void {
     carve(this.terrain, x, y, BLAST_R);
     this.blast = { x, y, r: BLAST_R, t: performance.now() };
+    this.particles.explosion(x, y, 1);
+    this.shake = Math.min(16, this.shake + 11);
+    this.events.push('explosion');
     // Splash damage to both tanks by proximity (you can self-damage).
+    let hit = false;
     for (const t of this.tanks) {
       const ty = heightAt(this.terrain, t.x) - 8;
       const d = Math.hypot(x - t.x, y - ty);
@@ -204,9 +223,11 @@ export class ArcadeEngine {
         if (dmg > 0) {
           t.health = Math.max(0, t.health - dmg);
           if (t !== this.current) this.current.score += dmg;
+          hit = true;
         }
       }
     }
+    if (hit) this.events.push('hit');
     this.proj = null;
     if (this.tanks.some((t) => t.health <= 0)) {
       this.phase = 'gameover';
@@ -217,6 +238,7 @@ export class ArcadeEngine {
           : this.tanks[0].health > this.tanks[1].health
             ? 'player'
             : 'ai';
+      this.events.push(this.winner === 'player' ? 'win' : 'lose');
       return;
     }
     this.endTurn();

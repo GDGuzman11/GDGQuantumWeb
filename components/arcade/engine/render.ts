@@ -36,13 +36,20 @@ export function render(
   reduceMotion: boolean,
   now: number,
 ): void {
-  // Sky
+  // Screen shake (motion users only) — translate the whole scene a few px.
+  const sh = reduceMotion ? 0 : eng.shake;
+  const sx = sh ? (Math.random() - 0.5) * sh : 0;
+  const sy = sh ? (Math.random() - 0.5) * sh : 0;
+  ctx.save();
+  ctx.translate(sx, sy);
+
+  // Sky (overscanned so the shake never reveals a hard edge)
   const g = ctx.createLinearGradient(0, 0, 0, GAME_H);
   g.addColorStop(0, '#070b18');
   g.addColorStop(0.6, '#0a0e1a');
   g.addColorStop(1, '#05060c');
   ctx.fillStyle = g;
-  ctx.fillRect(0, 0, GAME_W, GAME_H);
+  ctx.fillRect(-24, -24, GAME_W + 48, GAME_H + 48);
 
   // Stars (twinkle only when motion is allowed)
   for (const st of ensureStars()) {
@@ -57,14 +64,17 @@ export function render(
   for (const t of eng.tanks) drawTank(ctx, eng, t, aim);
   drawProjectile(ctx, eng);
   drawBlast(ctx, eng, now);
+  eng.particles.draw(ctx);
+
+  ctx.restore();
 }
 
 function drawTerrain(ctx: CanvasRenderingContext2D, eng: ArcadeEngine): void {
   ctx.beginPath();
-  ctx.moveTo(0, GAME_H);
+  ctx.moveTo(-24, GAME_H + 24);
   for (let x = 0; x < GAME_W; x += 2) ctx.lineTo(x, eng.terrain[x]);
   ctx.lineTo(GAME_W, eng.terrain[GAME_W - 1]);
-  ctx.lineTo(GAME_W, GAME_H);
+  ctx.lineTo(GAME_W + 24, GAME_H + 24);
   ctx.closePath();
   const g = ctx.createLinearGradient(0, GAME_H * 0.4, 0, GAME_H);
   g.addColorStop(0, '#2a3358');

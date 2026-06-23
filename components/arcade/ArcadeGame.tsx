@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { useCallback, useRef, useState } from 'react';
 import { useReducedMotion } from '@/lib/use-reduced-motion';
 import { ArcadeEngine } from './engine/engine';
+import { sfx } from './engine/audio';
 import type { Difficulty } from './engine/ai';
 import type { Snapshot } from './engine/types';
 import { useGameLoop } from './useGameLoop';
@@ -25,6 +26,7 @@ export function ArcadeGame() {
   const engineRef = useRef<ArcadeEngine | null>(null);
   const [mode, setMode] = useState<Mode>('menu');
   const [difficulty, setDifficulty] = useState<Difficulty>('normal');
+  const [muted, setMuted] = useState(false);
   const [snap, setSnap] = useState<Snapshot | null>(null);
 
   const onSnapshot = useCallback((s: Snapshot) => setSnap(s), []);
@@ -32,6 +34,8 @@ export function ArcadeGame() {
 
   const start = useCallback(
     (diff: Difficulty) => {
+      sfx.muted = muted;
+      sfx.ensure(); // this click is the user gesture that unlocks audio
       engineRef.current = new ArcadeEngine({
         seed: (Date.now() ^ Math.floor(Math.random() * 0xffff)) & 0x7fffffff,
         difficulty: diff,
@@ -40,8 +44,17 @@ export function ArcadeGame() {
       setSnap(engineRef.current.snapshot(0));
       setMode('battle');
     },
-    [],
+    [muted],
   );
+
+  const toggleMute = useCallback(() => {
+    setMuted((m) => {
+      const next = !m;
+      sfx.muted = next;
+      if (!next) sfx.ensure();
+      return next;
+    });
+  }, []);
 
   const gameOver = mode === 'battle' && snap?.winner != null;
 
@@ -49,12 +62,21 @@ export function ArcadeGame() {
     <div className="flex w-full flex-col items-center gap-4">
       <div className="flex w-full max-w-5xl items-center justify-between px-1">
         <h1 className="font-pixel text-[11px] text-[#7fdfff] sm:text-[13px]">STARSHELL</h1>
-        <Link
-          href="/"
-          className="font-pixel text-[8px] text-white/50 transition-colors hover:text-white sm:text-[9px]"
-        >
-          ◂ EXIT
-        </Link>
+        <div className="flex items-center gap-4">
+          <button
+            type="button"
+            onClick={toggleMute}
+            className="font-pixel text-[8px] text-white/50 transition-colors hover:text-white sm:text-[9px]"
+          >
+            {muted ? 'SOUND ✕' : 'SOUND ♪'}
+          </button>
+          <Link
+            href="/"
+            className="font-pixel text-[8px] text-white/50 transition-colors hover:text-white sm:text-[9px]"
+          >
+            ◂ EXIT
+          </Link>
+        </div>
       </div>
 
       <CRTFrame>

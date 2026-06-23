@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useRef } from 'react';
 import { ArcadeEngine } from './engine/engine';
+import { sfx } from './engine/audio';
 import { render, type AimView } from './engine/render';
 import {
   GAME_H,
@@ -126,6 +127,18 @@ export function useGameLoop(
           }, reduceMotion ? 350 : 850);
         }
         eng.update(dt);
+
+        // Drain feedback cues → chiptune SFX (no-op when muted).
+        if (eng.events.length) {
+          for (const ev of eng.events) {
+            if (ev === 'fire') sfx.fire();
+            else if (ev === 'explosion') sfx.explosion();
+            else if (ev === 'hit') sfx.hit();
+            else if (ev === 'win') sfx.win();
+            else if (ev === 'lose') sfx.lose();
+          }
+          eng.events.length = 0;
+        }
 
         const scale = canvas.width / GAME_W;
         ctx.setTransform(scale, 0, 0, scale, 0, 0);
