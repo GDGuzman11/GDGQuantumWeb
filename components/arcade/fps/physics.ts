@@ -74,14 +74,34 @@ export function stepPlayer(p: Player3, lvl: Level3D, input: MoveInput, dt: numbe
   let vx = wx * MOVE;
   let vz = wz * MOVE;
 
-  const onLadder = lvl.ladders.some((l) => inLadder(p, l));
-  if (onLadder) {
-    // On a ladder you can't walk through it: horizontal is locked and your
-    // forward/back input becomes climb up / down. Gravity is suspended.
-    vx = 0;
-    vz = 0;
-    p.vy = input.fwd > 0.05 ? CLIMB : input.fwd < -0.05 ? -CLIMB : 0;
-  } else {
+  const lad = lvl.ladders.find((l) => inLadder(p, l));
+  let attached = false;
+  if (lad) {
+    const up = input.fwd > 0.05;
+    const down = input.fwd < -0.05;
+    if (up && p.y < lad.y1 - 0.05) {
+      // Climbing: lock horizontal so you can't pass through, rise.
+      attached = true;
+      vx = 0;
+      vz = 0;
+      p.vy = CLIMB;
+    } else if (up && p.y >= lad.y1 - 0.05) {
+      // Reached the top → walk OFF onto the floor (in the ladder's exit dir).
+      attached = true;
+      vx = lad.exX * MOVE;
+      vz = lad.exZ * MOVE;
+      p.vy = 0;
+    } else if (down && p.y > lad.y0 + 0.05) {
+      // Descending: lock horizontal, sink.
+      attached = true;
+      vx = 0;
+      vz = 0;
+      p.vy = -CLIMB;
+    }
+    // else (at the bottom, or no climb input) → fall through to normal movement
+    // so you can simply walk away.
+  }
+  if (!attached) {
     if (input.jump && p.onGround) {
       p.vy = JUMP;
       p.onGround = false;

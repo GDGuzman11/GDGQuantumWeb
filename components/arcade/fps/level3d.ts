@@ -24,6 +24,9 @@ export interface Ladder {
   y1: number;
   sx: number;
   sz: number;
+  /** Unit horizontal direction to step onto the floor at the top. */
+  exX: number;
+  exZ: number;
 }
 
 export interface Level3D {
@@ -61,13 +64,14 @@ function building(boxes: Box[], ladders: Ladder[], cx: number, cz: number, bw: n
     boxes.push({ x: cx, y: ft + 0.45, z: cz + half, sx: bw, sy: 0.9, sz: 0.25, tex: 2 });
   }
 
-  // Ladder A: GROUND → 2nd, on the −z face. Step off onto a −z landing nub.
-  ladders.push({ x: cx, z: cz - half - 0.35, y0: 0, y1: F2 + 0.2, sx: 0.9, sz: 0.45 });
+  // Ladder A: GROUND → 2nd, on the −z face; at the top you step onto the floor
+  // toward +z (into the building). Landing nub on the −z edge.
+  ladders.push({ x: cx, z: cz - half - 0.35, y0: 0, y1: F2 + 0.2, sx: 0.9, sz: 0.45, exX: 0, exZ: 1 });
   boxes.push({ x: cx, y: F2 - slab / 2, z: cz - half - 0.2, sx: 1.6, sy: slab, sz: 0.8, tex: 3 });
 
   // Ladder B: 2nd → 3rd, on the +x face — a DIFFERENT spot, so you cross the
-  // 2nd floor to reach it. No direct ground→3rd route. Step off onto a +x nub.
-  ladders.push({ x: cx + half + 0.35, z: cz, y0: F2, y1: F3 + 0.2, sx: 0.45, sz: 0.9 });
+  // 2nd floor to reach it. No direct ground→3rd route. At the top, step toward −x.
+  ladders.push({ x: cx + half + 0.35, z: cz, y0: F2, y1: F3 + 0.2, sx: 0.45, sz: 0.9, exX: -1, exZ: 0 });
   boxes.push({ x: cx + half + 0.2, y: F3 - slab / 2, z: cz, sx: 0.8, sy: slab, sz: 1.6, tex: 3 });
 }
 
