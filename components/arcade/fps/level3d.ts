@@ -60,7 +60,22 @@ export interface Level3D {
 
 type Rnd = () => number;
 const WALL_H = 4.5;
-const STORY = 3; // floor-to-floor height
+
+/** A deck corner of a 3-floor tower nearest the target (away from the front
+ *  ladder), pulled slightly inward so it sits on the mezzanine. */
+function nearestDeckCorner(
+  t: { x: number; z: number; half: number },
+  target: { x: number; z: number },
+): { x: number; z: number } {
+  const pts: { x: number; z: number }[] = [];
+  for (const sx of [-1, 1]) {
+    pts.push({ x: t.x + sx * (t.half - 0.5), z: t.z + 0.5 });
+    pts.push({ x: t.x + sx * (t.half - 0.5), z: t.z + t.half - 0.5 });
+  }
+  return pts.reduce((best, c) =>
+    Math.hypot(c.x - target.x, c.z - target.z) < Math.hypot(best.x - target.x, best.z - target.z) ? c : best,
+  );
+}
 
 function columns(boxes: Box[], cx: number, cz: number, half: number, top: number): void {
   for (const sx of [-1, 1])
@@ -151,7 +166,7 @@ export function makeArena3D(enemyCount: number, seed: number): Level3D {
   boxes.push({ x: half, y: WALL_H / 2, z: 0, sx: 0.6, sy: WALL_H, sz: size, tex: 0 });
 
   const placed: { x: number; z: number; rad: number }[] = [];
-  const perches: { x: number; z: number; deckY: number; half: number }[] = [];
+  const towers3: { x: number; z: number; half: number }[] = [];
   const tryPlace = (rad: number, minGap: number): { x: number; z: number } | null => {
     for (let t = 0; t < 24; t++) {
       const x = (r() * 2 - 1) * (half - rad - 2);
@@ -162,15 +177,17 @@ export function makeArena3D(enemyCount: number, seed: number): Level3D {
     return null;
   };
 
-  // Multi-floor towers FIRST, spaced FAR apart.
-  const towerCount = Math.max(2, Math.round(size / 26));
+  // Multi-floor towers FIRST, spaced FAR apart. Force the first few to be
+  // 3-floor towers so there are enough rooftops to string ziplines between.
+  const towerCount = Math.max(3, Math.round(size / 24));
   for (let i = 0; i < towerCount; i++) {
     const bw = 6 + r() * 3;
     const pos = tryPlace(bw, size * 0.22);
     if (!pos) continue;
     placed.push({ x: pos.x, z: pos.z, rad: bw });
-    (r() < 0.6 ? tower3 : tower2)(boxes, ladders, pos.x, pos.z, bw);
-    perches.push({ x: pos.x, z: pos.z, deckY: 3, half: bw / 2 });
+    const isT3 = i < 3 || r() < 0.5;
+    (isT3 ? tower3 : tower2)(boxes, ladders, pos.x, pos.z, bw);
+    if (isT3) towers3.push({ x: pos.x, z: pos.z, half: bw / 2 });
   }
   // Then smaller structures fill the gaps (platforms + bunkers).
   const fillers = Math.round(size / 9);
@@ -179,12 +196,8 @@ export function makeArena3D(enemyCount: number, seed: number): Level3D {
     const pos = tryPlace(bw, 5);
     if (!pos) continue;
     placed.push({ x: pos.x, z: pos.z, rad: bw });
-    if (r() < 0.5) {
-      platform(boxes, ladders, pos.x, pos.z, bw);
-      perches.push({ x: pos.x, z: pos.z, deckY: 2.6, half: bw / 2 });
-    } else {
-      bunker(boxes, pos.x, pos.z, bw, r);
-    }
+    if (r() < 0.5) platform(boxes, ladders, pos.x, pos.z, bw);
+    else bunker(boxes, pos.x, pos.z, bw, r);
   }
 
   // Cover pillars (avoid spawn + structures).
@@ -199,14 +212,30 @@ export function makeArena3D(enemyCount: number, seed: number): Level3D {
     boxes.push({ x, y: h / 2, z, sx: s, sy: h, sz: s, tex: 1 + Math.floor(r() * 3) });
   }
 
-  // Ziplines off each perch toward open ground (fast escape/reposition routes).
+  // Ziplines connecting 3-floor towers, rooftop-to-rooftop (≤ 3). Each is
+  // anchored at the deck corner nearest the target tower (away from the front
+  // ladder), so it visibly faces the tower it connects to.
   const ziplines: Zipline[] = [];
-  for (const pc of perches) {
-    const d = Math.hypot(pc.x, pc.z) || 1;
-    const dist = size * 0.18;
-    const ex = Math.max(-half + 3, Math.min(half - 3, pc.x - (pc.x / d) * dist));
-    const ez = Math.max(-half + 3, Math.min(half - 3, pc.z - (pc.z / d) * dist));
-    ziplines.push({ x0: pc.x, y0: pc.deckY + 0.3, z0: pc.z - pc.half - 0.4, x1: ex, y1: 1.4, z1: ez });
+  const Y3 = 6; // 3rd-floor deck height
+  const usedPairs = new Set<string>();
+  for (let a = 0; a < towers3.length && ziplines.length < 3; a++) {
+    let best = -1;
+    let bestD = Infinity;
+    for (let b = 0; b < towers3.length; b++) {
+      if (b === a) continue;
+      const key = a < b ? `${a}-${b}` : `${b}-${a}`;
+      if (usedPairs.has(key)) continue;
+      const d = Math.hypot(towers3[a].x - towers3[b].x, towers3[a].z - towers3[b].z);
+      if (d < bestD) {
+        bestD = d;
+        best = b;
+      }
+    }
+    if (best < 0) continue;
+    usedPairs.add(a < best ? `${a}-${best}` : `${best}-${a}`);
+    const ca = nearestDeckCorner(towers3[a], towers3[best]);
+    const cb = nearestDeckCorner(towers3[best], towers3[a]);
+    ziplines.push({ x0: ca.x, y0: Y3, z0: ca.z, x1: cb.x, y1: Y3, z1: cb.z });
   }
 
   // Jump pads scattered in the open (surprise verticality).
