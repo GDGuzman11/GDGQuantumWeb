@@ -80,6 +80,31 @@ class Sfx {
     this.noise(0.09, 0.22, 2600);
     this.tone('square', 360, 150, 0.07, 0.08);
   }
+  /** Per-family gun sound (rifle / mg / laser / sniper / pistol). */
+  gun(kind: string): void {
+    this.ensure();
+    switch (kind) {
+      case 'mg':
+        this.noise(0.05, 0.16, 2200);
+        this.tone('square', 300, 150, 0.04, 0.06);
+        break;
+      case 'laser':
+        this.tone('sawtooth', 1300, 320, 0.12, 0.09);
+        this.tone('sine', 820, 1500, 0.1, 0.05);
+        break;
+      case 'sniper':
+        this.noise(0.22, 0.34, 1500);
+        this.tone('square', 170, 55, 0.26, 0.16);
+        break;
+      case 'pistol':
+        this.noise(0.06, 0.18, 2400);
+        this.tone('square', 520, 230, 0.05, 0.07);
+        break;
+      default: // rifle
+        this.noise(0.08, 0.2, 2700);
+        this.tone('square', 430, 170, 0.06, 0.08);
+    }
+  }
   enemyHit(): void {
     this.ensure();
     this.tone('square', 900, 1200, 0.05, 0.08);

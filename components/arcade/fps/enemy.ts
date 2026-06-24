@@ -28,6 +28,7 @@ export interface Enemy {
   weapon: WeaponKind;
   role: Role;
   side: 1 | -1; // which way this bot flanks/orbits
+  barUntil: number; // show a health bar until this timestamp (set on hit)
 }
 
 export type WeaponKind = 'rifle' | 'mg' | 'laser';
@@ -56,7 +57,19 @@ const ROLE: Record<Role, { range: number; angle: number; strafe: number; speedMu
   suppressor: { range: 17, angle: 0.25, strafe: 0.3, speedMul: 0.8 },
   skirmisher: { range: 11, angle: 0.7, strafe: 1.0, speedMul: 1.1 },
 };
-const MULTI_ROLES: Role[] = ['flanker', 'suppressor', 'skirmisher'];
+/** A deliberate squad composition by index: a pusher, pincer flankers on
+ *  OPPOSITE sides, a suppressor that holds, and a skirmisher. */
+function squadRole(i: number, count: number): { role: Role; side: 1 | -1 } {
+  if (count === 1) return { role: 'assault', side: 1 };
+  const comp: { role: Role; side: 1 | -1 }[] = [
+    { role: 'assault', side: 1 },
+    { role: 'flanker', side: 1 },
+    { role: 'flanker', side: -1 },
+    { role: 'suppressor', side: 1 },
+    { role: 'skirmisher', side: -1 },
+  ];
+  return comp[i] ?? { role: 'skirmisher', side: i % 2 === 0 ? 1 : -1 };
+}
 
 const R = 0.45; // collision radius
 const EYE_H = 1.4;
@@ -113,10 +126,8 @@ export function spawnEnemies(lvl: Level3D, count: number, rand: () => number): E
     const z = a.z + Math.sin(ang) * rad;
     if (Math.abs(x) > half - 3 || Math.abs(z) > half - 3) continue;
     if (blocked(lvl, x, z)) continue;
-    // First bot rushes; the rest take flank/suppress/skirmish roles so the
-    // squad uses positions instead of all charging in.
-    const role: Role = out.length === 0 && count > 1 ? 'assault' : count === 1 ? 'assault' : MULTI_ROLES[(out.length - 1) % MULTI_ROLES.length];
-    out.push({ x, y: 0, z, health: ENEMY_HP, maxHealth: ENEMY_HP, state: 'idle', lastSeen: null, fireCd: rand() * 0.6, hitFlash: 0, wander: rand() * 6, step: 0, alarm: 0, weapon: WEAPON_KEYS[Math.floor(rand() * WEAPON_KEYS.length)], role, side: rand() < 0.5 ? 1 : -1 });
+    const sr = squadRole(out.length, count);
+    out.push({ x, y: 0, z, health: ENEMY_HP, maxHealth: ENEMY_HP, state: 'idle', lastSeen: null, fireCd: rand() * 0.6, hitFlash: 0, wander: rand() * 6, step: 0, alarm: 0, weapon: WEAPON_KEYS[Math.floor(rand() * WEAPON_KEYS.length)], role: sr.role, side: sr.side, barUntil: 0 });
   }
   return out;
 }
@@ -163,7 +174,7 @@ export function updateEnemies(
       squad.t = now;
     }
   }
-  const haveIntel = squad.lastKnown != null && now - squad.t < 6000;
+  const haveIntel = squad.lastKnown != null && now - squad.t < 8000;
 
   // Pass 2: act on personal or shared knowledge.
   for (let i = 0; i < enemies.length; i++) {

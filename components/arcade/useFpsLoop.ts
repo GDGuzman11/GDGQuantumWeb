@@ -97,6 +97,8 @@ export function useFpsLoop(
     let world: World | null = null;
     let builtFor: Level3D | null = null;
     let sprites: THREE.Sprite[] = [];
+    let barBg: THREE.Sprite[] = [];
+    let barFill: THREE.Sprite[] = [];
     let texA: THREE.CanvasTexture | null = null;
     let texB: THREE.CanvasTexture | null = null;
     const tracers: { line: THREE.Line; geo: THREE.BufferGeometry; until: number }[] = [];
@@ -108,11 +110,13 @@ export function useFpsLoop(
     const prevPos = { x: 0, z: 0 };
 
     const disposeExtras = () => {
-      for (const s of sprites) {
+      for (const s of [...sprites, ...barBg, ...barFill]) {
         world?.scene.remove(s);
         (s.material as THREE.Material).dispose();
       }
       sprites = [];
+      barBg = [];
+      barFill = [];
       texA?.dispose();
       texB?.dispose();
       texA = null;
@@ -140,6 +144,22 @@ export function useFpsLoop(
       sprites = g.enemies.map(() => {
         const s = new THREE.Sprite(new THREE.SpriteMaterial({ map: texA!, transparent: true }));
         s.scale.set(1.7, 2.3, 1);
+        world!.scene.add(s);
+        return s;
+      });
+      barBg = g.enemies.map(() => {
+        const s = new THREE.Sprite(new THREE.SpriteMaterial({ color: 0x0a0a0a, transparent: true, depthWrite: false }));
+        s.scale.set(1.5, 0.22, 1);
+        s.renderOrder = 10;
+        s.visible = false;
+        world!.scene.add(s);
+        return s;
+      });
+      barFill = g.enemies.map(() => {
+        const s = new THREE.Sprite(new THREE.SpriteMaterial({ color: 0xaef5c8, transparent: true, depthWrite: false }));
+        s.scale.set(1.4, 0.13, 1);
+        s.renderOrder = 11;
+        s.visible = false;
         world!.scene.add(s);
         return s;
       });
@@ -307,7 +327,7 @@ export function useFpsLoop(
             g.fireCd = gun.rate;
             g.mags[g.active]--;
             snap.fireAt = now;
-            sfx.shoot();
+            sfx.gun(gun.family);
             const wallD = rayWallDist(eye, dir, g.level, RANGE);
             let hitT = wallD;
             let hit: Enemy | null = null;
@@ -326,6 +346,7 @@ export function useFpsLoop(
               hit.alarm = 4;
               hit.state = 'alert';
               hit.lastSeen = { x: p.x, z: p.z };
+              hit.barUntil = now + 2500;
               // Taking fire cues the whole squad to your position.
               g.squad.lastKnown = { x: p.x, z: p.z };
               g.squad.t = now;
@@ -355,12 +376,16 @@ export function useFpsLoop(
           if (g.enemies.every((e) => e.health <= 0)) g.status = 'won';
         }
 
-        // Sprites (running gait + 2-frame swap + hit-flash tint)
+        // Sprites (running gait + 2-frame swap + hit-flash tint + health bar)
         for (let i = 0; i < sprites.length; i++) {
           const e = g.enemies[i];
           const s = sprites[i];
-          s.visible = e.health > 0;
-          if (e.health <= 0) continue;
+          const alive = e.health > 0;
+          s.visible = alive;
+          const showBar = alive && now < e.barUntil;
+          barBg[i].visible = showBar;
+          barFill[i].visible = showBar;
+          if (!alive) continue;
           const bob = Math.abs(Math.sin(e.step * 3.0)) * 0.14;
           s.position.set(e.x, e.y + 1.15 + bob, e.z);
           const mat = s.material as THREE.SpriteMaterial;
@@ -370,6 +395,14 @@ export function useFpsLoop(
             mat.needsUpdate = true;
           }
           mat.color.setHex(e.hitFlash > 0 ? 0xff7777 : 0xffffff);
+          if (showBar) {
+            const ratio = Math.max(0, e.health / e.maxHealth);
+            const by = e.y + 2.6 + bob;
+            barBg[i].position.set(e.x, by, e.z);
+            barFill[i].position.set(e.x, by, e.z);
+            barFill[i].scale.x = 1.4 * ratio;
+            (barFill[i].material as THREE.SpriteMaterial).color.setHex(ratio > 0.5 ? 0xaef5c8 : ratio > 0.25 ? 0xffd27a : 0xff5d6e);
+          }
         }
         for (let i = tracers.length - 1; i >= 0; i--) {
           if (now > tracers[i].until) {
