@@ -26,9 +26,19 @@ export interface Enemy {
   step: number; // accumulated gait distance (drives the run animation)
   alarm: number; // seconds of "under fire" evasive behaviour after being shot
   weapon: WeaponKind;
+  role: Role;
+  side: 1 | -1; // which way this bot flanks/orbits
 }
 
 export type WeaponKind = 'rifle' | 'mg' | 'laser';
+/** Squad combat roles — so a group doesn't all blindly rush. */
+export type Role = 'assault' | 'flanker' | 'suppressor' | 'skirmisher';
+/** Shared squad awareness — one bot's sighting cues the whole group. */
+export interface Squad {
+  lastKnown: { x: number; z: number } | null;
+  t: number;
+}
+
 const ENEMY_HP = 500; // 5× tougher
 
 // The aliens draw from the same weapon families the player does.
@@ -38,6 +48,15 @@ const WEAPONS: Record<WeaponKind, { rate: number; dmg: number; accMod: number; c
   laser: { rate: 1.2, dmg: 13, accMod: 1.1, color: 0x7fdfff },
 };
 const WEAPON_KEYS: WeaponKind[] = ['rifle', 'mg', 'laser'];
+
+// Standoff range, flank angle (rad), orbit strafe, speed per role.
+const ROLE: Record<Role, { range: number; angle: number; strafe: number; speedMul: number }> = {
+  assault: { range: 6, angle: 0.0, strafe: 0.5, speedMul: 1.05 },
+  flanker: { range: 8, angle: 1.2, strafe: 0.7, speedMul: 1.0 },
+  suppressor: { range: 17, angle: 0.25, strafe: 0.3, speedMul: 0.8 },
+  skirmisher: { range: 11, angle: 0.7, strafe: 1.0, speedMul: 1.1 },
+};
+const MULTI_ROLES: Role[] = ['flanker', 'suppressor', 'skirmisher'];
 
 const R = 0.45; // collision radius
 const EYE_H = 1.4;
@@ -94,7 +113,10 @@ export function spawnEnemies(lvl: Level3D, count: number, rand: () => number): E
     const z = a.z + Math.sin(ang) * rad;
     if (Math.abs(x) > half - 3 || Math.abs(z) > half - 3) continue;
     if (blocked(lvl, x, z)) continue;
-    out.push({ x, y: 0, z, health: ENEMY_HP, maxHealth: ENEMY_HP, state: 'idle', lastSeen: null, fireCd: rand() * 0.6, hitFlash: 0, wander: rand() * 6, step: 0, alarm: 0, weapon: WEAPON_KEYS[Math.floor(rand() * WEAPON_KEYS.length)] });
+    // First bot rushes; the rest take flank/suppress/skirmish roles so the
+    // squad uses positions instead of all charging in.
+    const role: Role = out.length === 0 && count > 1 ? 'assault' : count === 1 ? 'assault' : MULTI_ROLES[(out.length - 1) % MULTI_ROLES.length];
+    out.push({ x, y: 0, z, health: ENEMY_HP, maxHealth: ENEMY_HP, state: 'idle', lastSeen: null, fireCd: rand() * 0.6, hitFlash: 0, wander: rand() * 6, step: 0, alarm: 0, weapon: WEAPON_KEYS[Math.floor(rand() * WEAPON_KEYS.length)], role, side: rand() < 0.5 ? 1 : -1 });
   }
   return out;
 }
@@ -105,8 +127,9 @@ export interface EnemyTracer {
   color: number;
 }
 
-/** Advance all bots. Returns damage dealt to the player, tracers to render, and
- *  whether ANY bot currently has line-of-sight to the player (gates regen). */
+/** Advance all bots with squad tactics: shared sight intel, role-based standoff
+ *  + flanking, spacing, and LoS-gated fire. Returns player damage, tracers, and
+ *  whether any bot can currently see the player (gates regen). */
 export function updateEnemies(
   enemies: Enemy[],
   player: Player3,
@@ -116,6 +139,7 @@ export function updateEnemies(
   pvz: number,
   dt: number,
   now: number,
+  squad: Squad,
 ): { damage: number; tracers: EnemyTracer[]; seen: boolean } {
   const P = PARAMS[diff];
   const peye: Vec3 = [player.x, player.y + EYE, player.z];
@@ -124,48 +148,87 @@ export function updateEnemies(
   let seen = false;
   const tracers: EnemyTracer[] = [];
 
-  for (const e of enemies) {
+  // Pass 1: sightings → personal memory + SHARED squad intel.
+  const sees = enemies.map((e) => {
+    if (e.health <= 0) return false;
+    const dist = Math.hypot(player.x - e.x, player.z - e.z);
+    return dist < P.view && !segBlocked([e.x, e.y + EYE_H, e.z], peye, lvl);
+  });
+  for (let i = 0; i < enemies.length; i++) {
+    if (sees[i]) {
+      seen = true;
+      enemies[i].state = 'alert';
+      enemies[i].lastSeen = { x: player.x, z: player.z };
+      squad.lastKnown = { x: player.x, z: player.z };
+      squad.t = now;
+    }
+  }
+  const haveIntel = squad.lastKnown != null && now - squad.t < 6000;
+
+  // Pass 2: act on personal or shared knowledge.
+  for (let i = 0; i < enemies.length; i++) {
+    const e = enemies[i];
     if (e.health <= 0) continue;
     if (e.hitFlash > 0) e.hitFlash -= dt;
     if (e.alarm > 0) e.alarm -= dt;
-    const eeye: Vec3 = [e.x, e.y + EYE_H, e.z];
-    const dist = Math.hypot(player.x - e.x, player.z - e.z);
-    const sees = dist < P.view && !segBlocked(eeye, peye, lvl);
-    if (sees) {
-      seen = true;
+    const role = ROLE[e.role];
+    const tgt = e.state === 'alert' && e.lastSeen ? e.lastSeen : haveIntel ? squad.lastKnown : null;
+
+    if (tgt) {
       e.state = 'alert';
-      e.lastSeen = { x: player.x, z: player.z };
-    }
-
-    if (e.state === 'alert' && e.lastSeen) {
-      const tx = e.lastSeen.x - e.x;
-      const tz = e.lastSeen.z - e.z;
-      const td = Math.hypot(tx, tz) || 1;
-      const dirx = tx / td;
-      const dirz = tz / td;
-      const want = 9; // preferred engagement range
-      const mv = td > want + 1.5 ? 1 : td < want - 1.5 ? -0.7 : 0;
-      // "Under fire" → faster + harder strafing (adapts to being shot at).
       const boosted = e.alarm > 0;
-      const strafe = Math.sin(now / 650 + e.wander) * (boosted ? 1.05 : 0.6);
-      moveEnemy(e, lvl, dirx * mv - dirz * strafe, dirz * mv + dirx * strafe, P.speed * (boosted ? 1.3 : 1), dt);
+      // Move to a role-based standoff position around the target — flankers come
+      // in from the side, suppressors hold far back, skirmishers harass.
+      const baseAng = Math.atan2(e.z - tgt.z, e.x - tgt.x); // target→bot bearing
+      const ang = baseAng + role.angle * e.side;
+      const standX = tgt.x + Math.cos(ang) * role.range;
+      const standZ = tgt.z + Math.sin(ang) * role.range;
+      let wx = standX - e.x;
+      let wz = standZ - e.z;
+      const md = Math.hypot(wx, wz);
+      if (md > 0.6) {
+        wx /= md;
+        wz /= md;
+      } else {
+        wx = 0;
+        wz = 0;
+      }
+      // orbit/strafe once roughly in position
+      const orbit = (md > 0.6 ? 0.25 : 1) * role.strafe * (boosted ? 1.6 : 1);
+      wx += -Math.sin(baseAng) * e.side * orbit;
+      wz += Math.cos(baseAng) * e.side * orbit;
+      // spacing — push off nearby allies so they don't clump
+      for (let j = 0; j < enemies.length; j++) {
+        if (j === i || enemies[j].health <= 0) continue;
+        const dx = e.x - enemies[j].x;
+        const dz = e.z - enemies[j].z;
+        const d2 = dx * dx + dz * dz;
+        if (d2 < 9 && d2 > 0.0001) {
+          const d = Math.sqrt(d2);
+          wx += (dx / d) * 0.5;
+          wz += (dz / d) * 0.5;
+        }
+      }
+      moveEnemy(e, lvl, wx, wz, P.speed * role.speedMul * (boosted ? 1.25 : 1), dt);
 
+      // Fire only with personal line-of-sight.
       e.fireCd -= dt;
       const W = WEAPONS[e.weapon];
-      if (sees && e.fireCd <= 0) {
+      if (sees[i] && e.fireCd <= 0) {
         e.fireCd = W.rate;
-        tracers.push({ from: eeye, to: peye, color: W.color });
-        // Moving throws the shot off; distance makes them much less accurate.
+        tracers.push({ from: [e.x, e.y + EYE_H, e.z], to: peye, color: W.color });
+        const dist = Math.hypot(player.x - e.x, player.z - e.z);
         const evade = Math.min(0.7, pspeed * 0.14);
         const distFactor = Math.max(0.12, 1 - Math.max(0, dist - 8) / 38);
         if (Math.random() < P.acc * W.accMod * distFactor * (1 - evade)) damage += W.dmg;
       }
-      if (!sees && td < 1.5) {
+      // Give up only when there's no personal sight, no shared intel, and the
+      // bot has reached the spot.
+      if (!sees[i] && !haveIntel && md < 1.5) {
         e.state = 'idle';
         e.lastSeen = null;
       }
     } else {
-      // idle wander
       moveEnemy(e, lvl, Math.sin(now / 1500 + e.wander), Math.cos(now / 1700 + e.wander * 2), P.speed * 0.35, dt);
     }
   }

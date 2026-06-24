@@ -5,7 +5,7 @@ import * as THREE from 'three';
 import { buildWorld, type World } from './fps/scene';
 import { EYE, MAX_PITCH, stepPlayer, type Player3 } from './fps/physics';
 import type { Level3D } from './fps/level3d';
-import { updateEnemies, type Difficulty, type Enemy } from './fps/enemy';
+import { updateEnemies, type Difficulty, type Enemy, type Squad } from './fps/enemy';
 import { rayWallDist, raySphere, segBlocked, type Vec3 } from './fps/combat';
 import { enemyTex } from './fps/textures';
 import type { GunDef } from './fps/weapons';
@@ -32,6 +32,7 @@ export interface FpsGameState {
   status: 'playing' | 'won' | 'lost';
   kills: number;
   regenT: number;
+  squad: Squad;
 }
 
 export interface FpsSnapshot {
@@ -325,6 +326,9 @@ export function useFpsLoop(
               hit.alarm = 4;
               hit.state = 'alert';
               hit.lastSeen = { x: p.x, z: p.z };
+              // Taking fire cues the whole squad to your position.
+              g.squad.lastKnown = { x: p.x, z: p.z };
+              g.squad.t = now;
               snap.hitAt = now;
               sfx.enemyHit();
               if (hit.health <= 0) g.kills++;
@@ -335,7 +339,7 @@ export function useFpsLoop(
           }
 
           // Enemies
-          const res = updateEnemies(g.enemies, p, g.level, g.difficulty, pvx, pvz, dt, now);
+          const res = updateEnemies(g.enemies, p, g.level, g.difficulty, pvx, pvz, dt, now, g.squad);
           for (const tr of res.tracers) addTracer(tr.from, [p.x, p.y + EYE - 0.1, p.z], tr.color);
           if (res.damage > 0) {
             p.health = Math.max(0, p.health - res.damage);

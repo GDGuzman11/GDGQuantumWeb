@@ -52,6 +52,7 @@ export function FpsGame() {
       status: 'playing',
       kills: 0,
       regenT: 0,
+      squad: { lastKnown: null, t: 0 },
     };
     setSnap(null);
     setMode('play');
