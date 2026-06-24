@@ -57,9 +57,14 @@ export function FpsHud({ snap }: { snap: FpsSnapshot }) {
 
       {/* health */}
       <div className="absolute bottom-4 left-4">
-        <div className="mb-1 text-[8px] text-white/60 sm:text-[9px]">HP {Math.round(snap.health)}</div>
+        <div className="mb-1 text-[8px] text-white/60 sm:text-[9px]">
+          HP {Math.round(snap.health)}/{snap.maxHp}
+        </div>
         <div className="h-2.5 w-32 overflow-hidden rounded bg-white/15 sm:w-40">
-          <div className="h-full transition-[width] duration-150" style={{ width: `${snap.health}%`, backgroundColor: snap.health > 35 ? '#aef5c8' : '#ff5d6e' }} />
+          <div
+            className="h-full transition-[width] duration-150"
+            style={{ width: `${(snap.health / snap.maxHp) * 100}%`, backgroundColor: snap.health / snap.maxHp > 0.35 ? '#aef5c8' : '#ff5d6e' }}
+          />
         </div>
       </div>
 

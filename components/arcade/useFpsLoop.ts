@@ -35,10 +35,12 @@ export interface FpsGameState {
   kills: number;
   regenT: number;
   squad: Squad;
+  maxHp: number;
 }
 
 export interface FpsSnapshot {
   health: number;
+  maxHp: number;
   weapon: string;
   family: string;
   mag: number;
@@ -120,7 +122,7 @@ export function useFpsLoop(
     const flashes: Flash[] = [];
     let lastSnap = 0;
     const snap: FpsSnapshot = {
-      health: 100, weapon: '', family: '', mag: 0, reserve: 0, reloading: false, ads: false, scoped: false,
+      health: 100, maxHp: 100, weapon: '', family: '', mag: 0, reserve: 0, reloading: false, ads: false, scoped: false,
       slots: [], throwName: '', throwCount: 0, enemiesLeft: 0, status: 'playing', kills: 0, hitAt: 0, fireAt: 0, hurtAt: 0,
     };
     const prevPos = { x: 0, z: 0 };
@@ -483,7 +485,7 @@ export function useFpsLoop(
           if (res.seen || res.damage > 0) g.regenT = 0;
           else {
             g.regenT += dt;
-            if (g.regenT > 2) p.health = Math.min(100, p.health + 24 * dt);
+            if (g.regenT > 2) p.health = Math.min(g.maxHp, p.health + 24 * dt);
           }
           if (g.enemies.every((e) => e.health <= 0)) g.status = 'won';
         }
@@ -534,6 +536,7 @@ export function useFpsLoop(
           lastSnap = now;
           const gun = g.guns[g.active];
           snap.health = p.health;
+          snap.maxHp = g.maxHp;
           snap.weapon = gun.name;
           snap.family = gun.family;
           snap.mag = g.mags[g.active];
