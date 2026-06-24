@@ -107,6 +107,41 @@ visually tuned by Gabe; PROJECTS + CONTACT interior CONTENT still placeholder (A
 pass not yet done for the new experience; old retired component files pending deletion; unused
 `gdg-glitch` keyframe in globals.css. The nine-phase history below is RETAINED as the record of the
 prior site (its front-end is superseded; its backend/security/deploy still power this rebuild).
+
+STARSHELL ARCADE — the "Have Fun!" tab (2026-06-23, Gabe-driven in main session). The landing's
+"▸ STARSHELL" link (pixel font, `components/home/Hero.tsx`) opens a CODE-SPLIT `/arcade` route
+(`app/arcade/page.tsx` → `components/arcade/FpsGame.tsx`, client-only) that is its OWN game and DOES
+NOT touch `/`'s First Load (`/` stays ~94 kB; three.js loads only on `/arcade`, ~282 kB there).
+HISTORY: started as a turn-based artillery game (Pocket-Tanks-style), then Gabe pivoted it to a
+first-person shooter. The artillery version is PRESERVED at git tag `artillery-v1` (recoverable) and
+was removed from the tree. CURRENT = STARSHELL, a '93-pixel FPS built on Three.js (already a project
+dep via the orb world), rendered at 480×270 + nearest-filter textures, CSS-upscaled for the retro
+look. All under `components/arcade/`:
+- ENGINE (`fps/`): a low-poly 3D arena (`level3d.ts` — walled buildings, multi-floor towers with
+  external ladders + interior mezzanine access, open platforms, bunkers; varied "warzone city",
+  player & enemies spawn at OPPOSITE ends), `physics.ts` (AABB collide, gravity/jump, ladder climb,
+  jump pads, zipline ride), `scene.ts` (Three.js world + seeded light-shade sky), `raycaster`-era
+  files removed. Traversal aids: **jump pads** + **ziplines** (≤3, connecting 3-floor tower rooftops).
+- COMBAT: hitscan guns (`combat.ts` raycasts), a **15-weapon arsenal** across rifle/MG/laser/sniper/
+  pistol families (`weapons.ts`) each with own fire feel + sound (`engine/audio.ts` `gun(family)`) +
+  damage; **ADS** (right-mouse zoom, sniper scope overlay); **frag + smoke throwables** (smoke BLOCKS
+  the aliens' line-of-sight via `combat.segHitsSphere`); per-weapon ammo/reserve + R reload; scroll/
+  1-3 + mobile WPN button to swap.
+- ENEMIES (`enemy.ts`): alien sprites (2-frame run gait) with **5× health (500)** + on-hit health
+  bars; **line-of-sight-gated** AI (don't know where you are until they SEE you) that **adapts**
+  (leads your motion; distance lowers their accuracy; being shot cues the whole squad); **squad
+  tactics** with shared intel + roles (assault / pincer flankers / suppressor / skirmisher) +
+  spacing. Aliens carry the same weapon families you do.
+- CAMPAIGN: a **20-level** run (`FpsGame.tsx`) — clear a level → **gold armory** intermission
+  (`screens/FpsShop.tsx`: ammo/throwable auto-refill, buy +25 max-HP armour, refit loadout) → next
+  level with more/tougher aliens (difficulty ramps normal→hard→nightmare). **Pre-deploy LOADOUT
+  screen** (`screens/FpsLoadout.tsx`: pick 2 primary + 1 sidearm + 1 throwable). Player health
+  REGENS while hidden (2s no enemy LoS). Local BEST-LEVEL saved to localStorage. Mobile: left stick
+  move + right look + auto-fire on target + WPN/ADS/THROW buttons.
+QA each step: tsc 0, lint 0, `npm run build` exit 0; `/` First Load held at ~94 kB throughout (game
+bundle isolated to `/arcade`). OPEN/next: arsenal is 15 (toward a 20-weapon pool), the "scoreboard"
+is currently a local best-level (a fuller leaderboard is a follow-up), and pacing/economy/AI tuning
+are Gabe playtest items. All auto-committed on `main`; pushed to origin.
 ═════════════════════════════════════════════════════════════════════════════════════
 
 ═══════════════ WHERE WE ARE RIGHT NOW (2026-06-14) ═══════════════

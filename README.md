@@ -23,7 +23,9 @@ lensing, ending at a cinematic singularity where the (real, working) contact for
 > egg; the **Projects** and **Contact** interior *content* is still placeholder, the 3D framing/pacing is
 > being visually tuned, and a mobile pass is still to come. SEO is hardened for the single‑page WebGL app
 > (crawlable server‑rendered section copy + `Person`/`ProfilePage` structured data + identity metadata).
-> The previous site's full history is preserved in `CLAUDE.md` / `PROGRESS.md` and in git.
+> The landing's **"▸ STARSHELL"** link opens a **code‑split `/arcade` game** (a '93‑pixel Three.js FPS — see
+> Highlights) that is fully isolated from `/`'s First Load. The previous site's full history is preserved in
+> `CLAUDE.md` / `PROGRESS.md` and in git.
 
 ---
 
@@ -55,6 +57,15 @@ lensing, ending at a cinematic singularity where the (real, working) contact for
   identity‑forward metadata — all sourced from one `lib/profile.ts`.
 - **Living landing extras.** An orb‑tap easter egg: tapping the Helix orb glows it, fires a coloured
   ray, and typewriter‑rewrites the headline through an escalating, increasingly sarcastic run.
+- **STARSHELL — the "Have Fun!" arcade.** The "▸ STARSHELL" link opens a **code‑split `/arcade` route**
+  with a full **'93‑pixel first‑person shooter** built on Three.js (`components/arcade/`): a low‑poly 3D
+  "warzone city" (walled multi‑floor towers with ladders + mezzanines, ziplines, jump pads), a
+  **15‑weapon arsenal** (rifle/MG/laser/sniper/pistol) with ADS + per‑gun sound/damage, **frag + smoke
+  throwables** (smoke blocks enemy line‑of‑sight), **line‑of‑sight‑gated, squad‑coordinated, adaptive
+  alien AI**, a pre‑deploy **loadout** screen, and a **20‑level campaign** with a gold armory between
+  levels. Rendered at 480×270 + nearest‑filter textures, CSS‑upscaled for the retro look. The whole
+  game bundle is isolated to `/arcade`, so `/`'s First Load is untouched. *(History: it began as a
+  turn‑based artillery game, preserved at git tag `artillery-v1`, then pivoted to the FPS.)*
 - **Correctness‑first fallbacks.** `prefers-reduced-motion` jumps between states (no flight); no‑WebGL
   shows a CSS starfield; the heavy three.js + postprocessing stack is async‑isolated so `/` First Load
   stays ≈ **94 kB**.
@@ -151,6 +162,9 @@ components/
     HelixLogo.tsx          The "Ethereal Halo" orb (verbatim asset; exports OrbScene for the world)
   sky/
     NightSkyCanvas.tsx     Starfield + galaxies (exports <Sky/> for the world)
+  arcade/                  STARSHELL — the code-split /arcade FPS (Three.js): FpsGame.tsx root,
+    fps/                   engine (level3d, physics, scene, combat, enemy, weapons, textures),
+    ui/ + screens/         HUD + touch controls + loadout/shop screens, useFpsLoop.ts game loop
 
 lib/
   dive.ts                 Shared dive-depth scalar (0 rest · 1 core · 2 quantum · 3 singularity)
