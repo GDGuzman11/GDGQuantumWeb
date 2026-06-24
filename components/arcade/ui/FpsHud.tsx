@@ -86,7 +86,10 @@ export function FpsHud({ snap }: { snap: FpsSnapshot }) {
             </span>
           ))}
         </div>
-        <div className="mt-0.5 text-[6px] text-white/35 sm:text-[7px]">1-3 / SCROLL SWAP · RMB ADS · R RELOAD</div>
+        <div className="mt-0.5 text-[7px] text-[#ffae3a] sm:text-[8px]">
+          {snap.throwName} ×{snap.throwCount} <span className="text-white/30">· G</span>
+        </div>
+        <div className="mt-0.5 text-[6px] text-white/35 sm:text-[7px]">1-3 / SCROLL SWAP · RMB ADS · R RELOAD · G THROW</div>
       </div>
     </div>
   );

@@ -6,7 +6,7 @@
  * off. Break line of sight and they advance on your last-known spot, then give
  * up. Difficulty scales reaction, accuracy, speed, damage, and view range.
  */
-import { segBlocked, type Vec3 } from './combat';
+import { segBlocked, segHitsSphere, type Vec3 } from './combat';
 import type { Level3D } from './level3d';
 import { EYE, type Player3 } from './physics';
 
@@ -38,6 +38,14 @@ export type Role = 'assault' | 'flanker' | 'suppressor' | 'skirmisher';
 export interface Squad {
   lastKnown: { x: number; z: number } | null;
   t: number;
+}
+
+/** Active smoke cloud — blocks the aliens' line of sight. */
+export interface Smoke {
+  x: number;
+  y: number;
+  z: number;
+  r: number;
 }
 
 const ENEMY_HP = 500; // 5× tougher
@@ -151,6 +159,7 @@ export function updateEnemies(
   dt: number,
   now: number,
   squad: Squad,
+  smokes: Smoke[],
 ): { damage: number; tracers: EnemyTracer[]; seen: boolean } {
   const P = PARAMS[diff];
   const peye: Vec3 = [player.x, player.y + EYE, player.z];
@@ -159,11 +168,15 @@ export function updateEnemies(
   let seen = false;
   const tracers: EnemyTracer[] = [];
 
-  // Pass 1: sightings → personal memory + SHARED squad intel.
+  // Pass 1: sightings → personal memory + SHARED squad intel (smoke blocks it).
   const sees = enemies.map((e) => {
     if (e.health <= 0) return false;
     const dist = Math.hypot(player.x - e.x, player.z - e.z);
-    return dist < P.view && !segBlocked([e.x, e.y + EYE_H, e.z], peye, lvl);
+    if (dist >= P.view) return false;
+    const eeye: Vec3 = [e.x, e.y + EYE_H, e.z];
+    if (segBlocked(eeye, peye, lvl)) return false;
+    for (const sm of smokes) if (segHitsSphere(eeye, peye, [sm.x, sm.y, sm.z], sm.r)) return false;
+    return true;
   });
   for (let i = 0; i < enemies.length; i++) {
     if (sees[i]) {

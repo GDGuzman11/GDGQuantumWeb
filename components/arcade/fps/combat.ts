@@ -49,6 +49,20 @@ export function segBlocked(a: Vec3, b: Vec3, lvl: Level3D): boolean {
   return rayWallDist(a, dir, lvl, len - 0.2) < len - 0.2;
 }
 
+/** Does the segment a→b pass within radius r of centre c? (smoke LoS block). */
+export function segHitsSphere(a: Vec3, b: Vec3, c: Vec3, r: number): boolean {
+  const dx = b[0] - a[0];
+  const dy = b[1] - a[1];
+  const dz = b[2] - a[2];
+  const len2 = dx * dx + dy * dy + dz * dz || 1e-6;
+  let t = ((c[0] - a[0]) * dx + (c[1] - a[1]) * dy + (c[2] - a[2]) * dz) / len2;
+  t = Math.max(0, Math.min(1, t));
+  const px = a[0] + dx * t - c[0];
+  const py = a[1] + dy * t - c[1];
+  const pz = a[2] + dz * t - c[2];
+  return px * px + py * py + pz * pz < r * r;
+}
+
 /** Ray vs sphere — entry distance or Infinity. */
 export function raySphere(o: Vec3, d: Vec3, c: Vec3, r: number): number {
   const ox = o[0] - c[0];

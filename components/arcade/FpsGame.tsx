@@ -9,9 +9,11 @@ import { useFpsLoop, type FpsGameState, type FpsSnapshot } from './useFpsLoop';
 import { makeArena3D } from './fps/level3d';
 import { makePlayer3 } from './fps/physics';
 import { spawnEnemies, type Difficulty } from './fps/enemy';
-import { gunById, DEFAULT_LOADOUT } from './fps/weapons';
+import { gunById, throwById } from './fps/weapons';
+import { FpsLoadout } from './screens/FpsLoadout';
 
-type Mode = 'menu' | 'play';
+type Mode = 'menu' | 'loadout' | 'play';
+type Loadout = { p1: string; p2: string; sa: string; th: string };
 
 /**
  * STARSHELL — the "Have Fun!" FPS. A '93-pixel raycaster-style arena shooter
@@ -27,36 +29,44 @@ export function FpsGame() {
   const [enemies, setEnemies] = useState(3);
   const [isTouch, setIsTouch] = useState(false);
   const [snap, setSnap] = useState<FpsSnapshot | null>(null);
+  const [lastLoadout, setLastLoadout] = useState<Loadout>({ p1: 'ar', p2: 'rail', sa: 'sidearm', th: 'frag' });
 
   useEffect(() => setIsTouch('ontouchstart' in window), []);
 
   const onSnapshot = useCallback((s: FpsSnapshot) => setSnap(s), []);
-  const { setMoveAxis, addLook, cycleWeapon, setAds } = useFpsLoop(canvasRef, gameRef, mode === 'play', onSnapshot);
+  const { setMoveAxis, addLook, cycleWeapon, setAds, throwGrenade } = useFpsLoop(canvasRef, gameRef, mode === 'play', onSnapshot);
 
-  const start = useCallback(() => {
-    const seed = (Date.now() ^ Math.floor(Math.random() * 0xffff)) & 0x7fffffff;
-    const level = makeArena3D(enemies, seed);
-    const guns = DEFAULT_LOADOUT.map(gunById);
-    gameRef.current = {
-      level,
-      player: makePlayer3(level.spawn),
-      enemies: spawnEnemies(level, enemies, Math.random),
-      difficulty: diff,
-      guns,
-      active: 0,
-      mags: guns.map((g) => g.mag),
-      reserves: guns.map((g) => g.reserve),
-      ads: false,
-      reloading: 0,
-      fireCd: 0,
-      status: 'playing',
-      kills: 0,
-      regenT: 0,
-      squad: { lastKnown: null, t: 0 },
-    };
-    setSnap(null);
-    setMode('play');
-  }, [enemies, diff]);
+  const start = useCallback(
+    (lo: Loadout) => {
+      setLastLoadout(lo);
+      const seed = (Date.now() ^ Math.floor(Math.random() * 0xffff)) & 0x7fffffff;
+      const level = makeArena3D(enemies, seed);
+      const guns = [gunById(lo.p1), gunById(lo.p2), gunById(lo.sa)];
+      const thrown = throwById(lo.th);
+      gameRef.current = {
+        level,
+        player: makePlayer3(level.spawn),
+        enemies: spawnEnemies(level, enemies, Math.random),
+        difficulty: diff,
+        guns,
+        active: 0,
+        mags: guns.map((g) => g.mag),
+        reserves: guns.map((g) => g.reserve),
+        ads: false,
+        reloading: 0,
+        fireCd: 0,
+        throwable: thrown,
+        throwCount: thrown.count,
+        status: 'playing',
+        kills: 0,
+        regenT: 0,
+        squad: { lastKnown: null, t: 0 },
+      };
+      setSnap(null);
+      setMode('play');
+    },
+    [enemies, diff],
+  );
 
   useEffect(() => {
     if (mode !== 'play') return;
@@ -110,6 +120,13 @@ export function FpsGame() {
                 >
                   ADS
                 </button>
+                <button
+                  type="button"
+                  onClick={() => throwGrenade()}
+                  className="pointer-events-auto absolute right-3 top-[58%] z-40 rounded-md border border-[#ffae3a]/40 bg-[#ffae3a]/10 px-3 py-2 font-pixel text-[8px] text-[#ffae3a]"
+                >
+                  THROW
+                </button>
               </>
             )}
             {!isTouch && (
@@ -156,15 +173,19 @@ export function FpsGame() {
             </div>
             <button
               type="button"
-              onClick={start}
+              onClick={() => setMode('loadout')}
               className="mt-6 min-h-[44px] rounded-md border border-[#aef5c8]/40 bg-[#aef5c8]/10 px-8 font-pixel text-[11px] uppercase text-[#aef5c8] transition-colors hover:bg-[#aef5c8]/20 focus:outline-none focus-visible:ring-2 focus-visible:ring-[#aef5c8] sm:text-[13px]"
             >
-              Deploy ▸
+              Loadout ▸
             </button>
             <p className="mt-5 max-w-xs text-center font-pixel text-[6px] leading-relaxed text-white/35 sm:text-[8px]">
               {isTouch ? 'LEFT STICK MOVE · RIGHT LOOK · AUTO-FIRE ON TARGET' : 'CLICK TO CAPTURE MOUSE, THEN AIM + FIRE'}
             </p>
           </div>
+        )}
+
+        {mode === 'loadout' && (
+          <FpsLoadout onDeploy={(p1, p2, sa, th) => start({ p1, p2, sa, th })} onBack={() => setMode('menu')} />
         )}
 
         {over && snap && (
@@ -174,7 +195,7 @@ export function FpsGame() {
             </p>
             <p className="mt-3 font-pixel text-[8px] text-white/60 sm:text-[10px]">KILLS {snap.kills}</p>
             <div className="mt-6 flex gap-2">
-              <button type="button" onClick={start} className="min-h-[44px] rounded-md border border-[#aef5c8]/40 bg-[#aef5c8]/10 px-4 font-pixel text-[9px] uppercase text-[#aef5c8] hover:bg-[#aef5c8]/20 sm:text-[11px]">
+              <button type="button" onClick={() => start(lastLoadout)} className="min-h-[44px] rounded-md border border-[#aef5c8]/40 bg-[#aef5c8]/10 px-4 font-pixel text-[9px] uppercase text-[#aef5c8] hover:bg-[#aef5c8]/20 sm:text-[11px]">
                 Redeploy
               </button>
               <button type="button" onClick={() => setMode('menu')} className="min-h-[44px] rounded-md border border-white/20 bg-white/5 px-4 font-pixel text-[9px] uppercase text-white/70 hover:bg-white/10 sm:text-[11px]">
