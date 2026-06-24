@@ -45,6 +45,7 @@ export function FpsGame() {
       fireCd: 0,
       status: 'playing',
       kills: 0,
+      regenT: 0,
     };
     setSnap(null);
     setMode('play');

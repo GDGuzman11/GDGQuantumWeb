@@ -32,6 +32,7 @@ export interface FpsGameState {
   fireCd: number;
   status: 'playing' | 'won' | 'lost';
   kills: number;
+  regenT: number; // seconds hidden (no enemy LoS); regen starts after 2s
 }
 
 export interface FpsSnapshot {
@@ -279,12 +280,18 @@ export function useFpsLoop(
 
           // Enemies
           const res = updateEnemies(g.enemies, p, g.level, g.difficulty, pvx, pvz, dt, now);
-          for (const tr of res.tracers) addTracer(tr.from, [p.x, p.y + EYE - 0.1, p.z], 0xff5d6e);
+          for (const tr of res.tracers) addTracer(tr.from, [p.x, p.y + EYE - 0.1, p.z], tr.color);
           if (res.damage > 0) {
             p.health = Math.max(0, p.health - res.damage);
             snap.hurtAt = now;
             sfx.hurt();
             if (p.health <= 0) g.status = 'lost';
+          }
+          // Regen while hidden — start after 2s with no enemy line-of-sight/damage.
+          if (res.seen || res.damage > 0) g.regenT = 0;
+          else {
+            g.regenT += dt;
+            if (g.regenT > 2) p.health = Math.min(100, p.health + 24 * dt);
           }
           if (g.enemies.every((e) => e.health <= 0)) g.status = 'won';
         }

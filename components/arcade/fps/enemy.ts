@@ -25,9 +25,19 @@ export interface Enemy {
   wander: number;
   step: number; // accumulated gait distance (drives the run animation)
   alarm: number; // seconds of "under fire" evasive behaviour after being shot
+  weapon: WeaponKind;
 }
 
+export type WeaponKind = 'rifle' | 'mg' | 'laser';
 const ENEMY_HP = 500; // 5× tougher
+
+// The aliens draw from the same weapon families the player does.
+const WEAPONS: Record<WeaponKind, { rate: number; dmg: number; accMod: number; color: number }> = {
+  rifle: { rate: 0.9, dmg: 9, accMod: 1.0, color: 0xff8a4a },
+  mg: { rate: 0.16, dmg: 4, accMod: 0.5, color: 0xff5d6e },
+  laser: { rate: 1.2, dmg: 13, accMod: 1.1, color: 0x7fdfff },
+};
+const WEAPON_KEYS: WeaponKind[] = ['rifle', 'mg', 'laser'];
 
 const R = 0.45; // collision radius
 const EYE_H = 1.4;
@@ -84,7 +94,7 @@ export function spawnEnemies(lvl: Level3D, count: number, rand: () => number): E
     const z = a.z + Math.sin(ang) * rad;
     if (Math.abs(x) > half - 3 || Math.abs(z) > half - 3) continue;
     if (blocked(lvl, x, z)) continue;
-    out.push({ x, y: 0, z, health: ENEMY_HP, maxHealth: ENEMY_HP, state: 'idle', lastSeen: null, fireCd: rand() * 0.6, hitFlash: 0, wander: rand() * 6, step: 0, alarm: 0 });
+    out.push({ x, y: 0, z, health: ENEMY_HP, maxHealth: ENEMY_HP, state: 'idle', lastSeen: null, fireCd: rand() * 0.6, hitFlash: 0, wander: rand() * 6, step: 0, alarm: 0, weapon: WEAPON_KEYS[Math.floor(rand() * WEAPON_KEYS.length)] });
   }
   return out;
 }
@@ -92,9 +102,11 @@ export function spawnEnemies(lvl: Level3D, count: number, rand: () => number): E
 export interface EnemyTracer {
   from: Vec3;
   to: Vec3;
+  color: number;
 }
 
-/** Advance all bots. Returns damage dealt to the player + tracers to render. */
+/** Advance all bots. Returns damage dealt to the player, tracers to render, and
+ *  whether ANY bot currently has line-of-sight to the player (gates regen). */
 export function updateEnemies(
   enemies: Enemy[],
   player: Player3,
@@ -104,11 +116,12 @@ export function updateEnemies(
   pvz: number,
   dt: number,
   now: number,
-): { damage: number; tracers: EnemyTracer[] } {
+): { damage: number; tracers: EnemyTracer[]; seen: boolean } {
   const P = PARAMS[diff];
   const peye: Vec3 = [player.x, player.y + EYE, player.z];
   const pspeed = Math.hypot(pvx, pvz);
   let damage = 0;
+  let seen = false;
   const tracers: EnemyTracer[] = [];
 
   for (const e of enemies) {
@@ -119,6 +132,7 @@ export function updateEnemies(
     const dist = Math.hypot(player.x - e.x, player.z - e.z);
     const sees = dist < P.view && !segBlocked(eeye, peye, lvl);
     if (sees) {
+      seen = true;
       e.state = 'alert';
       e.lastSeen = { x: player.x, z: player.z };
     }
@@ -137,12 +151,14 @@ export function updateEnemies(
       moveEnemy(e, lvl, dirx * mv - dirz * strafe, dirz * mv + dirx * strafe, P.speed * (boosted ? 1.3 : 1), dt);
 
       e.fireCd -= dt;
+      const W = WEAPONS[e.weapon];
       if (sees && e.fireCd <= 0) {
-        e.fireCd = P.rate;
-        tracers.push({ from: eeye, to: peye });
-        // Leads your motion: moving (and changing direction) throws the shot off.
+        e.fireCd = W.rate;
+        tracers.push({ from: eeye, to: peye, color: W.color });
+        // Moving throws the shot off; distance makes them much less accurate.
         const evade = Math.min(0.7, pspeed * 0.14);
-        if (Math.random() < P.acc * (1 - evade)) damage += P.dmg;
+        const distFactor = Math.max(0.12, 1 - Math.max(0, dist - 8) / 38);
+        if (Math.random() < P.acc * W.accMod * distFactor * (1 - evade)) damage += W.dmg;
       }
       if (!sees && td < 1.5) {
         e.state = 'idle';
@@ -153,5 +169,5 @@ export function updateEnemies(
       moveEnemy(e, lvl, Math.sin(now / 1500 + e.wander), Math.cos(now / 1700 + e.wander * 2), P.speed * 0.35, dt);
     }
   }
-  return { damage, tracers };
+  return { damage, tracers, seen };
 }
