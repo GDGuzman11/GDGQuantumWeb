@@ -55,6 +55,20 @@ export function FpsHud({ snap }: { snap: FpsSnapshot }) {
         ENEMIES {snap.enemiesLeft}
       </div>
 
+      {/* boss bars */}
+      {snap.bosses.length > 0 && (
+        <div className="absolute left-1/2 top-8 z-30 w-60 -translate-x-1/2 space-y-1 sm:w-80">
+          {snap.bosses.map((b, i) => (
+            <div key={i}>
+              <div className="text-center text-[7px] tracking-[0.2em] text-[#ff5d6e] sm:text-[9px]">{b.name}</div>
+              <div className="h-2 w-full overflow-hidden rounded border border-[#ff5d6e]/40 bg-black/50">
+                <div className="h-full bg-[#ff5d6e] transition-[width] duration-200" style={{ width: `${b.ratio * 100}%` }} />
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+
       {/* health */}
       <div className="absolute bottom-4 left-4">
         <div className="mb-1 text-[8px] text-white/60 sm:text-[9px]">

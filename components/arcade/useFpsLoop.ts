@@ -5,9 +5,9 @@ import * as THREE from 'three';
 import { buildWorld, type World } from './fps/scene';
 import { EYE, MAX_PITCH, stepPlayer, type Player3 } from './fps/physics';
 import type { Level3D } from './fps/level3d';
-import { updateEnemies, type Difficulty, type Enemy, type Squad, type Smoke } from './fps/enemy';
+import { updateEnemies, BOSSES, type Difficulty, type Enemy, type Squad, type Smoke } from './fps/enemy';
 import { rayWallDist, raySphere, segBlocked, type Vec3 } from './fps/combat';
-import { enemyTex } from './fps/textures';
+import { enemyTex, bossTex } from './fps/textures';
 import type { GunDef, ThrowDef } from './fps/weapons';
 import { sfx } from './engine/audio';
 
@@ -51,6 +51,7 @@ export interface FpsSnapshot {
   slots: { name: string; active: boolean }[];
   throwName: string;
   throwCount: number;
+  bosses: { name: string; ratio: number }[];
   enemiesLeft: number;
   status: 'playing' | 'won' | 'lost';
   kills: number;
@@ -116,6 +117,7 @@ export function useFpsLoop(
     let barFill: THREE.Sprite[] = [];
     let texA: THREE.CanvasTexture | null = null;
     let texB: THREE.CanvasTexture | null = null;
+    let bossTexes: THREE.CanvasTexture[] = [];
     const tracers: { line: THREE.Line; geo: THREE.BufferGeometry; until: number }[] = [];
     const grenades: Grenade[] = [];
     const smokes: SmokeFx[] = [];
@@ -123,7 +125,7 @@ export function useFpsLoop(
     let lastSnap = 0;
     const snap: FpsSnapshot = {
       health: 100, maxHp: 100, weapon: '', family: '', mag: 0, reserve: 0, reloading: false, ads: false, scoped: false,
-      slots: [], throwName: '', throwCount: 0, enemiesLeft: 0, status: 'playing', kills: 0, hitAt: 0, fireAt: 0, hurtAt: 0,
+      slots: [], throwName: '', throwCount: 0, bosses: [], enemiesLeft: 0, status: 'playing', kills: 0, hitAt: 0, fireAt: 0, hurtAt: 0,
     };
     const prevPos = { x: 0, z: 0 };
 
@@ -141,6 +143,8 @@ export function useFpsLoop(
       barFill = [];
       texA?.dispose();
       texB?.dispose();
+      for (const t of bossTexes) t.dispose();
+      bossTexes = [];
       texA = null;
       texB = null;
       for (const t of tracers) {
@@ -169,9 +173,24 @@ export function useFpsLoop(
       };
       texA = mk(enemyTex(0));
       texB = mk(enemyTex(1));
-      sprites = g.enemies.map(() => {
-        const s = new THREE.Sprite(new THREE.SpriteMaterial({ map: texA!, transparent: true }));
-        s.scale.set(1.7, 2.3, 1);
+      const bossCache: Partial<Record<string, THREE.CanvasTexture>> = {};
+      sprites = g.enemies.map((e) => {
+        let map = texA!;
+        let sx = 1.7;
+        let sy = 2.3;
+        if (e.boss) {
+          if (!bossCache[e.boss]) {
+            const t = mk(bossTex(e.boss));
+            bossCache[e.boss] = t;
+            bossTexes.push(t);
+          }
+          map = bossCache[e.boss]!;
+          const bd = BOSSES[e.boss];
+          sx = 1.5 * bd.scale;
+          sy = 2.0 * bd.scale;
+        }
+        const s = new THREE.Sprite(new THREE.SpriteMaterial({ map, transparent: true }));
+        s.scale.set(sx, sy, 1);
         world!.scene.add(s);
         return s;
       });
@@ -374,7 +393,9 @@ export function useFpsLoop(
             let hit: Enemy | null = null;
             for (const e of g.enemies) {
               if (e.health <= 0) continue;
-              const t = raySphere(eye, dir, [e.x, e.y + 1.0, e.z], ENEMY_R);
+              const hr = e.boss ? BOSSES[e.boss].radius : ENEMY_R;
+              const ecy = e.boss ? BOSSES[e.boss].scale : 1.0;
+              const t = raySphere(eye, dir, [e.x, e.y + ecy, e.z], hr);
               if (t < hitT) {
                 hitT = t;
                 hit = e;
@@ -496,17 +517,20 @@ export function useFpsLoop(
           const s = sprites[i];
           const alive = e.health > 0;
           s.visible = alive;
-          const showBar = alive && now < e.barUntil;
+          const showBar = alive && !e.boss && now < e.barUntil; // bosses use the top bar
           barBg[i].visible = showBar;
           barFill[i].visible = showBar;
           if (!alive) continue;
-          const bob = Math.abs(Math.sin(e.step * 3.0)) * 0.14;
-          s.position.set(e.x, e.y + 1.15 + bob, e.z);
+          const cy = e.boss ? BOSSES[e.boss].scale : 1.15;
+          const bob = Math.abs(Math.sin(e.step * 3.0)) * (e.boss ? 0.3 : 0.14);
+          s.position.set(e.x, e.y + cy + bob, e.z);
           const mat = s.material as THREE.SpriteMaterial;
-          const want = Math.floor(e.step * 2.2) % 2 === 0 ? texA : texB;
-          if (mat.map !== want) {
-            mat.map = want;
-            mat.needsUpdate = true;
+          if (!e.boss) {
+            const want = Math.floor(e.step * 2.2) % 2 === 0 ? texA : texB;
+            if (mat.map !== want) {
+              mat.map = want;
+              mat.needsUpdate = true;
+            }
           }
           mat.color.setHex(e.hitFlash > 0 ? 0xff7777 : 0xffffff);
           if (showBar) {
@@ -547,6 +571,9 @@ export function useFpsLoop(
           snap.slots = g.guns.map((gg, i) => ({ name: gg.name, active: i === g.active }));
           snap.throwName = g.throwable.name;
           snap.throwCount = g.throwCount;
+          snap.bosses = g.enemies
+            .filter((e) => e.boss && e.health > 0)
+            .map((e) => ({ name: BOSSES[e.boss!].name, ratio: e.health / e.maxHealth }));
           snap.enemiesLeft = g.enemies.filter((e) => e.health > 0).length;
           snap.status = g.status;
           snap.kills = g.kills;

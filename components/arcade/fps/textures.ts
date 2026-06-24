@@ -122,6 +122,67 @@ export function enemyTex(frame: number): Tex {
   return c;
 }
 
+/** Distinct boss sprites (transparent bg): xeno / warrior / octopus. */
+export function bossTex(kind: 'xeno' | 'warrior' | 'octopus'): Tex {
+  const W = 48;
+  const H = 64;
+  const c = document.createElement('canvas');
+  c.width = W;
+  c.height = H;
+  const x = c.getContext('2d')!;
+  const px = (xx: number, yy: number, w: number, h: number, col: string) => {
+    x.fillStyle = col;
+    x.fillRect(xx, yy, w, h);
+  };
+  if (kind === 'xeno') {
+    // Xenomorph — biomechanical, elongated dome, inner jaw, tail, claws.
+    px(18, 2, 22, 10, '#1d2330'); // long curved dome
+    px(14, 8, 30, 8, '#232a3a');
+    px(20, 14, 8, 4, '#3a4660'); // inner jaw
+    px(16, 18, 16, 26, '#1a2030'); // torso (ribbed)
+    for (let y = 20; y < 42; y += 4) px(16, y, 16, 1, '#0d111c');
+    px(10, 20, 6, 20, '#161b29'); // arms / claws
+    px(32, 20, 6, 20, '#161b29');
+    px(8, 38, 4, 4, '#8fa0c0'); // claw tips
+    px(36, 38, 4, 4, '#8fa0c0');
+    px(14, 44, 8, 16, '#161b29'); // legs
+    px(26, 44, 8, 16, '#161b29');
+    px(40, 30, 8, 4, '#1a2030'); // tail
+    px(44, 26, 4, 8, '#1a2030');
+    px(22, 9, 3, 2, '#9cff6a'); // faint glow
+  } else if (kind === 'warrior') {
+    // Warlord — armoured humanoid with a rifle + sword.
+    px(18, 4, 12, 12, '#5a4a2e'); // helmet
+    px(20, 8, 8, 3, '#ffae3a'); // visor
+    px(14, 16, 20, 24, '#6e5836'); // armoured torso
+    px(14, 16, 20, 3, '#8a6e44');
+    px(22, 22, 4, 8, '#ffae3a'); // chest emblem
+    px(8, 18, 6, 18, '#4a3c26'); // arms
+    px(34, 18, 6, 18, '#4a3c26');
+    px(14, 40, 8, 20, '#4a3c26'); // legs
+    px(26, 40, 8, 20, '#4a3c26');
+    px(2, 22, 12, 4, '#3a3a44'); // rifle
+    px(0, 24, 4, 2, '#222');
+    px(40, 6, 3, 34, '#cfe0ff'); // sword blade
+    px(39, 38, 5, 4, '#8a6e44'); // hilt
+  } else {
+    // Kraken — bulbous head, big eyes, hanging tentacles + projectile claws.
+    px(12, 4, 24, 18, '#5a3a7a'); // bulbous head
+    px(10, 8, 28, 12, '#6a458f');
+    px(15, 11, 6, 6, '#c8ff5a'); // big eyes
+    px(27, 11, 6, 6, '#c8ff5a');
+    px(17, 13, 2, 3, '#0a0a0a');
+    px(29, 13, 2, 3, '#0a0a0a');
+    px(16, 22, 16, 8, '#5a3a7a'); // mantle
+    for (let i = 0; i < 6; i++) {
+      const tx = 8 + i * 6;
+      px(tx, 30, 3, 18 + ((i * 5) % 14), '#4a2f6a'); // tentacles
+      px(tx, 46 + ((i * 5) % 12), 4, 4, '#c08bff'); // claw tips
+    }
+  }
+  return c;
+}
+
 let cache: Tex[] | null = null;
 /** Lazily build the texture set (client-only). */
 export function getTextures(): Tex[] {

@@ -29,7 +29,31 @@ export interface Enemy {
   role: Role;
   side: 1 | -1; // which way this bot flanks/orbits
   barUntil: number; // show a health bar until this timestamp (set on hit)
+  boss: BossKind | null;
 }
+
+/** The four boss aliens (levels 5/10/15/20). Bigger, faster, smarter; each has
+ *  a ranged attack + a melee attack when you get close. */
+export type BossKind = 'xeno' | 'warrior' | 'octopus';
+export interface BossDef {
+  name: string;
+  health: number;
+  speed: number;
+  scale: number; // sprite size vs a regular alien (~4×)
+  radius: number; // collision/hit radius
+  meleeRange: number;
+  meleeDmg: number;
+  meleeRate: number;
+  rangeDmg: number;
+  rangeRate: number;
+  acc: number; // hit chance (they barely miss)
+  color: number; // ranged tracer colour
+}
+export const BOSSES: Record<BossKind, BossDef> = {
+  xeno: { name: 'XENOMORPH', health: 3500, speed: 9, scale: 4, radius: 1.6, meleeRange: 4, meleeDmg: 34, meleeRate: 0.7, rangeDmg: 16, rangeRate: 0.6, acc: 0.85, color: 0x9cff6a },
+  warrior: { name: 'WARLORD', health: 4000, speed: 8, scale: 4, radius: 1.6, meleeRange: 4, meleeDmg: 42, meleeRate: 0.6, rangeDmg: 13, rangeRate: 0.16, acc: 0.9, color: 0xff9a3a },
+  octopus: { name: 'KRAKEN', health: 4500, speed: 7.5, scale: 4.3, radius: 1.9, meleeRange: 5, meleeDmg: 30, meleeRate: 0.5, rangeDmg: 18, rangeRate: 0.4, acc: 0.88, color: 0xc08bff },
+};
 
 export type WeaponKind = 'rifle' | 'mg' | 'laser';
 /** Squad combat roles — so a group doesn't all blindly rush. */
@@ -95,13 +119,13 @@ const PARAMS: Record<Difficulty, Params> = {
   nightmare: { acc: 0.62, dmg: 12, rate: 0.62, speed: 3.6, view: 84 },
 };
 
-function blocked(lvl: Level3D, x: number, z: number): boolean {
+function blocked(lvl: Level3D, x: number, z: number, r = R): boolean {
   for (const b of lvl.boxes) {
     if (
-      x + R > b.x - b.sx / 2 &&
-      x - R < b.x + b.sx / 2 &&
-      z + R > b.z - b.sz / 2 &&
-      z - R < b.z + b.sz / 2 &&
+      x + r > b.x - b.sx / 2 &&
+      x - r < b.x + b.sx / 2 &&
+      z + r > b.z - b.sz / 2 &&
+      z - r < b.z + b.sz / 2 &&
       b.y - b.sy / 2 < 1.6 // only ground-level obstacles matter to a grounded bot
     ) {
       return true;
@@ -110,14 +134,14 @@ function blocked(lvl: Level3D, x: number, z: number): boolean {
   return false;
 }
 
-function moveEnemy(e: Enemy, lvl: Level3D, wx: number, wz: number, speed: number, dt: number): void {
+function moveEnemy(e: Enemy, lvl: Level3D, wx: number, wz: number, speed: number, dt: number, r = R): void {
   const l = Math.hypot(wx, wz);
   if (l < 0.01) return;
   const sp = (speed * dt) / l;
   const nx = e.x + wx * sp;
   const nz = e.z + wz * sp;
-  if (!blocked(lvl, nx, e.z)) e.x = nx;
-  if (!blocked(lvl, e.x, nz)) e.z = nz;
+  if (!blocked(lvl, nx, e.z, r)) e.x = nx;
+  if (!blocked(lvl, e.x, nz, r)) e.z = nz;
   e.step += speed * dt * 1.3; // advance the running gait
 }
 
@@ -135,9 +159,37 @@ export function spawnEnemies(lvl: Level3D, count: number, rand: () => number): E
     if (Math.abs(x) > half - 3 || Math.abs(z) > half - 3) continue;
     if (blocked(lvl, x, z)) continue;
     const sr = squadRole(out.length, count);
-    out.push({ x, y: 0, z, health: ENEMY_HP, maxHealth: ENEMY_HP, state: 'idle', lastSeen: null, fireCd: rand() * 0.6, hitFlash: 0, wander: rand() * 6, step: 0, alarm: 0, weapon: WEAPON_KEYS[Math.floor(rand() * WEAPON_KEYS.length)], role: sr.role, side: sr.side, barUntil: 0 });
+    out.push({ x, y: 0, z, health: ENEMY_HP, maxHealth: ENEMY_HP, state: 'idle', lastSeen: null, fireCd: rand() * 0.6, hitFlash: 0, wander: rand() * 6, step: 0, alarm: 0, weapon: WEAPON_KEYS[Math.floor(rand() * WEAPON_KEYS.length)], role: sr.role, side: sr.side, barUntil: 0, boss: null });
   }
   return out;
+}
+
+/** Spawn the boss(es) for a boss level (level 20 = all three). */
+export function spawnBosses(lvl: Level3D, kinds: BossKind[], rand: () => number): Enemy[] {
+  const a = lvl.enemySpawn;
+  return kinds.map((k, i) => {
+    const bd = BOSSES[k];
+    const ang = (i / Math.max(1, kinds.length)) * Math.PI * 2;
+    return {
+      x: a.x + Math.cos(ang) * 5 * i,
+      y: 0,
+      z: a.z + Math.sin(ang) * 5 * i,
+      health: bd.health,
+      maxHealth: bd.health,
+      state: 'idle' as const,
+      lastSeen: null,
+      fireCd: rand() * 0.5,
+      hitFlash: 0,
+      wander: rand() * 6,
+      step: 0,
+      alarm: 0,
+      weapon: 'rifle' as WeaponKind,
+      role: 'assault' as Role,
+      side: (rand() < 0.5 ? 1 : -1) as 1 | -1,
+      barUntil: 0,
+      boss: k,
+    };
+  });
 }
 
 export interface EnemyTracer {
@@ -172,7 +224,7 @@ export function updateEnemies(
   const sees = enemies.map((e) => {
     if (e.health <= 0) return false;
     const dist = Math.hypot(player.x - e.x, player.z - e.z);
-    if (dist >= P.view) return false;
+    if (dist >= (e.boss ? 220 : P.view)) return false;
     const eeye: Vec3 = [e.x, e.y + EYE_H, e.z];
     if (segBlocked(eeye, peye, lvl)) return false;
     for (const sm of smokes) if (segHitsSphere(eeye, peye, [sm.x, sm.y, sm.z], sm.r)) return false;
@@ -195,6 +247,48 @@ export function updateEnemies(
     if (e.health <= 0) continue;
     if (e.hitFlash > 0) e.hitFlash -= dt;
     if (e.alarm > 0) e.alarm -= dt;
+
+    // Bosses: relentless pursuit to melee range; ranged attack at distance,
+    // melee (claws/sword/tentacles) up close. Smart = high accuracy.
+    if (e.boss) {
+      const bd = BOSSES[e.boss];
+      const tgtB = e.state === 'alert' && e.lastSeen ? e.lastSeen : haveIntel ? squad.lastKnown : null;
+      if (tgtB) {
+        e.state = 'alert';
+        let wx = tgtB.x - e.x;
+        let wz = tgtB.z - e.z;
+        const td = Math.hypot(wx, wz) || 1;
+        wx /= td;
+        wz /= td;
+        for (let j = 0; j < enemies.length; j++) {
+          if (j === i || enemies[j].health <= 0) continue;
+          const dx = e.x - enemies[j].x;
+          const dz = e.z - enemies[j].z;
+          const d2 = dx * dx + dz * dz;
+          if (d2 < 16 && d2 > 0.0001) {
+            const d = Math.sqrt(d2);
+            wx += (dx / d) * 0.6;
+            wz += (dz / d) * 0.6;
+          }
+        }
+        moveEnemy(e, lvl, wx, wz, bd.speed, dt, bd.radius);
+        const dist = Math.hypot(player.x - e.x, player.z - e.z);
+        e.fireCd -= dt;
+        if (dist < bd.meleeRange) {
+          if (e.fireCd <= 0) {
+            e.fireCd = bd.meleeRate;
+            damage += bd.meleeDmg;
+            tracers.push({ from: [e.x, e.y + bd.scale * 0.5, e.z], to: peye, color: 0xff3344 });
+          }
+        } else if (sees[i] && e.fireCd <= 0) {
+          e.fireCd = bd.rangeRate;
+          tracers.push({ from: [e.x, e.y + bd.scale * 0.7, e.z], to: peye, color: bd.color });
+          if (Math.random() < bd.acc) damage += bd.rangeDmg;
+        }
+      }
+      continue;
+    }
+
     const role = ROLE[e.role];
     const tgt = e.state === 'alert' && e.lastSeen ? e.lastSeen : haveIntel ? squad.lastKnown : null;
 

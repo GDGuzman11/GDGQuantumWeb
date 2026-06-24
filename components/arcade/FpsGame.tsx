@@ -10,7 +10,7 @@ import { FpsShop } from './screens/FpsShop';
 import { useFpsLoop, type FpsGameState, type FpsSnapshot } from './useFpsLoop';
 import { makeArena3D } from './fps/level3d';
 import { makePlayer3 } from './fps/physics';
-import { spawnEnemies, type Difficulty } from './fps/enemy';
+import { spawnEnemies, spawnBosses, type BossKind, type Difficulty } from './fps/enemy';
 import { gunById, throwById } from './fps/weapons';
 
 type Mode = 'menu' | 'loadout' | 'play' | 'shop' | 'complete';
@@ -69,16 +69,18 @@ export function FpsGame() {
     (level: number, lo: Loadout, maxHp: number) => {
       resolvedRef.current = false;
       const seed = (Date.now() ^ Math.floor(Math.random() * 0xffff)) & 0x7fffffff;
-      const en = campaignEnemies(level, enemies);
-      const lvl = makeArena3D(en, seed);
+      const isBoss = level % 5 === 0;
+      const lvl = makeArena3D(isBoss ? 5 : campaignEnemies(level, enemies), seed);
       const guns = [gunById(lo.p1), gunById(lo.p2), gunById(lo.sa)];
       const thrown = throwById(lo.th);
       const player = makePlayer3(lvl.spawn);
       player.health = maxHp;
+      const bossKinds: BossKind[] = level === 20 ? ['xeno', 'warrior', 'octopus'] : level === 15 ? ['octopus'] : level === 10 ? ['warrior'] : ['xeno'];
+      const mobs = isBoss ? spawnBosses(lvl, bossKinds, Math.random) : spawnEnemies(lvl, campaignEnemies(level, enemies), Math.random);
       gameRef.current = {
         level: lvl,
         player,
-        enemies: spawnEnemies(lvl, en, Math.random),
+        enemies: mobs,
         difficulty: campaignDiff(diff, level),
         guns,
         active: 0,
