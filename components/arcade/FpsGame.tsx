@@ -9,6 +9,7 @@ import { useFpsLoop, type FpsGameState, type FpsSnapshot } from './useFpsLoop';
 import { makeArena3D } from './fps/level3d';
 import { makePlayer3 } from './fps/physics';
 import { spawnEnemies, type Difficulty } from './fps/enemy';
+import { gunById, DEFAULT_LOADOUT } from './fps/weapons';
 
 type Mode = 'menu' | 'play';
 
@@ -30,17 +31,22 @@ export function FpsGame() {
   useEffect(() => setIsTouch('ontouchstart' in window), []);
 
   const onSnapshot = useCallback((s: FpsSnapshot) => setSnap(s), []);
-  const { setMoveAxis, addLook } = useFpsLoop(canvasRef, gameRef, mode === 'play', onSnapshot);
+  const { setMoveAxis, addLook, cycleWeapon, setAds } = useFpsLoop(canvasRef, gameRef, mode === 'play', onSnapshot);
 
   const start = useCallback(() => {
     const seed = (Date.now() ^ Math.floor(Math.random() * 0xffff)) & 0x7fffffff;
     const level = makeArena3D(enemies, seed);
+    const guns = DEFAULT_LOADOUT.map(gunById);
     gameRef.current = {
       level,
       player: makePlayer3(level.spawn),
       enemies: spawnEnemies(level, enemies, Math.random),
       difficulty: diff,
-      ammo: 30,
+      guns,
+      active: 0,
+      mags: guns.map((g) => g.mag),
+      reserves: guns.map((g) => g.reserve),
+      ads: false,
       reloading: 0,
       fireCd: 0,
       status: 'playing',
@@ -84,7 +90,27 @@ export function FpsGame() {
             <button type="button" onClick={() => setMode('menu')} className="absolute right-3 top-3 z-50 font-pixel text-[8px] text-white/55 transition-colors hover:text-white">
               MENU
             </button>
-            {isTouch && <FpsControls onMove={(s, f) => setMoveAxis(s, f)} onLook={(dx, dy) => addLook(dx, dy)} />}
+            {isTouch && (
+              <>
+                <FpsControls onMove={(s, f) => setMoveAxis(s, f)} onLook={(dx, dy) => addLook(dx, dy)} />
+                <button
+                  type="button"
+                  onClick={() => cycleWeapon(1)}
+                  className="pointer-events-auto absolute right-3 top-[26%] z-40 rounded-md border border-white/20 bg-black/40 px-3 py-2 font-pixel text-[8px] text-white/80"
+                >
+                  WPN ▸
+                </button>
+                <button
+                  type="button"
+                  onPointerDown={() => setAds(true)}
+                  onPointerUp={() => setAds(false)}
+                  onPointerLeave={() => setAds(false)}
+                  className="pointer-events-auto absolute right-3 top-[42%] z-40 rounded-md border border-[#7fdfff]/40 bg-[#7fdfff]/10 px-3 py-2 font-pixel text-[8px] text-[#7fdfff]"
+                >
+                  ADS
+                </button>
+              </>
+            )}
             {!isTouch && (
               <p className="pointer-events-none absolute bottom-1 left-1/2 z-20 -translate-x-1/2 font-pixel text-[6px] text-white/35">
                 CLICK = AIM/FIRE · WASD MOVE · SPACE JUMP · R RELOAD · LADDERS/ZIPS: WALK IN · ESC MENU

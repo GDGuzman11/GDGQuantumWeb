@@ -8,18 +8,13 @@ import type { Level3D } from './fps/level3d';
 import { updateEnemies, type Difficulty, type Enemy } from './fps/enemy';
 import { rayWallDist, raySphere, segBlocked, type Vec3 } from './fps/combat';
 import { enemyTex } from './fps/textures';
+import type { GunDef } from './fps/weapons';
 import { sfx } from './engine/audio';
 
 const RW = 480;
 const RH = 270;
 const LOOK_SENS = 0.0024;
-
-// Rifle (the F2 starter weapon — hitscan).
-const MAG = 30;
-const RELOAD = 1.6;
-const RATE = 0.11;
-const DMG = 26;
-const RANGE = 130;
+const RANGE = 200;
 const ENEMY_R = 0.7;
 
 export interface FpsGameState {
@@ -27,19 +22,28 @@ export interface FpsGameState {
   player: Player3;
   enemies: Enemy[];
   difficulty: Difficulty;
-  ammo: number;
+  guns: GunDef[];
+  active: number;
+  mags: number[];
+  reserves: number[];
+  ads: boolean;
   reloading: number;
   fireCd: number;
   status: 'playing' | 'won' | 'lost';
   kills: number;
-  regenT: number; // seconds hidden (no enemy LoS); regen starts after 2s
+  regenT: number;
 }
 
 export interface FpsSnapshot {
   health: number;
-  ammo: number;
+  weapon: string;
+  family: string;
   mag: number;
+  reserve: number;
   reloading: boolean;
+  ads: boolean;
+  scoped: boolean;
+  slots: { name: string; active: boolean }[];
   enemiesLeft: number;
   status: 'playing' | 'won' | 'lost';
   kills: number;
@@ -59,7 +63,11 @@ export function useFpsLoop(
   const lookDX = useRef(0);
   const lookDY = useRef(0);
   const fireHeld = useRef(false);
+  const adsHeld = useRef(false);
+  const mobileAds = useRef(false);
   const reloadReq = useRef(false);
+  const prevFire = useRef(false);
+  const switchReq = useRef<number | 'next' | 'prev' | null>(null);
 
   const setMoveAxis = useCallback((strafe: number, fwd: number) => {
     touchMove.current = { strafe, fwd };
@@ -68,6 +76,12 @@ export function useFpsLoop(
     lookDX.current += dx;
     lookDY.current += dy;
   }, []);
+  const cycleWeapon = useCallback((dir: 1 | -1) => {
+    switchReq.current = dir > 0 ? 'next' : 'prev';
+  }, []);
+  const setAds = useCallback((v: boolean) => {
+    mobileAds.current = v;
+  }, []);
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -75,7 +89,7 @@ export function useFpsLoop(
     const renderer = new THREE.WebGLRenderer({ canvas, antialias: false, powerPreference: 'high-performance' });
     renderer.setPixelRatio(1);
     renderer.setSize(RW, RH, false);
-    const camera = new THREE.PerspectiveCamera(78, RW / RH, 0.1, 320);
+    const camera = new THREE.PerspectiveCamera(78, RW / RH, 0.1, 360);
     camera.rotation.order = 'YXZ';
     const isTouch = 'ontouchstart' in window;
 
@@ -86,7 +100,10 @@ export function useFpsLoop(
     let texB: THREE.CanvasTexture | null = null;
     const tracers: { line: THREE.Line; geo: THREE.BufferGeometry; until: number }[] = [];
     let lastSnap = 0;
-    const snap: FpsSnapshot = { health: 100, ammo: MAG, mag: MAG, reloading: false, enemiesLeft: 0, status: 'playing', kills: 0, hitAt: 0, fireAt: 0, hurtAt: 0 };
+    const snap: FpsSnapshot = {
+      health: 100, weapon: '', family: '', mag: 0, reserve: 0, reloading: false, ads: false, scoped: false,
+      slots: [], enemiesLeft: 0, status: 'playing', kills: 0, hitAt: 0, fireAt: 0, hurtAt: 0,
+    };
     const prevPos = { x: 0, z: 0 };
 
     const disposeExtras = () => {
@@ -111,8 +128,8 @@ export function useFpsLoop(
       disposeExtras();
       world?.dispose();
       world = buildWorld(g.level);
-      const mk = (canvas: HTMLCanvasElement) => {
-        const t = new THREE.CanvasTexture(canvas);
+      const mk = (canvas2: HTMLCanvasElement) => {
+        const t = new THREE.CanvasTexture(canvas2);
         t.magFilter = THREE.NearestFilter;
         t.minFilter = THREE.NearestFilter;
         return t;
@@ -142,6 +159,7 @@ export function useFpsLoop(
     const onKeyDown = (e: KeyboardEvent) => {
       const k = e.key.toLowerCase();
       if (k === 'r') reloadReq.current = true;
+      if (k === '1' || k === '2' || k === '3') switchReq.current = Number(k) - 1;
       if (k === 'w' || k === 'a' || k === 's' || k === 'd' || k === ' ' || k.startsWith('arrow')) {
         if (k.startsWith('arrow') || k === ' ') e.preventDefault();
         keys.current.add(k);
@@ -160,14 +178,26 @@ export function useFpsLoop(
         lookDY.current += e.movementY;
       }
     };
-    const onMouseDown = () => {
-      if (document.pointerLockElement === canvas) fireHeld.current = true;
+    const locked = () => document.pointerLockElement === canvas;
+    const onMouseDown = (e: MouseEvent) => {
+      if (!locked()) return;
+      if (e.button === 0) fireHeld.current = true;
+      if (e.button === 2) adsHeld.current = true;
     };
-    const onMouseUp = () => (fireHeld.current = false);
+    const onMouseUp = (e: MouseEvent) => {
+      if (e.button === 0) fireHeld.current = false;
+      if (e.button === 2) adsHeld.current = false;
+    };
+    const onWheel = (e: WheelEvent) => {
+      if (locked()) switchReq.current = e.deltaY > 0 ? 'next' : 'prev';
+    };
+    const onCtx = (e: Event) => e.preventDefault();
     canvas.addEventListener('click', onClick);
+    canvas.addEventListener('contextmenu', onCtx);
     document.addEventListener('mousemove', onMouseMove);
     document.addEventListener('mousedown', onMouseDown);
     document.addEventListener('mouseup', onMouseUp);
+    document.addEventListener('wheel', onWheel, { passive: true });
 
     let raf = 0;
     let prev = performance.now();
@@ -200,13 +230,32 @@ export function useFpsLoop(
         if (keys.current.has('a') || keys.current.has('arrowleft')) strafe -= 1;
 
         if (g.status === 'playing') {
+          // Weapon switch
+          if (switchReq.current !== null) {
+            const n = g.guns.length;
+            const req = switchReq.current;
+            g.active = req === 'next' ? (g.active + 1) % n : req === 'prev' ? (g.active - 1 + n) % n : Math.min(n - 1, Math.max(0, req));
+            switchReq.current = null;
+            g.reloading = 0;
+            g.fireCd = 0.22;
+            sfx.swap();
+          }
+          const gun = g.guns[g.active];
+
+          // ADS
+          g.ads = adsHeld.current || mobileAds.current;
+          const wantFov = g.ads ? gun.adsFov : gun.hipFov;
+          if (Math.abs(camera.fov - wantFov) > 0.1) {
+            camera.fov = wantFov;
+            camera.updateProjectionMatrix();
+          }
+
           stepPlayer(p, g.level, { fwd, strafe, jump: keys.current.has(' ') }, dt);
           const pvx = (p.x - prevPos.x) / Math.max(dt, 0.001);
           const pvz = (p.z - prevPos.z) / Math.max(dt, 0.001);
           prevPos.x = p.x;
           prevPos.z = p.z;
 
-          // Camera forward
           const cp = Math.cos(p.pitch);
           const fx = -cp * Math.sin(p.yaw);
           const fy = Math.sin(p.pitch);
@@ -217,18 +266,23 @@ export function useFpsLoop(
           // Reload
           if (g.reloading > 0) {
             g.reloading -= dt;
-            if (g.reloading <= 0) g.ammo = MAG;
+            if (g.reloading <= 0) {
+              const need = gun.mag - g.mags[g.active];
+              const take = Math.min(need, g.reserves[g.active]);
+              g.mags[g.active] += take;
+              g.reserves[g.active] -= take;
+            }
           }
           if (reloadReq.current) {
             reloadReq.current = false;
-            if (g.reloading <= 0 && g.ammo < MAG) {
-              g.reloading = RELOAD;
+            if (g.reloading <= 0 && g.mags[g.active] < gun.mag && g.reserves[g.active] > 0) {
+              g.reloading = gun.reload;
               sfx.reload();
             }
           }
           g.fireCd -= dt;
 
-          // Mobile auto-fire when an enemy is in the crosshair cone + visible.
+          // Mobile auto-fire when a target is in the crosshair cone + visible.
           let autoFire = false;
           if (isTouch) {
             for (const e of g.enemies) {
@@ -244,10 +298,13 @@ export function useFpsLoop(
             }
           }
 
-          // Player fire (hitscan)
-          if ((fireHeld.current || autoFire) && g.fireCd <= 0 && g.reloading <= 0 && g.ammo > 0) {
-            g.fireCd = RATE;
-            g.ammo--;
+          const fireInput = fireHeld.current || autoFire;
+          const wantShot = gun.auto ? fireInput : fireInput && !prevFire.current;
+          prevFire.current = fireInput;
+
+          if (wantShot && g.fireCd <= 0 && g.reloading <= 0 && g.mags[g.active] > 0) {
+            g.fireCd = gun.rate;
+            g.mags[g.active]--;
             snap.fireAt = now;
             sfx.shoot();
             const wallD = rayWallDist(eye, dir, g.level, RANGE);
@@ -261,11 +318,10 @@ export function useFpsLoop(
                 hit = e;
               }
             }
-            addTracer([eye[0] + fx * 0.4, eye[1] - 0.15, eye[2] + fz * 0.4], [eye[0] + fx * hitT, eye[1] + fy * hitT, eye[2] + fz * hitT], 0xffe9a8);
+            addTracer([eye[0] + fx * 0.4, eye[1] - 0.12, eye[2] + fz * 0.4], [eye[0] + fx * hitT, eye[1] + fy * hitT, eye[2] + fz * hitT], gun.color);
             if (hit) {
-              hit.health -= DMG;
+              hit.health -= gun.dmg;
               hit.hitFlash = 0.12;
-              // Adapt to being shot: go alert, learn your rough position, evade.
               hit.alarm = 4;
               hit.state = 'alert';
               hit.lastSeen = { x: p.x, z: p.z };
@@ -273,8 +329,8 @@ export function useFpsLoop(
               sfx.enemyHit();
               if (hit.health <= 0) g.kills++;
             }
-          } else if ((fireHeld.current || autoFire) && g.ammo <= 0 && g.reloading <= 0) {
-            g.reloading = RELOAD;
+          } else if (wantShot && g.mags[g.active] <= 0 && g.reloading <= 0 && g.reserves[g.active] > 0) {
+            g.reloading = gun.reload;
             sfx.reload();
           }
 
@@ -287,7 +343,6 @@ export function useFpsLoop(
             sfx.hurt();
             if (p.health <= 0) g.status = 'lost';
           }
-          // Regen while hidden — start after 2s with no enemy line-of-sight/damage.
           if (res.seen || res.damage > 0) g.regenT = 0;
           else {
             g.regenT += dt;
@@ -296,7 +351,7 @@ export function useFpsLoop(
           if (g.enemies.every((e) => e.health <= 0)) g.status = 'won';
         }
 
-        // Sprites (running gait: vertical bob + 2-frame swap + hit-flash tint)
+        // Sprites (running gait + 2-frame swap + hit-flash tint)
         for (let i = 0; i < sprites.length; i++) {
           const e = g.enemies[i];
           const s = sprites[i];
@@ -328,9 +383,16 @@ export function useFpsLoop(
 
         if (now - lastSnap > 70) {
           lastSnap = now;
+          const gun = g.guns[g.active];
           snap.health = p.health;
-          snap.ammo = g.ammo;
+          snap.weapon = gun.name;
+          snap.family = gun.family;
+          snap.mag = g.mags[g.active];
+          snap.reserve = g.reserves[g.active];
           snap.reloading = g.reloading > 0;
+          snap.ads = g.ads;
+          snap.scoped = gun.scoped;
+          snap.slots = g.guns.map((gg, i) => ({ name: gg.name, active: i === g.active }));
           snap.enemiesLeft = g.enemies.filter((e) => e.health > 0).length;
           snap.status = g.status;
           snap.kills = g.kills;
@@ -347,9 +409,11 @@ export function useFpsLoop(
       window.removeEventListener('keydown', onKeyDown);
       window.removeEventListener('keyup', onKeyUp);
       canvas.removeEventListener('click', onClick);
+      canvas.removeEventListener('contextmenu', onCtx);
       document.removeEventListener('mousemove', onMouseMove);
       document.removeEventListener('mousedown', onMouseDown);
       document.removeEventListener('mouseup', onMouseUp);
+      document.removeEventListener('wheel', onWheel);
       if (document.pointerLockElement === canvas) document.exitPointerLock?.();
       disposeExtras();
       world?.dispose();
@@ -357,5 +421,5 @@ export function useFpsLoop(
     };
   }, [canvasRef, gameRef, active, onSnapshot]);
 
-  return { setMoveAxis, addLook };
+  return { setMoveAxis, addLook, cycleWeapon, setAds };
 }

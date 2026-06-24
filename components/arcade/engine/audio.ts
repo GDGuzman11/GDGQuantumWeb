@@ -94,6 +94,10 @@ class Sfx {
     this.tone('square', 220, 220, 0.04, 0.07);
     window.setTimeout(() => this.tone('square', 300, 300, 0.05, 0.07), 180);
   }
+  swap(): void {
+    this.ensure();
+    this.tone('square', 520, 380, 0.05, 0.06);
+  }
   win(): void {
     this.ensure();
     [523, 659, 784, 1047].forEach((f, i) =>
