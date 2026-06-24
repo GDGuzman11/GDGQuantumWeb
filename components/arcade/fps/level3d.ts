@@ -54,6 +54,8 @@ export interface Level3D {
   pads: JumpPad[];
   ziplines: Zipline[];
   spawn: { x: number; z: number; yaw: number };
+  /** Far end of the arena where enemies start (opposite the player spawn). */
+  enemySpawn: { x: number; z: number };
   size: number;
   seed: number;
 }
@@ -160,6 +162,13 @@ export function makeArena3D(enemyCount: number, seed: number): Level3D {
   const boxes: Box[] = [];
   const ladders: Ladder[] = [];
 
+  // Player and enemies start at OPPOSITE ends of the arena.
+  const playerSpawn = { x: 0, z: -half * 0.78, yaw: Math.PI };
+  const enemySpawn = { x: 0, z: half * 0.78 };
+  const clearOf = (x: number, z: number): boolean =>
+    Math.hypot(x - playerSpawn.x, z - playerSpawn.z) < 11 ||
+    Math.hypot(x - enemySpawn.x, z - enemySpawn.z) < 11;
+
   boxes.push({ x: 0, y: WALL_H / 2, z: -half, sx: size, sy: WALL_H, sz: 0.6, tex: 0 });
   boxes.push({ x: 0, y: WALL_H / 2, z: half, sx: size, sy: WALL_H, sz: 0.6, tex: 0 });
   boxes.push({ x: -half, y: WALL_H / 2, z: 0, sx: 0.6, sy: WALL_H, sz: size, tex: 0 });
@@ -171,7 +180,7 @@ export function makeArena3D(enemyCount: number, seed: number): Level3D {
     for (let t = 0; t < 24; t++) {
       const x = (r() * 2 - 1) * (half - rad - 2);
       const z = (r() * 2 - 1) * (half - rad - 2);
-      if (Math.hypot(x, z) < 9) continue;
+      if (clearOf(x, z)) continue;
       if (!placed.some((p) => Math.hypot(x - p.x, z - p.z) < p.rad / 2 + rad / 2 + minGap)) return { x, z };
     }
     return null;
@@ -205,7 +214,7 @@ export function makeArena3D(enemyCount: number, seed: number): Level3D {
   for (let i = 0; i < pillars; i++) {
     const x = (r() * 2 - 1) * (half - 3);
     const z = (r() * 2 - 1) * (half - 3);
-    if (Math.hypot(x, z) < 6) continue;
+    if (clearOf(x, z)) continue;
     if (placed.some((p) => Math.abs(x - p.x) < p.rad / 2 + 2 && Math.abs(z - p.z) < p.rad / 2 + 2)) continue;
     const h = 1.2 + r() * 2;
     const s = 0.9 + r() * 1.2;
@@ -249,5 +258,5 @@ export function makeArena3D(enemyCount: number, seed: number): Level3D {
     pads.push({ x, z, r: 1.1, power: 13 });
   }
 
-  return { boxes, ladders, pads, ziplines, spawn: { x: 0, z: 0, yaw: 0 }, size, seed };
+  return { boxes, ladders, pads, ziplines, spawn: playerSpawn, enemySpawn, size, seed };
 }

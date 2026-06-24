@@ -77,8 +77,10 @@ export function groundTex(): Tex {
   return c;
 }
 
-/** A billboard enemy sprite — armoured void-construct (transparent bg). */
-export function enemyTex(): Tex {
+/** A billboard ALIEN sprite (transparent bg). `frame` (0/1) alternates the
+ *  limbs for a running gait. Bulbous head, big glowing eyes, thin tentacle
+ *  limbs — sickly green/violet void-creature. */
+export function enemyTex(frame: number): Tex {
   const W = 32;
   const H = 48;
   const c = document.createElement('canvas');
@@ -89,22 +91,34 @@ export function enemyTex(): Tex {
     x.fillStyle = col;
     x.fillRect(xx, yy, w, h);
   };
-  // legs
-  px(10, 36, 4, 11, '#2a2f45');
-  px(18, 36, 4, 11, '#2a2f45');
-  // torso (armoured)
-  px(8, 18, 16, 20, '#3b4366');
-  px(8, 18, 16, 3, '#525d8a');
-  // chest core (glow)
-  px(14, 24, 4, 5, '#ff4d5e');
-  px(13, 25, 6, 3, '#ff8a96');
-  // arms
-  px(4, 20, 4, 14, '#2f3651');
-  px(24, 20, 4, 14, '#2f3651');
-  // head / visor
-  px(11, 6, 10, 12, '#343b59');
-  px(12, 10, 8, 3, '#ff4d5e'); // glowing visor
-  px(12, 10, 8, 1, '#ffd0d4');
+  const body = '#6a9a4a';
+  const head = '#5c8a3e';
+  const dark = '#2a3a22';
+  const eye = '#c8ff5a';
+  const f = frame ? 1 : 0;
+
+  // antennae
+  px(11, 2, 1, 5, dark);
+  px(20, 2, 1, 5, dark);
+  // bulbous head
+  px(9, 6, 14, 12, head);
+  px(7, 9, 18, 7, head);
+  // big glowing eyes
+  px(11, 10, 4, 5, eye);
+  px(17, 10, 4, 5, eye);
+  px(12, 11, 1, 2, '#ffffff');
+  px(18, 11, 1, 2, '#ffffff');
+  // neck + narrow torso
+  px(14, 18, 4, 3, body);
+  px(11, 21, 10, 16, body);
+  // belly glow
+  px(14, 27, 4, 5, '#aef5c8');
+  // tentacle arms (alternate per frame)
+  px(6, 22 + f * 3, 3, 11, dark);
+  px(23, 22 + (1 - f) * 3, 3, 11, dark);
+  // legs (alternate stride per frame)
+  px(11 + (f ? 2 : -1), 37, 3, 10, dark);
+  px(18 + (f ? -1 : 2), 37, 3, 10, dark);
   return c;
 }
 

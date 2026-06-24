@@ -81,20 +81,27 @@ export function useFpsLoop(
     let world: World | null = null;
     let builtFor: Level3D | null = null;
     let sprites: THREE.Sprite[] = [];
-    let spriteMat: THREE.SpriteMaterial | null = null;
+    let texA: THREE.CanvasTexture | null = null;
+    let texB: THREE.CanvasTexture | null = null;
     const tracers: { line: THREE.Line; geo: THREE.BufferGeometry; until: number }[] = [];
     let lastSnap = 0;
     const snap: FpsSnapshot = { health: 100, ammo: MAG, mag: MAG, reloading: false, enemiesLeft: 0, status: 'playing', kills: 0, hitAt: 0, fireAt: 0, hurtAt: 0 };
     const prevPos = { x: 0, z: 0 };
 
     const disposeExtras = () => {
-      for (const s of sprites) world?.scene.remove(s);
+      for (const s of sprites) {
+        world?.scene.remove(s);
+        (s.material as THREE.Material).dispose();
+      }
       sprites = [];
-      spriteMat?.dispose();
-      spriteMat = null;
+      texA?.dispose();
+      texB?.dispose();
+      texA = null;
+      texB = null;
       for (const t of tracers) {
         world?.scene.remove(t.line);
         t.geo.dispose();
+        (t.line.material as THREE.Material).dispose();
       }
       tracers.length = 0;
     };
@@ -103,13 +110,17 @@ export function useFpsLoop(
       disposeExtras();
       world?.dispose();
       world = buildWorld(g.level);
-      const map = new THREE.CanvasTexture(enemyTex());
-      map.magFilter = THREE.NearestFilter;
-      map.minFilter = THREE.NearestFilter;
-      spriteMat = new THREE.SpriteMaterial({ map, transparent: true });
+      const mk = (canvas: HTMLCanvasElement) => {
+        const t = new THREE.CanvasTexture(canvas);
+        t.magFilter = THREE.NearestFilter;
+        t.minFilter = THREE.NearestFilter;
+        return t;
+      };
+      texA = mk(enemyTex(0));
+      texB = mk(enemyTex(1));
       sprites = g.enemies.map(() => {
-        const s = new THREE.Sprite(spriteMat!);
-        s.scale.set(1.6, 2.2, 1);
+        const s = new THREE.Sprite(new THREE.SpriteMaterial({ map: texA!, transparent: true }));
+        s.scale.set(1.7, 2.3, 1);
         world!.scene.add(s);
         return s;
       });
@@ -252,7 +263,11 @@ export function useFpsLoop(
             addTracer([eye[0] + fx * 0.4, eye[1] - 0.15, eye[2] + fz * 0.4], [eye[0] + fx * hitT, eye[1] + fy * hitT, eye[2] + fz * hitT], 0xffe9a8);
             if (hit) {
               hit.health -= DMG;
-              hit.hitFlash = 0.1;
+              hit.hitFlash = 0.12;
+              // Adapt to being shot: go alert, learn your rough position, evade.
+              hit.alarm = 4;
+              hit.state = 'alert';
+              hit.lastSeen = { x: p.x, z: p.z };
               snap.hitAt = now;
               sfx.enemyHit();
               if (hit.health <= 0) g.kills++;
@@ -274,11 +289,21 @@ export function useFpsLoop(
           if (g.enemies.every((e) => e.health <= 0)) g.status = 'won';
         }
 
-        // Sprites + tracers
+        // Sprites (running gait: vertical bob + 2-frame swap + hit-flash tint)
         for (let i = 0; i < sprites.length; i++) {
           const e = g.enemies[i];
-          sprites[i].visible = e.health > 0;
-          sprites[i].position.set(e.x, e.y + 1.1, e.z);
+          const s = sprites[i];
+          s.visible = e.health > 0;
+          if (e.health <= 0) continue;
+          const bob = Math.abs(Math.sin(e.step * 3.0)) * 0.14;
+          s.position.set(e.x, e.y + 1.15 + bob, e.z);
+          const mat = s.material as THREE.SpriteMaterial;
+          const want = Math.floor(e.step * 2.2) % 2 === 0 ? texA : texB;
+          if (mat.map !== want) {
+            mat.map = want;
+            mat.needsUpdate = true;
+          }
+          mat.color.setHex(e.hitFlash > 0 ? 0xff7777 : 0xffffff);
         }
         for (let i = tracers.length - 1; i >= 0; i--) {
           if (now > tracers[i].until) {

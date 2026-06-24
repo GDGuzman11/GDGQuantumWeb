@@ -17,12 +17,17 @@ export interface Enemy {
   y: number;
   z: number;
   health: number;
+  maxHealth: number;
   state: 'idle' | 'alert';
   lastSeen: { x: number; z: number } | null;
   fireCd: number;
   hitFlash: number;
   wander: number;
+  step: number; // accumulated gait distance (drives the run animation)
+  alarm: number; // seconds of "under fire" evasive behaviour after being shot
 }
+
+const ENEMY_HP = 500; // 5× tougher
 
 const R = 0.45; // collision radius
 const EYE_H = 1.4;
@@ -63,18 +68,23 @@ function moveEnemy(e: Enemy, lvl: Level3D, wx: number, wz: number, speed: number
   const nz = e.z + wz * sp;
   if (!blocked(lvl, nx, e.z)) e.x = nx;
   if (!blocked(lvl, e.x, nz)) e.z = nz;
+  e.step += speed * dt * 1.3; // advance the running gait
 }
 
 export function spawnEnemies(lvl: Level3D, count: number, rand: () => number): Enemy[] {
   const out: Enemy[] = [];
   const half = lvl.size / 2;
+  const a = lvl.enemySpawn; // far end, opposite the player
+  const R = Math.max(6, lvl.size * 0.16);
   let guard = 0;
-  while (out.length < count && guard++ < count * 60) {
-    const x = (rand() * 2 - 1) * (half - 4);
-    const z = (rand() * 2 - 1) * (half - 4);
-    if (Math.hypot(x, z) < 12) continue; // away from the player's spawn
+  while (out.length < count && guard++ < count * 90) {
+    const ang = rand() * Math.PI * 2;
+    const rad = rand() * R;
+    const x = a.x + Math.cos(ang) * rad;
+    const z = a.z + Math.sin(ang) * rad;
+    if (Math.abs(x) > half - 3 || Math.abs(z) > half - 3) continue;
     if (blocked(lvl, x, z)) continue;
-    out.push({ x, y: 0, z, health: 100, state: 'idle', lastSeen: null, fireCd: rand() * 0.6, hitFlash: 0, wander: rand() * 6 });
+    out.push({ x, y: 0, z, health: ENEMY_HP, maxHealth: ENEMY_HP, state: 'idle', lastSeen: null, fireCd: rand() * 0.6, hitFlash: 0, wander: rand() * 6, step: 0, alarm: 0 });
   }
   return out;
 }
@@ -104,6 +114,7 @@ export function updateEnemies(
   for (const e of enemies) {
     if (e.health <= 0) continue;
     if (e.hitFlash > 0) e.hitFlash -= dt;
+    if (e.alarm > 0) e.alarm -= dt;
     const eeye: Vec3 = [e.x, e.y + EYE_H, e.z];
     const dist = Math.hypot(player.x - e.x, player.z - e.z);
     const sees = dist < P.view && !segBlocked(eeye, peye, lvl);
@@ -120,8 +131,10 @@ export function updateEnemies(
       const dirz = tz / td;
       const want = 9; // preferred engagement range
       const mv = td > want + 1.5 ? 1 : td < want - 1.5 ? -0.7 : 0;
-      const strafe = Math.sin(now / 650 + e.wander) * 0.6;
-      moveEnemy(e, lvl, dirx * mv - dirz * strafe, dirz * mv + dirx * strafe, P.speed, dt);
+      // "Under fire" → faster + harder strafing (adapts to being shot at).
+      const boosted = e.alarm > 0;
+      const strafe = Math.sin(now / 650 + e.wander) * (boosted ? 1.05 : 0.6);
+      moveEnemy(e, lvl, dirx * mv - dirz * strafe, dirz * mv + dirx * strafe, P.speed * (boosted ? 1.3 : 1), dt);
 
       e.fireCd -= dt;
       if (sees && e.fireCd <= 0) {
