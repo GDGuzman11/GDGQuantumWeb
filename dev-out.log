@@ -1,0 +1,15 @@
+
+> gdg-quantum@0.1.0 dev
+> next dev
+
+  ▲ Next.js 14.2.35
+  - Local:        http://localhost:3000
+  - Environments: .env
+
+ ✓ Starting...
+ ✓ Ready in 1682ms
+ ○ Compiling /middleware ...
+ ✓ Compiled /middleware in 519ms (72 modules)
+ ○ Compiling /arcade ...
+ ✓ Compiled /arcade in 6.3s (610 modules)
+ GET /arcade 200 in 6666ms

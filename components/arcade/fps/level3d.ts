@@ -155,6 +155,16 @@ function bunker(boxes: Box[], cx: number, cz: number, bw: number, r: Rnd): void 
   boxes.push({ x: cx, y: 0.6, z: cz, sx: 1.2, sy: 1.2, sz: 1.2, tex: 1 + Math.floor(r() * 3) });
 }
 
+/** A big elevated plateau ("hill") with a ladder up + cover blocks on top. */
+function hill(boxes: Box[], ladders: Ladder[], cx: number, cz: number, w: number): void {
+  const H = 3;
+  const half = w / 2;
+  boxes.push({ x: cx, y: H / 2, z: cz, sx: w, sy: H, sz: w, tex: 1 }); // plateau body
+  ladders.push({ x: cx, z: cz - half - 0.35, y0: 0, y1: H + 0.5, sx: 0.9, sz: 0.45, exX: 0, exZ: 1 });
+  boxes.push({ x: cx - half * 0.4, y: H + 0.7, z: cz + half * 0.3, sx: 2, sy: 1.4, sz: 2, tex: 2 });
+  boxes.push({ x: cx + half * 0.4, y: H + 0.7, z: cz - half * 0.2, sx: 1.6, sy: 1.4, sz: 1.6, tex: 3 });
+}
+
 export function makeArena3D(enemyCount: number, seed: number): Level3D {
   const r = rng(seed);
   const size = (22 + enemyCount * 6) * 2;
@@ -186,9 +196,16 @@ export function makeArena3D(enemyCount: number, seed: number): Level3D {
     return null;
   };
 
+  // A fully elevated "hill" plateau (placed first so everything avoids it).
+  const hillW = Math.min(22, size * 0.22);
+  const hillX = half * 0.55;
+  const hillZ = -half * 0.55;
+  hill(boxes, ladders, hillX, hillZ, hillW);
+  placed.push({ x: hillX, z: hillZ, rad: hillW });
+
   // Multi-floor towers FIRST, spaced FAR apart. Force the first few to be
   // 3-floor towers so there are enough rooftops to string ziplines between.
-  const towerCount = Math.max(3, Math.round(size / 24));
+  const towerCount = Math.max(4, Math.round(size / 18));
   for (let i = 0; i < towerCount; i++) {
     const bw = 6 + r() * 3;
     const pos = tryPlace(bw, size * 0.22);
@@ -199,7 +216,7 @@ export function makeArena3D(enemyCount: number, seed: number): Level3D {
     if (isT3) towers3.push({ x: pos.x, z: pos.z, half: bw / 2 });
   }
   // Then smaller structures fill the gaps (platforms + bunkers).
-  const fillers = Math.round(size / 9);
+  const fillers = Math.round(size / 6);
   for (let i = 0; i < fillers; i++) {
     const bw = 4 + r() * 3;
     const pos = tryPlace(bw, 5);
@@ -224,26 +241,15 @@ export function makeArena3D(enemyCount: number, seed: number): Level3D {
   // Ziplines connecting 3-floor towers, rooftop-to-rooftop (≤ 3). Each is
   // anchored at the deck corner nearest the target tower (away from the front
   // ladder), so it visibly faces the tower it connects to.
+  // Each zipline links a DISTINCT pair of towers — (0,1), (2,3), (4,5) — so no
+  // tower is reused (no "circle"); every hook goes to a different building.
   const ziplines: Zipline[] = [];
   const Y3 = 6; // 3rd-floor deck height
-  const usedPairs = new Set<string>();
-  for (let a = 0; a < towers3.length && ziplines.length < 3; a++) {
-    let best = -1;
-    let bestD = Infinity;
-    for (let b = 0; b < towers3.length; b++) {
-      if (b === a) continue;
-      const key = a < b ? `${a}-${b}` : `${b}-${a}`;
-      if (usedPairs.has(key)) continue;
-      const d = Math.hypot(towers3[a].x - towers3[b].x, towers3[a].z - towers3[b].z);
-      if (d < bestD) {
-        bestD = d;
-        best = b;
-      }
-    }
-    if (best < 0) continue;
-    usedPairs.add(a < best ? `${a}-${best}` : `${best}-${a}`);
-    const ca = nearestDeckCorner(towers3[a], towers3[best]);
-    const cb = nearestDeckCorner(towers3[best], towers3[a]);
+  for (let a = 0; a + 1 < towers3.length && ziplines.length < 3; a += 2) {
+    const A = towers3[a];
+    const B = towers3[a + 1];
+    const ca = nearestDeckCorner(A, B);
+    const cb = nearestDeckCorner(B, A);
     ziplines.push({ x0: ca.x, y0: Y3, z0: ca.z, x1: cb.x, y1: Y3, z1: cb.z });
   }
 

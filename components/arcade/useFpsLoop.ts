@@ -75,8 +75,7 @@ export function useFpsLoop(
   const lookDX = useRef(0);
   const lookDY = useRef(0);
   const fireHeld = useRef(false);
-  const adsHeld = useRef(false);
-  const mobileAds = useRef(false);
+  const zoomLevel = useRef(0); // 0 = hip, 1 = zoom, 2 = deep zoom (right-click cycles)
   const reloadReq = useRef(false);
   const throwReq = useRef(false);
   const prevFire = useRef(false);
@@ -92,8 +91,8 @@ export function useFpsLoop(
   const cycleWeapon = useCallback((dir: 1 | -1) => {
     switchReq.current = dir > 0 ? 'next' : 'prev';
   }, []);
-  const setAds = useCallback((v: boolean) => {
-    mobileAds.current = v;
+  const cycleZoom = useCallback(() => {
+    zoomLevel.current = (zoomLevel.current + 1) % 3;
   }, []);
   const throwGrenade = useCallback(() => {
     throwReq.current = true;
@@ -251,11 +250,11 @@ export function useFpsLoop(
     const onMouseDown = (e: MouseEvent) => {
       if (!lockedNow()) return;
       if (e.button === 0) fireHeld.current = true;
-      if (e.button === 2) adsHeld.current = true;
+      // Right-click is a TOGGLE: hip → zoom → deep zoom → hip (not hold).
+      if (e.button === 2) zoomLevel.current = (zoomLevel.current + 1) % 3;
     };
     const onMouseUp = (e: MouseEvent) => {
       if (e.button === 0) fireHeld.current = false;
-      if (e.button === 2) adsHeld.current = false;
     };
     const onWheel = (e: WheelEvent) => {
       if (lockedNow()) switchReq.current = e.deltaY > 0 ? 'next' : 'prev';
@@ -306,12 +305,18 @@ export function useFpsLoop(
             switchReq.current = null;
             g.reloading = 0;
             g.fireCd = 0.22;
+            zoomLevel.current = 0; // swapping weapons drops you back to the hip
             sfx.swap();
           }
           const gun = g.guns[g.active];
 
-          g.ads = adsHeld.current || mobileAds.current;
-          const wantFov = g.ads ? gun.adsFov : gun.hipFov;
+          g.ads = zoomLevel.current > 0;
+          const wantFov =
+            zoomLevel.current === 2
+              ? Math.max(14, gun.adsFov * 0.62)
+              : zoomLevel.current === 1
+                ? gun.adsFov
+                : gun.hipFov;
           if (Math.abs(camera.fov - wantFov) > 0.1) {
             camera.fov = wantFov;
             camera.updateProjectionMatrix();
@@ -402,7 +407,41 @@ export function useFpsLoop(
               }
             }
             addTracer([eye[0] + fx * 0.4, eye[1] - 0.12, eye[2] + fz * 0.4], [eye[0] + fx * hitT, eye[1] + fy * hitT, eye[2] + fz * hitT], gun.color);
-            if (hit) {
+            if (gun.splash) {
+              // Explosive: detonate at the impact point and splash-damage everyone
+              // in radius (falloff to the edge), regardless of the direct ray hit.
+              const ix = eye[0] + fx * hitT;
+              const iy = eye[1] + fy * hitT;
+              const iz = eye[2] + fz * hitT;
+              let anyHit = false;
+              for (const e of g.enemies) {
+                if (e.health <= 0) continue;
+                const d = Math.hypot(e.x - ix, e.y + 1 - iy, e.z - iz);
+                if (d < gun.splash) {
+                  e.health -= Math.round(gun.dmg * (1 - d / gun.splash));
+                  e.hitFlash = 0.12;
+                  e.alarm = 4;
+                  e.state = 'alert';
+                  e.lastSeen = { x: p.x, z: p.z };
+                  e.barUntil = now + 2500;
+                  anyHit = true;
+                  if (e.health <= 0) g.kills++;
+                }
+              }
+              if (world) {
+                const fm = new THREE.Mesh(ballGeo, new THREE.MeshBasicMaterial({ color: gun.color, transparent: true }));
+                fm.position.set(ix, iy, iz);
+                world.scene.add(fm);
+                flashes.push({ mesh: fm, born: now, r: gun.splash });
+              }
+              sfx.explosion();
+              g.squad.lastKnown = { x: p.x, z: p.z };
+              g.squad.t = now;
+              if (anyHit) {
+                snap.hitAt = now;
+                sfx.enemyHit();
+              }
+            } else if (hit) {
               hit.health -= gun.dmg;
               hit.hitFlash = 0.12;
               hit.alarm = 4;
@@ -603,5 +642,5 @@ export function useFpsLoop(
     };
   }, [canvasRef, gameRef, active, onSnapshot]);
 
-  return { setMoveAxis, addLook, cycleWeapon, setAds, throwGrenade };
+  return { setMoveAxis, addLook, cycleWeapon, cycleZoom, throwGrenade };
 }

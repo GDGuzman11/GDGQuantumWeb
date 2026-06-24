@@ -4,7 +4,7 @@
  * zoom, tracer colour). Hitscan. The loadout is 2 primaries + 1 sidearm; the
  * full 20-weapon pool + selection screen + gold shop build on top of this.
  */
-export type Family = 'rifle' | 'mg' | 'laser' | 'sniper' | 'pistol';
+export type Family = 'rifle' | 'mg' | 'laser' | 'sniper' | 'pistol' | 'launcher';
 
 export interface GunDef {
   id: string;
@@ -20,6 +20,7 @@ export interface GunDef {
   hipFov: number;
   adsFov: number;
   color: number; // tracer colour
+  splash?: number; // explosive AoE radius (launchers); 0/undefined = hitscan single-target
 }
 
 export const GUNS: GunDef[] = [
@@ -39,6 +40,10 @@ export const GUNS: GunDef[] = [
   { id: 'rail', name: 'RAILGUN', family: 'sniper', dmg: 165, rate: 0.95, mag: 5, reserve: 40, reload: 2.4, auto: false, scoped: true, hipFov: 78, adsFov: 22, color: 0xc8a8ff },
   { id: 'marksman', name: 'MARKSMAN', family: 'sniper', dmg: 95, rate: 0.5, mag: 10, reserve: 60, reload: 2.0, auto: false, scoped: true, hipFov: 78, adsFov: 38, color: 0xd8c0ff },
   { id: 'piercer', name: 'PIERCER', family: 'sniper', dmg: 120, rate: 0.7, mag: 7, reserve: 49, reload: 2.2, auto: false, scoped: true, hipFov: 78, adsFov: 28, color: 0xb890ff },
+  // launchers — explosive, high single-shot damage + AoE splash
+  { id: 'rocket', name: 'ROCKET TUBE', family: 'launcher', dmg: 200, rate: 1.2, mag: 4, reserve: 16, reload: 2.6, auto: false, scoped: false, hipFov: 78, adsFov: 62, color: 0xff7a3a, splash: 6 },
+  { id: 'novacannon', name: 'NOVA CANNON', family: 'launcher', dmg: 300, rate: 1.8, mag: 3, reserve: 9, reload: 3.0, auto: false, scoped: false, hipFov: 78, adsFov: 60, color: 0xff5d6e, splash: 7.5 },
+  { id: 'singularity', name: 'SINGULARITY', family: 'launcher', dmg: 420, rate: 2.6, mag: 2, reserve: 6, reload: 3.4, auto: false, scoped: false, hipFov: 78, adsFov: 58, color: 0xc08bff, splash: 9 },
   // sidearms
   { id: 'sidearm', name: 'SIDEARM', family: 'pistol', dmg: 36, rate: 0.2, mag: 14, reserve: 90, reload: 1.2, auto: false, scoped: false, hipFov: 78, adsFov: 60, color: 0xaef5c8 },
   { id: 'handcannon', name: 'HAND CANNON', family: 'pistol', dmg: 70, rate: 0.5, mag: 7, reserve: 49, reload: 1.6, auto: false, scoped: false, hipFov: 78, adsFov: 58, color: 0x8fe0b0 },

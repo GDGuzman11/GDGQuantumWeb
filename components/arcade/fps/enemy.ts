@@ -57,7 +57,10 @@ export const BOSSES: Record<BossKind, BossDef> = {
 
 export type WeaponKind = 'rifle' | 'mg' | 'laser';
 /** Squad combat roles — so a group doesn't all blindly rush. */
-export type Role = 'assault' | 'flanker' | 'suppressor' | 'skirmisher';
+export type Role = 'tank' | 'sniper' | 'assault' | 'flanker' | 'suppressor' | 'skirmisher';
+/** The sniper's long-range weapon (it swaps to a rifle if you close in). */
+const SNIPER_W = { rate: 1.7, dmg: 30, accMod: 1.7, color: 0x9af0ff };
+const TANK_HP_MUL = 3;
 /** Shared squad awareness — one bot's sighting cues the whole group. */
 export interface Squad {
   lastKnown: { x: number; z: number } | null;
@@ -84,6 +87,8 @@ const WEAPON_KEYS: WeaponKind[] = ['rifle', 'mg', 'laser'];
 
 // Standoff range, flank angle (rad), orbit strafe, speed per role.
 const ROLE: Record<Role, { range: number; angle: number; strafe: number; speedMul: number }> = {
+  tank: { range: 5, angle: 0.0, strafe: 0.25, speedMul: 0.7 }, // soaks damage, pushes in
+  sniper: { range: 28, angle: 0.12, strafe: 0.2, speedMul: 0.85 }, // holds far, accurate
   assault: { range: 6, angle: 0.0, strafe: 0.5, speedMul: 1.05 },
   flanker: { range: 8, angle: 1.2, strafe: 0.7, speedMul: 1.0 },
   suppressor: { range: 17, angle: 0.25, strafe: 0.3, speedMul: 0.8 },
@@ -93,12 +98,14 @@ const ROLE: Record<Role, { range: number; angle: number; strafe: number; speedMu
  *  OPPOSITE sides, a suppressor that holds, and a skirmisher. */
 function squadRole(i: number, count: number): { role: Role; side: 1 | -1 } {
   if (count === 1) return { role: 'assault', side: 1 };
+  // With a group there's always a TANK (front-line, soaks damage) and a SNIPER
+  // (holds far, accurate), then flankers / suppressor.
   const comp: { role: Role; side: 1 | -1 }[] = [
-    { role: 'assault', side: 1 },
+    { role: 'tank', side: 1 },
+    { role: 'sniper', side: -1 },
     { role: 'flanker', side: 1 },
     { role: 'flanker', side: -1 },
     { role: 'suppressor', side: 1 },
-    { role: 'skirmisher', side: -1 },
   ];
   return comp[i] ?? { role: 'skirmisher', side: i % 2 === 0 ? 1 : -1 };
 }
@@ -134,12 +141,27 @@ function blocked(lvl: Level3D, x: number, z: number, r = R): boolean {
   return false;
 }
 
+/** If a wall is dead ahead, steer around it (probe rotated directions). */
+function avoidWalls(e: Enemy, lvl: Level3D, dx: number, dz: number, r: number): [number, number] {
+  const look = 1.8;
+  if (!blocked(lvl, e.x + dx * look, e.z + dz * look, r)) return [dx, dz];
+  for (const a of [0.9, -0.9, 1.6, -1.6, 2.4, -2.4]) {
+    const c = Math.cos(a);
+    const s = Math.sin(a);
+    const nx = dx * c - dz * s;
+    const nz = dx * s + dz * c;
+    if (!blocked(lvl, e.x + nx * look, e.z + nz * look, r)) return [nx, nz];
+  }
+  return [dx, dz];
+}
+
 function moveEnemy(e: Enemy, lvl: Level3D, wx: number, wz: number, speed: number, dt: number, r = R): void {
   const l = Math.hypot(wx, wz);
   if (l < 0.01) return;
-  const sp = (speed * dt) / l;
-  const nx = e.x + wx * sp;
-  const nz = e.z + wz * sp;
+  const [dx, dz] = avoidWalls(e, lvl, wx / l, wz / l, r); // path around walls, not into them
+  const sp = speed * dt;
+  const nx = e.x + dx * sp;
+  const nz = e.z + dz * sp;
   if (!blocked(lvl, nx, e.z, r)) e.x = nx;
   if (!blocked(lvl, e.x, nz, r)) e.z = nz;
   e.step += speed * dt * 1.3; // advance the running gait
@@ -159,7 +181,8 @@ export function spawnEnemies(lvl: Level3D, count: number, rand: () => number): E
     if (Math.abs(x) > half - 3 || Math.abs(z) > half - 3) continue;
     if (blocked(lvl, x, z)) continue;
     const sr = squadRole(out.length, count);
-    out.push({ x, y: 0, z, health: ENEMY_HP, maxHealth: ENEMY_HP, state: 'idle', lastSeen: null, fireCd: rand() * 0.6, hitFlash: 0, wander: rand() * 6, step: 0, alarm: 0, weapon: WEAPON_KEYS[Math.floor(rand() * WEAPON_KEYS.length)], role: sr.role, side: sr.side, barUntil: 0, boss: null });
+    const hp = sr.role === 'tank' ? ENEMY_HP * TANK_HP_MUL : ENEMY_HP;
+    out.push({ x, y: 0, z, health: hp, maxHealth: hp, state: 'idle', lastSeen: null, fireCd: rand() * 0.6, hitFlash: 0, wander: rand() * 6, step: 0, alarm: 0, weapon: WEAPON_KEYS[Math.floor(rand() * WEAPON_KEYS.length)], role: sr.role, side: sr.side, barUntil: 0, boss: null });
   }
   return out;
 }
@@ -224,7 +247,7 @@ export function updateEnemies(
   const sees = enemies.map((e) => {
     if (e.health <= 0) return false;
     const dist = Math.hypot(player.x - e.x, player.z - e.z);
-    if (dist >= (e.boss ? 220 : P.view)) return false;
+    if (dist >= (e.boss ? 220 : e.role === 'sniper' ? 100 : P.view)) return false;
     const eeye: Vec3 = [e.x, e.y + EYE_H, e.z];
     if (segBlocked(eeye, peye, lvl)) return false;
     for (const sm of smokes) if (segHitsSphere(eeye, peye, [sm.x, sm.y, sm.z], sm.r)) return false;
@@ -331,13 +354,14 @@ export function updateEnemies(
 
       // Fire only with personal line-of-sight.
       e.fireCd -= dt;
-      const W = WEAPONS[e.weapon];
+      const dist = Math.hypot(player.x - e.x, player.z - e.z);
+      // Sniper: long-range scope far out, swaps to a rifle if you close inside ~12.
+      const W = e.role === 'sniper' ? (dist > 12 ? SNIPER_W : WEAPONS.rifle) : WEAPONS[e.weapon];
       if (sees[i] && e.fireCd <= 0) {
         e.fireCd = W.rate;
         tracers.push({ from: [e.x, e.y + EYE_H, e.z], to: peye, color: W.color });
-        const dist = Math.hypot(player.x - e.x, player.z - e.z);
         const evade = Math.min(0.7, pspeed * 0.14);
-        const distFactor = Math.max(0.12, 1 - Math.max(0, dist - 8) / 38);
+        const distFactor = e.role === 'sniper' && dist > 12 ? 1 : Math.max(0.12, 1 - Math.max(0, dist - 8) / 38);
         if (Math.random() < P.acc * W.accMod * distFactor * (1 - evade)) damage += W.dmg;
       }
       // Give up only when there's no personal sight, no shared intel, and the

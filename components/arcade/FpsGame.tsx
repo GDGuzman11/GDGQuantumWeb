@@ -63,7 +63,7 @@ export function FpsGame() {
   }, []);
 
   const onSnapshot = useCallback((s: FpsSnapshot) => setSnap(s), []);
-  const { setMoveAxis, addLook, cycleWeapon, setAds, throwGrenade } = useFpsLoop(canvasRef, gameRef, mode === 'play', onSnapshot);
+  const { setMoveAxis, addLook, cycleWeapon, cycleZoom, throwGrenade } = useFpsLoop(canvasRef, gameRef, mode === 'play', onSnapshot);
 
   const startLevel = useCallback(
     (level: number, lo: Loadout, maxHp: number) => {
@@ -171,8 +171,8 @@ export function FpsGame() {
                 <button type="button" onClick={() => cycleWeapon(1)} className="pointer-events-auto absolute right-3 top-[26%] z-40 rounded-md border border-white/20 bg-black/40 px-3 py-2 font-pixel text-[8px] text-white/80">
                   WPN ▸
                 </button>
-                <button type="button" onPointerDown={() => setAds(true)} onPointerUp={() => setAds(false)} onPointerLeave={() => setAds(false)} className="pointer-events-auto absolute right-3 top-[42%] z-40 rounded-md border border-[#7fdfff]/40 bg-[#7fdfff]/10 px-3 py-2 font-pixel text-[8px] text-[#7fdfff]">
-                  ADS
+                <button type="button" onClick={() => cycleZoom()} className="pointer-events-auto absolute right-3 top-[42%] z-40 rounded-md border border-[#7fdfff]/40 bg-[#7fdfff]/10 px-3 py-2 font-pixel text-[8px] text-[#7fdfff]">
+                  ZOOM
                 </button>
                 <button type="button" onClick={() => throwGrenade()} className="pointer-events-auto absolute right-3 top-[58%] z-40 rounded-md border border-[#ffae3a]/40 bg-[#ffae3a]/10 px-3 py-2 font-pixel text-[8px] text-[#ffae3a]">
                   THROW
@@ -181,7 +181,7 @@ export function FpsGame() {
             )}
             {!isTouch && (
               <p className="pointer-events-none absolute bottom-1 left-1/2 z-20 -translate-x-1/2 font-pixel text-[6px] text-white/35">
-                CLICK=FIRE · RMB ADS · WASD · SPACE JUMP · 1-3/SCROLL SWAP · R RELOAD · G THROW · LADDERS/ZIPS WALK IN
+                CLICK=FIRE · RMB ZOOM (TAP TO CYCLE) · WASD · SPACE JUMP · 1-3/SCROLL SWAP · R RELOAD · G THROW · LADDERS/ZIPS WALK IN
               </p>
             )}
           </>
