@@ -58,14 +58,29 @@ lensing, ending at a cinematic singularity where the (real, working) contact for
 - **Living landing extras.** An orb‑tap easter egg: tapping the Helix orb glows it, fires a coloured
   ray, and typewriter‑rewrites the headline through an escalating, increasingly sarcastic run.
 - **STARSHELL — the "Have Fun!" arcade.** The "▸ STARSHELL" link opens a **code‑split `/arcade` route**
-  with a full **'93‑pixel first‑person shooter** built on Three.js (`components/arcade/`): a low‑poly 3D
-  "warzone city" (walled multi‑floor towers with ladders + mezzanines, ziplines, jump pads), a
-  **15‑weapon arsenal** (rifle/MG/laser/sniper/pistol) with ADS + per‑gun sound/damage, **frag + smoke
-  throwables** (smoke blocks enemy line‑of‑sight), **line‑of‑sight‑gated, squad‑coordinated, adaptive
-  alien AI**, a pre‑deploy **loadout** screen, and a **20‑level campaign** with a gold armory between
-  levels. Rendered at 480×270 + nearest‑filter textures, CSS‑upscaled for the retro look. The whole
-  game bundle is isolated to `/arcade`, so `/`'s First Load is untouched. *(History: it began as a
-  turn‑based artillery game, preserved at git tag `artillery-v1`, then pivoted to the FPS.)*
+  with a full **'93‑pixel first‑person shooter** built on Three.js (`components/arcade/`), also published
+  as a standalone runnable repo at **github.com/GDGuzman11/Starshell**. What's in it:
+  - **Arena:** a low‑poly "warzone city" — **6‑floor towers** (full decks linked by a switchback of
+    external ladders), an elevated **hill plateau**, open platforms, bunkers, **jump pads**, and
+    **ziplines** strung between distinct rooftops. You and the aliens spawn at opposite ends.
+  - **Arsenal:** ~**18 guns** across rifle / MG / laser / sniper / pistol / **launcher** (explosive AoE)
+    families, each with its own fire feel, **unique sound**, and ADS; **right‑click zoom is a 3‑state
+    toggle**. Plus **12 throwables** (10 each): frag, smoke, molotov, cryo, EMP, flashbang, cluster,
+    toxin, singularity, concussion, decoy, plasma — with burn / slow / stun / blind effects and
+    lingering fire / gas / cryo / decoy zones.
+  - **Enemies:** alien‑soldier sprites with **4 state‑driven poses** (run, fire + muzzle flash, crouch);
+    **realistic perception** (short acquisition range so they don't spot you across the map — only the
+    **sniper** reaches far, and it climbs a tower to **perch**); **squad‑coordinated, adaptive AI**
+    (roles, shared intel, wall‑avoidance, climbing, and **zero‑in** aim that sharpens the longer they
+    hold line‑of‑sight on you). Every 5th level is a boss.
+  - **Progression:** a **20‑level campaign** with a gold armory between levels, a pre‑deploy **loadout**
+    screen, **per‑gun customization** (upgrade damage / fire‑rate / magazine / reload with stage gold),
+    a HUD **radar/minimap**, **fullscreen** (with an iOS pseudo‑fullscreen fallback) and an adjustable
+    **look‑sensitivity** slider, plus full mobile touch controls. Local best‑level in `localStorage`.
+
+  Rendered at 480×270 + nearest‑filter textures, CSS‑upscaled for the retro look. The whole game bundle
+  is isolated to `/arcade`, so `/`'s First Load is untouched. *(History: it began as a turn‑based
+  artillery game, preserved at git tag `artillery-v1`, then pivoted to the FPS.)*
 - **Correctness‑first fallbacks.** `prefers-reduced-motion` jumps between states (no flight); no‑WebGL
   shows a CSS starfield; the heavy three.js + postprocessing stack is async‑isolated so `/` First Load
   stays ≈ **94 kB**.

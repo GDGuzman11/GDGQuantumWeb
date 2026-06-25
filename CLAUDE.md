@@ -142,6 +142,47 @@ QA each step: tsc 0, lint 0, `npm run build` exit 0; `/` First Load held at ~94 
 bundle isolated to `/arcade`). OPEN/next: arsenal is 15 (toward a 20-weapon pool), the "scoreboard"
 is currently a local best-level (a fuller leaderboard is a follow-up), and pacing/economy/AI tuning
 are Gabe playtest items. All auto-committed on `main`; pushed to origin.
+
+STARSHELL UPDATES (2026-06-24, Gabe-driven playtest iteration). A STANDALONE copy of the game also
+lives in its own runnable Next.js repo at github.com/GDGuzman11/Starshell (synced from
+`components/arcade/**`; the site's `/arcade` stays the source of truth). Shipped since the entry above
+(all QA-green each step: tsc 0, lint 0, build exit 0; `/` First Load held ~94 kB; `/arcade` ~288 kB):
+- ARSENAL → ~18 guns: added a `launcher` family (ROCKET TUBE / NOVA CANNON / SINGULARITY) with
+  high single-shot damage + AoE `splash` (`weapons.ts`, detonation in `useFpsLoop`). **Per-gun
+  sounds** — `audio.ts` `gun(id, family)` hashes the weapon id into a pitch/length tweak so every
+  gun sounds distinct.
+- THROWABLES → **12, ten each** (`weapons.ts` flexible `ThrowDef` = blast + status + zone + pull/
+  push): frag, smoke, MOLOTOV (fire DoT zone), CRYO (slow), EMP SHOCK (stun), FLASHBANG (blinds +
+  player white-out), CLUSTER (multi-blast), TOXIN (poison + LoS block), SINGULARITY (pull→boom),
+  CONCUSSION (stun + knockback), DECOY (lures the squad), PLASMA ORB (huge burst). Enemies gained
+  `stun/slow/blind/burn` status the AI respects (`enemy.ts` + the loop's status/zone ticks).
+- ZOOM = right-click **3-state toggle** (hip→zoom→deep-zoom→hip), not hold; mobile ZOOM button cycles
+  it (`useFpsLoop` `cycleZoom`).
+- FULLSCREEN button (`FpsGame.tsx`) — real Fullscreen API + landscape lock, with a **CSS pseudo-
+  fullscreen fallback for iOS Safari** (fixed overlay + body scroll-lock). Adjustable **look
+  SENSITIVITY** slider on the menu (multiplier on mouse+touch look, persisted to localStorage,
+  default 1.5×). **Exit-to-Menu** on the armory.
+- LEVELS: **6-floor towers** (`level3d.ts` `towerN` — full decks, a **switchback of external front
+  ladders** so each floor is reachable from the one below), denser building/filler counts, an
+  elevated **hill plateau**, and ziplines that connect **distinct** tower pairs (no circle).
+- ENEMIES: **tank** role (3× HP) + **sniper** role (climbs the nearest tower to **perch**, long
+  range, swaps to a rifle up close); **wall-avoidance** steering; **enemies can climb** ladders to
+  chase an elevated player. **Perception made realistic** — regular acquisition range cut to
+  26/33/42 (was 48/64/84) so they DON'T see across the map at spawn; **only the sniper** keeps long
+  range (68); base accuracy lowered + steeper distance falloff; squad intel window 5 s; **zero-in
+  tracking** (sustained LoS ramps a bot's aim 45%→100% over ~1.4 s, decays when sight breaks).
+  **Sprites redesigned** — an armoured soldier with **4 state-driven poses** (run A/B, fire +
+  muzzle flash, crouch/peek) chosen from real movement + `e.muzzle`/`e.state` (`textures.ts`).
+- BOSSES nerfed (`enemy.ts` `BOSSES`): movement now **2× normal enemy speed** (was ~3–4×); per-hit
+  damage ~**2× normal, scaled per boss** (XENO 22/14, WARLORD 24/11, KRAKEN 20/16 melee/ranged).
+- CUSTOMIZATION: per-gun upgrades (`fps/customize.ts` + `screens/FpsCustomize.tsx`) across 4 tracks
+  (Damage / Fire Rate / Magazine / Reload, 4 levels, gold cost 60/120/180/240), funded by **stage
+  gold** via a "Customize Guns" button in the armory; every gun starts with a free **basic +1 damage**
+  enhancement; applied per run. **Radar/minimap** on the HUD (player-relative, forward = up; red
+  enemies, orange bosses). NEW files: `fps/customize.ts`, `screens/FpsCustomize.tsx`.
+OPEN/next (Gabe playtest items): WARLORD still fires fast (0.16 s) so its ranged pressure is highest —
+slow its rate if it still bites; arsenal ~18 (toward 20); local best-level vs a fuller leaderboard;
+multi-floor ENEMY pathfinding is first-pass (bots reliably reach the first deck only). All on `main`.
 ═════════════════════════════════════════════════════════════════════════════════════
 
 ═══════════════ WHERE WE ARE RIGHT NOW (2026-06-14) ═══════════════
