@@ -31,6 +31,7 @@ export interface Enemy {
   barUntil: number; // show a health bar until this timestamp (set on hit)
   boss: BossKind | null;
   track: number; // seconds of continuous line-of-sight (accuracy zeroes in)
+  muzzle: number; // seconds left on the firing pose / muzzle flash
   // Throwable-applied status (timers, seconds). Decremented by the game loop.
   stunT: number; // frozen: no move, no fire
   slowT: number; // movement at ~45%
@@ -264,7 +265,7 @@ export function spawnEnemies(lvl: Level3D, count: number, rand: () => number): E
     const sr = squadRole(out.length, count);
     const hp = sr.role === 'tank' ? ENEMY_HP * TANK_HP_MUL : ENEMY_HP;
     const perch = sr.role === 'sniper' ? assignPerch(lvl, x, z) : null;
-    out.push({ x, y: 0, z, health: hp, maxHealth: hp, state: 'idle', lastSeen: null, fireCd: rand() * 0.6, hitFlash: 0, wander: rand() * 6, step: 0, alarm: 0, weapon: WEAPON_KEYS[Math.floor(rand() * WEAPON_KEYS.length)], role: sr.role, side: sr.side, barUntil: 0, boss: null, track: 0, stunT: 0, slowT: 0, blindT: 0, burnT: 0, burnDps: 0, onDeck: false, perch });
+    out.push({ x, y: 0, z, health: hp, maxHealth: hp, state: 'idle', lastSeen: null, fireCd: rand() * 0.6, hitFlash: 0, wander: rand() * 6, step: 0, alarm: 0, weapon: WEAPON_KEYS[Math.floor(rand() * WEAPON_KEYS.length)], role: sr.role, side: sr.side, barUntil: 0, boss: null, track: 0, muzzle: 0, stunT: 0, slowT: 0, blindT: 0, burnT: 0, burnDps: 0, onDeck: false, perch });
   }
   return out;
 }
@@ -294,6 +295,7 @@ export function spawnBosses(lvl: Level3D, kinds: BossKind[], rand: () => number)
       barUntil: 0,
       boss: k,
       track: 0,
+      muzzle: 0,
       stunT: 0,
       slowT: 0,
       blindT: 0,
@@ -363,6 +365,7 @@ export function updateEnemies(
     const dist = Math.hypot(player.x - e.x, player.z - e.z);
     const W = e.role === 'sniper' ? (dist > 12 ? SNIPER_W : WEAPONS.rifle) : WEAPONS[e.weapon];
     e.fireCd = W.rate;
+    e.muzzle = 0.12; // show the firing pose + muzzle flash briefly
     tracers.push({ from: [e.x, e.y + EYE_H, e.z], to: peye, color: W.color });
     const evade = Math.min(0.7, pspeed * 0.14);
     // Accuracy falls off steeply with range (the sniper is the exception far out).
