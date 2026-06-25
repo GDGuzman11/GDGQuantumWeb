@@ -49,7 +49,6 @@ export type BossKind = 'xeno' | 'warrior' | 'octopus';
 export interface BossDef {
   name: string;
   health: number;
-  speed: number;
   scale: number; // sprite size vs a regular alien (~4×)
   radius: number; // collision/hit radius
   meleeRange: number;
@@ -60,10 +59,12 @@ export interface BossDef {
   acc: number; // hit chance (they barely miss)
   color: number; // ranged tracer colour
 }
+// Damage tuned to ~2× a normal alien hit (~10), scaled per boss for identity;
+// bosses also move at exactly 2× the normal enemy speed (applied below).
 export const BOSSES: Record<BossKind, BossDef> = {
-  xeno: { name: 'XENOMORPH', health: 3500, speed: 9, scale: 4, radius: 1.6, meleeRange: 4, meleeDmg: 34, meleeRate: 0.7, rangeDmg: 16, rangeRate: 0.6, acc: 0.85, color: 0x9cff6a },
-  warrior: { name: 'WARLORD', health: 4000, speed: 8, scale: 4, radius: 1.6, meleeRange: 4, meleeDmg: 42, meleeRate: 0.6, rangeDmg: 13, rangeRate: 0.16, acc: 0.9, color: 0xff9a3a },
-  octopus: { name: 'KRAKEN', health: 4500, speed: 7.5, scale: 4.3, radius: 1.9, meleeRange: 5, meleeDmg: 30, meleeRate: 0.5, rangeDmg: 18, rangeRate: 0.4, acc: 0.88, color: 0xc08bff },
+  xeno: { name: 'XENOMORPH', health: 3500, scale: 4, radius: 1.6, meleeRange: 4, meleeDmg: 22, meleeRate: 0.7, rangeDmg: 14, rangeRate: 0.6, acc: 0.85, color: 0x9cff6a },
+  warrior: { name: 'WARLORD', health: 4000, scale: 4, radius: 1.6, meleeRange: 4, meleeDmg: 24, meleeRate: 0.6, rangeDmg: 11, rangeRate: 0.16, acc: 0.9, color: 0xff9a3a },
+  octopus: { name: 'KRAKEN', health: 4500, scale: 4.3, radius: 1.9, meleeRange: 5, meleeDmg: 20, meleeRate: 0.5, rangeDmg: 16, rangeRate: 0.4, acc: 0.88, color: 0xc08bff },
 };
 
 export type WeaponKind = 'rifle' | 'mg' | 'laser';
@@ -406,7 +407,7 @@ export function updateEnemies(
             wz += (dz / d) * 0.6;
           }
         }
-        moveEnemy(e, lvl, wx, wz, bd.speed, dt, bd.radius);
+        moveEnemy(e, lvl, wx, wz, P.speed * 2, dt, bd.radius); // 2× normal enemy speed
         const dist = Math.hypot(player.x - e.x, player.z - e.z);
         e.fireCd -= dt;
         if (dist < bd.meleeRange) {
