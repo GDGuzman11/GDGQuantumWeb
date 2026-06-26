@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties } from 'react';
+import { useCallback, useEffect, useRef, useState, type CSSProperties } from 'react';
 import { createPortal } from 'react-dom';
 import { projects, type Project } from '@/lib/projects';
 import { TECH_ICON_PATHS } from '@/lib/tech-icons';
@@ -9,16 +9,19 @@ import type { DiveSection } from '@/lib/dive';
 
 /**
  * The "quantum field" chamber — the cinematic Projects interior, as a 3D CARD
- * STACK. The projects are layered like a deck; selecting one brings it to the
- * front (the others recede behind it with depth), so a single card is always
- * centred and nothing is clipped. Arrows / dots / swipe shuffle the deck.
+ * STACK. Projects are layered like a deck; selecting one brings it to the front,
+ * the others receding behind it with depth, so a single card is always centred
+ * and nothing is clipped. Arrows / dots / swipe shuffle the deck.
  *
- * Each card's "Expand" button opens the full case study with a cinematic shard
- * transition: the screen breaks into 3D glass shards that dissolve to form the
- * full page, and reverses on exit (see ShardField + the gdg-shard-* keyframes).
+ * "Expand" plays a card→page morph: glowing CRACKS draw across the selected
+ * card, it SHATTERS, and the pieces enlarge to re-form the full case study (the
+ * card↔page morph is a clip-path reveal anchored to the card's on-screen rect).
+ * Going back fractures the page again and the pieces SHRINK back into the card.
  *
  * Lazy-loaded by Hero (kept out of First Load). Crawlable copy lives in SeoContent.
  */
+
+type Rect = { left: number; top: number; width: number; height: number };
 
 /** One tech: brand glyph (accent-glowing) or a text chip when no glyph exists. */
 function TechChip({ name, accent }: { name: string; accent: string }) {
@@ -140,71 +143,98 @@ function DeckCard({ project, pos, total, onExpand }: { project: Project; pos: nu
   );
 }
 
-/** 3D glass shards that fly in to form the page (in) / cover then scatter (out). */
-function ShardField({ accent, mode }: { accent: string; mode: 'in' | 'out' }) {
-  const COLS = 6;
-  const ROWS = 4;
-  const tiles = useMemo(() => {
-    return Array.from({ length: COLS * ROWS }, (_, i) => {
-      const col = i % COLS;
-      const row = Math.floor(i / COLS);
-      const dx = col - (COLS - 1) / 2;
-      const dy = row - (ROWS - 1) / 2;
-      const f = ((i * 73 + 17) % 100) / 100;
-      const g = ((i * 131 + 7) % 100) / 100;
-      return {
-        sx: `${dx * 140 + (f - 0.5) * 90}px`,
-        sy: `${dy * 160 + (g - 0.5) * 90}px`,
-        sz: `${(f - 0.5) * 560}px`,
-        rx: `${(g - 0.5) * 95}deg`,
-        ry: `${(f - 0.5) * 95}deg`,
-        rz: `${(g - 0.5) * 65}deg`,
-        delay: (mode === 'in' ? i : COLS * ROWS - 1 - i) * 0.01,
-      };
-    });
-  }, [mode]);
-
+/** Glowing crack lines that draw across an area (card rect, or full screen). */
+function Cracks({ accent, area, flash }: { accent: string; area: Rect | 'full'; flash?: boolean }) {
+  const box: { left: number | string; top: number | string; width: number | string; height: number | string } =
+    area === 'full' ? { left: 0, top: 0, width: '100vw', height: '100vh' } : area;
+  const paths = [
+    'M50,2 L46,24 L57,41 L43,60 L55,82 L49,99',
+    'M2,46 L25,51 L41,43 L64,55 L83,47 L99,53',
+    'M30,4 L37,30 L28,52 L40,74 L33,98',
+    'M70,3 L63,28 L73,50 L62,73 L69,97',
+    'M6,72 L30,66 L52,76 L74,63 L97,70',
+  ];
   return (
-    <div className="pointer-events-none fixed inset-0 z-[96]" style={{ perspective: '1200px' }} aria-hidden>
-      <div className="grid h-full w-full" style={{ gridTemplateColumns: `repeat(${COLS},1fr)`, gridTemplateRows: `repeat(${ROWS},1fr)`, transformStyle: 'preserve-3d' }}>
-        {tiles.map((t, i) => (
-          <div
+    <svg
+      aria-hidden
+      className="pointer-events-none fixed z-[97] overflow-visible"
+      viewBox="0 0 100 100"
+      preserveAspectRatio="none"
+      style={{ left: box.left, top: box.top, width: box.width, height: box.height }}
+    >
+      <g style={{ filter: `drop-shadow(0 0 3px ${accent}) drop-shadow(0 0 8px ${accent}aa)` }}>
+        {paths.map((d, i) => (
+          <path
             key={i}
-            style={
-              {
-                '--sx': t.sx,
-                '--sy': t.sy,
-                '--sz': t.sz,
-                '--rx': t.rx,
-                '--ry': t.ry,
-                '--rz': t.rz,
-                animation: `${mode === 'in' ? 'gdg-shard-in 0.85s ease-out' : 'gdg-shard-out 0.6s ease-in'} ${t.delay}s both`,
-                background: `linear-gradient(135deg, ${accent}33, rgba(6,8,14,0.55))`,
-                border: `1px solid ${accent}55`,
-                boxShadow: `0 0 22px ${accent}30`,
-              } as CSSProperties
-            }
+            d={d}
+            fill="none"
+            stroke={accent}
+            strokeWidth={flash ? 1.1 : 0.7}
+            strokeLinecap="round"
+            strokeDasharray={320}
+            strokeDashoffset={320}
+            style={{ animation: `${flash ? 'gdg-crack-flash 0.4s' : 'gdg-crack-draw 0.32s'} ease-out ${i * 0.025}s both` }}
           />
         ))}
-      </div>
+      </g>
+    </svg>
+  );
+}
+
+/** Glass shards over the card rect that spread outward (open) / converge in (close). */
+function ShardBurst({ accent, area, mode }: { accent: string; area: Rect; mode: 'spread' | 'converge' }) {
+  const shards = [
+    { clip: 'polygon(0% 0%, 52% 0%, 32% 46%, 0% 56%)', dx: '-30vw', dy: '-26vh', rot: '-42deg' },
+    { clip: 'polygon(52% 0%, 100% 0%, 100% 52%, 56% 34%)', dx: '32vw', dy: '-26vh', rot: '40deg' },
+    { clip: 'polygon(0% 56%, 32% 46%, 26% 100%, 0% 100%)', dx: '-34vw', dy: '24vh', rot: '-30deg' },
+    { clip: 'polygon(56% 34%, 100% 52%, 100% 100%, 60% 82%)', dx: '34vw', dy: '26vh', rot: '46deg' },
+    { clip: 'polygon(32% 46%, 56% 34%, 60% 82%, 26% 100%)', dx: '0vw', dy: '36vh', rot: '12deg' },
+  ];
+  return (
+    <div aria-hidden className="pointer-events-none fixed z-[96]" style={{ left: area.left, top: area.top, width: area.width, height: area.height }}>
+      {shards.map((s, i) => (
+        <div
+          key={i}
+          className="absolute inset-0"
+          style={
+            {
+              clipPath: s.clip,
+              background: `linear-gradient(135deg, ${accent}44, rgba(6,8,14,0.4))`,
+              border: `1px solid ${accent}66`,
+              filter: `drop-shadow(0 0 8px ${accent}66)`,
+              '--dx': s.dx,
+              '--dy': s.dy,
+              '--rot': s.rot,
+              animation: `${mode === 'spread' ? 'gdg-shard-spread 0.62s' : 'gdg-shard-converge 0.6s'} ease-out ${i * 0.02}s both`,
+            } as CSSProperties
+          }
+        />
+      ))}
     </div>
   );
 }
 
-/** Expanded case study — focused, scrollable detail with the shard transition. */
-function ProjectDetail({ project, onClose }: { project: Project; onClose: () => void }) {
+/** Card→page morph: cracks → shatter → pieces enlarge into the full case study. */
+function ProjectMorph({ project, rect, onClose }: { project: Project; rect: Rect; onClose: () => void }) {
   const { codename, name, tagline, story, highlights, tech, accent } = project;
-  const [closing, setClosing] = useState(false);
+  const [phase, setPhase] = useState<'cracks' | 'open' | 'closing'>('cracks');
+  const dims = useRef({ vw: typeof window !== 'undefined' ? window.innerWidth : 0, vh: typeof window !== 'undefined' ? window.innerHeight : 0 });
+
+  const closedClip = `inset(${rect.top}px ${dims.current.vw - (rect.left + rect.width)}px ${dims.current.vh - (rect.top + rect.height)}px ${rect.left}px round 16px)`;
+  const openClip = 'inset(0px 0px 0px 0px round 0px)';
+
+  // Cracks draw on the card first, then it shatters open.
+  useEffect(() => {
+    const t = window.setTimeout(() => setPhase('open'), 330);
+    return () => window.clearTimeout(t);
+  }, []);
 
   const requestClose = useCallback(() => {
-    setClosing((c) => {
-      if (c) return c;
-      window.setTimeout(onClose, 700);
-      return true;
-    });
+    setPhase('closing');
+    window.setTimeout(onClose, 720);
   }, [onClose]);
 
-  // Escape collapses back — intercept on capture so Hero's Escape doesn't also fire.
+  // Escape collapses back — capture so Hero's Escape doesn't also fire.
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
@@ -217,48 +247,60 @@ function ProjectDetail({ project, onClose }: { project: Project; onClose: () => 
     return () => window.removeEventListener('keydown', onKey, true);
   }, [requestClose]);
 
+  const clip = phase === 'open' ? openClip : closedClip;
+  const closing = phase === 'closing';
+
   return createPortal(
-    <div className="fixed inset-0 z-[95] flex items-start justify-center overflow-y-auto bg-[rgba(2,3,7,0.8)] px-5 py-14 backdrop-blur-lg sm:items-center sm:py-16">
-      <ShardField accent={accent} mode={closing ? 'out' : 'in'} />
+    <div className="fixed inset-0 z-[95]">
+      {/* backdrop — transparent during the crack beat (card stays visible), then in */}
+      <div className="absolute inset-0 bg-[rgba(2,3,7,0.82)] backdrop-blur-lg transition-opacity duration-[450ms]" style={{ opacity: phase === 'open' ? 1 : 0 }} />
+
+      {/* the full case study, revealed by a clip-path growing from the card rect */}
+      <div className="absolute inset-0 overflow-y-auto px-5 py-14 sm:py-16" style={{ clipPath: clip, transition: 'clip-path 0.62s cubic-bezier(0.7,0,0.2,1)' }}>
+        <div className="mx-auto w-full max-w-3xl" style={{ animation: closing ? 'gdg-holo-out 0.42s ease-in both' : 'gdg-holo-in 0.6s ease-out 0.3s both' }}>
+          <MediaViewport project={project} />
+          <p className="mt-6 font-mono text-[11px] uppercase tracking-[0.32em]" style={{ color: accent }}>
+            {codename}
+          </p>
+          <h2 className="mt-2 font-serif text-[clamp(2rem,5vw,3rem)] leading-tight text-ink">{name}</h2>
+          <p className="mt-2 font-sans text-base text-white/60">{tagline}</p>
+          <p className="mt-5 font-sans text-base leading-relaxed text-white/85">{story}</p>
+          <ul className="mt-6 flex flex-wrap gap-2">
+            {tech.map((t) => (
+              <TechChip key={t} name={t} accent={accent} />
+            ))}
+          </ul>
+          <ul className="mt-6 space-y-1.5">
+            {highlights.map((h) => (
+              <li key={h} className="flex items-start gap-2 font-mono text-xs leading-relaxed text-white/70">
+                <span aria-hidden style={{ color: accent }}>
+                  ▸
+                </span>
+                {h}
+              </li>
+            ))}
+          </ul>
+          <div className="mt-7 flex flex-wrap items-center gap-2.5">
+            <CtaRow project={project} />
+          </div>
+        </div>
+      </div>
+
+      {/* cracks: on the card while opening, full-screen flash on close */}
+      {phase === 'cracks' && <Cracks accent={accent} area={rect} />}
+      {closing && <Cracks accent={accent} area="full" flash />}
+
+      {/* shards spread out of the card (open) / converge back to it (close) */}
+      {phase !== 'cracks' && <ShardBurst accent={accent} area={rect} mode={closing ? 'converge' : 'spread'} />}
+
       <button
         type="button"
         onClick={requestClose}
-        className="group fixed left-6 top-6 z-[97] inline-flex items-center gap-2 font-sans text-xs uppercase tracking-[0.22em] text-white/70 transition-colors duration-300 hover:text-white focus:outline-none focus-visible:text-white sm:left-8 sm:top-8"
+        className="group fixed left-6 top-6 z-[98] inline-flex items-center gap-2 font-sans text-xs uppercase tracking-[0.22em] text-white/70 transition-colors duration-300 hover:text-white focus:outline-none focus-visible:text-white sm:left-8 sm:top-8"
       >
         <span aria-hidden className="transition-transform duration-300 group-hover:-translate-x-1">&larr;</span>
         Back to projects
       </button>
-
-      <div className="relative w-full max-w-3xl" style={{ animation: closing ? 'gdg-holo-out 0.42s ease-in both' : 'gdg-holo-in 0.6s ease-out 0.22s both' }}>
-        <MediaViewport project={project} />
-        <p className="mt-6 font-mono text-[11px] uppercase tracking-[0.32em]" style={{ color: accent }}>
-          {codename}
-        </p>
-        <h2 className="mt-2 font-serif text-[clamp(2rem,5vw,3rem)] leading-tight text-ink">{name}</h2>
-        <p className="mt-2 font-sans text-base text-white/60">{tagline}</p>
-        <p className="mt-5 font-sans text-base leading-relaxed text-white/85">{story}</p>
-
-        <ul className="mt-6 flex flex-wrap gap-2">
-          {tech.map((t) => (
-            <TechChip key={t} name={t} accent={accent} />
-          ))}
-        </ul>
-
-        <ul className="mt-6 space-y-1.5">
-          {highlights.map((h) => (
-            <li key={h} className="flex items-start gap-2 font-mono text-xs leading-relaxed text-white/70">
-              <span aria-hidden style={{ color: accent }}>
-                ▸
-              </span>
-              {h}
-            </li>
-          ))}
-        </ul>
-
-        <div className="mt-7 flex flex-wrap items-center gap-2.5">
-          <CtaRow project={project} />
-        </div>
-      </div>
     </div>,
     document.body,
   );
@@ -279,14 +321,20 @@ function NavArrow({ dir, onClick }: { dir: 'prev' | 'next'; onClick: () => void 
 
 export function ProjectsInterior({ onNavigate }: { onNavigate: (s: Exclude<DiveSection, null>) => void }) {
   const [active, setActive] = useState(0);
-  const [expandedId, setExpandedId] = useState<string | null>(null);
+  const [expand, setExpand] = useState<{ project: Project; rect: Rect } | null>(null);
   const n = projects.length;
   const go = (i: number) => setActive(((i % n) + n) % n);
   const startX = useRef<number | null>(null);
+  const deckRef = useRef<HTMLDivElement>(null);
+
+  const openExpand = (project: Project) => {
+    const r = deckRef.current?.getBoundingClientRect();
+    if (r) setExpand({ project, rect: { left: r.left, top: r.top, width: r.width, height: r.height } });
+  };
 
   // Arrow-key navigation while the deck is showing.
   useEffect(() => {
-    if (expandedId) return;
+    if (expand) return;
     const onKey = (e: KeyboardEvent) => {
       if (e.key === 'ArrowLeft') go(active - 1);
       else if (e.key === 'ArrowRight') go(active + 1);
@@ -294,9 +342,8 @@ export function ProjectsInterior({ onNavigate }: { onNavigate: (s: Exclude<DiveS
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [active, expandedId]);
+  }, [active, expand]);
 
-  const expanded = expandedId ? projects.find((p) => p.id === expandedId) ?? null : null;
   const accent = projects[active]?.accent ?? '#7fdfff';
 
   return (
@@ -308,6 +355,7 @@ export function ProjectsInterior({ onNavigate }: { onNavigate: (s: Exclude<DiveS
 
       {/* 3D card deck — selecting brings a card to the front of the stack. */}
       <div
+        ref={deckRef}
         className="relative mt-8"
         style={{ width: 'min(92vw, 760px)', height: 'clamp(440px, 64vh, 600px)', perspective: '1400px' }}
         onPointerDown={(e) => (startX.current = e.clientX)}
@@ -320,7 +368,7 @@ export function ProjectsInterior({ onNavigate }: { onNavigate: (s: Exclude<DiveS
         }}
       >
         {projects.map((p, i) => (
-          <DeckCard key={p.id} project={p} pos={((i - active) % n + n) % n} total={n} onExpand={() => setExpandedId(p.id)} />
+          <DeckCard key={p.id} project={p} pos={(((i - active) % n) + n) % n} total={n} onExpand={() => openExpand(p)} />
         ))}
       </div>
 
@@ -348,7 +396,7 @@ export function ProjectsInterior({ onNavigate }: { onNavigate: (s: Exclude<DiveS
         <PrimaryLink label="Continue to Contact" onClick={() => onNavigate('contact')} />
       </div>
 
-      {expanded && <ProjectDetail project={expanded} onClose={() => setExpandedId(null)} />}
+      {expand && <ProjectMorph project={expand.project} rect={expand.rect} onClose={() => setExpand(null)} />}
     </div>
   );
 }

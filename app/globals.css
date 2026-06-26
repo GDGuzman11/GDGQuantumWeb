@@ -344,41 +344,60 @@
   }
 }
 
-/* Projects "Expand" cinematic — the screen breaks into 3D glass shards that fly
-   in from scattered depth and dissolve to reveal the full case study (shard-in),
-   and on exit cover the page then fly apart again (shard-out). Per-tile scatter
-   is fed via the --sx/--sy/--sz/--rx/--ry/--rz custom properties. The content
-   itself materialises (gdg-holo-in) and scatters away (gdg-holo-out). Reduced-
-   motion collapses all of these to an instant swap. */
-@keyframes gdg-shard-in {
+/* Projects "Expand" cinematic — glowing CRACKS draw across the selected card,
+   it SHATTERS, and the pieces enlarge to re-form the full case study (the card↔
+   page morph is a clip-path reveal; the cracks + flying shards are the flourish).
+   On exit the page fractures again and the pieces SHRINK back into the card.
+   Per-shard fly direction is fed via --dx/--dy/--rot. Reduced-motion collapses
+   all of these to an instant swap. */
+@keyframes gdg-crack-draw {
   0% {
+    stroke-dashoffset: 320;
     opacity: 0;
-    transform: translate3d(var(--sx, 0), var(--sy, 0), var(--sz, 0)) rotateX(var(--rx, 0)) rotateY(var(--ry, 0)) rotateZ(var(--rz, 0));
   }
-  30% {
-    opacity: 0.95;
-  }
-  68% {
-    opacity: 0.95;
-    transform: translate3d(0, 0, 0) rotateX(0) rotateY(0) rotateZ(0);
+  25% {
+    opacity: 1;
   }
   100% {
-    opacity: 0;
-    transform: translate3d(0, 0, 0) rotateX(0) rotateY(0) rotateZ(0);
+    stroke-dashoffset: 0;
+    opacity: 1;
   }
 }
-@keyframes gdg-shard-out {
+@keyframes gdg-crack-flash {
   0% {
     opacity: 0;
-    transform: translate3d(0, 0, 0) rotateX(0) rotateY(0) rotateZ(0);
   }
-  28% {
-    opacity: 0.95;
-    transform: translate3d(0, 0, 0) rotateX(0) rotateY(0) rotateZ(0);
+  40% {
+    opacity: 1;
   }
   100% {
     opacity: 0;
-    transform: translate3d(var(--sx, 0), var(--sy, 0), var(--sz, 0)) rotateX(var(--rx, 0)) rotateY(var(--ry, 0)) rotateZ(var(--rz, 0));
+  }
+}
+@keyframes gdg-shard-spread {
+  0% {
+    opacity: 0;
+    transform: translate3d(0, 0, 0) scale(1) rotate(0);
+  }
+  18% {
+    opacity: 0.9;
+  }
+  100% {
+    opacity: 0;
+    transform: translate3d(var(--dx, 0), var(--dy, 0), 0) scale(1.7) rotate(var(--rot, 0deg));
+  }
+}
+@keyframes gdg-shard-converge {
+  0% {
+    opacity: 0;
+    transform: translate3d(var(--dx, 0), var(--dy, 0), 0) scale(1.7) rotate(var(--rot, 0deg));
+  }
+  25% {
+    opacity: 0.9;
+  }
+  100% {
+    opacity: 0;
+    transform: translate3d(0, 0, 0) scale(0.5) rotate(0);
   }
 }
 @keyframes gdg-holo-out {
