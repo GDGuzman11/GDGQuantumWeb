@@ -10,6 +10,8 @@ import { rayWallDist, raySphere, segBlocked, type Vec3 } from './fps/combat';
 import { enemyTex, bossTex } from './fps/textures';
 import type { GunDef, ThrowDef } from './fps/weapons';
 import { sfx } from './engine/audio';
+import { makeComposer } from './fps/postfx';
+import type { RenderTier } from './fps/materials';
 
 const RW = 480;
 const RH = 270;
@@ -116,6 +118,17 @@ export function useFpsLoop(
     const isTouch = 'ontouchstart' in window;
     const ballGeo = new THREE.SphereGeometry(1, 10, 8);
 
+    // Render tier — drives material cost (emissive walls) + post-FX weight.
+    // Phones / low-memory devices get the cheaper Lambert walls + bloom-only.
+    const lowMem = typeof navigator !== 'undefined' && (navigator as Navigator & { deviceMemory?: number }).deviceMemory !== undefined
+      && ((navigator as Navigator & { deviceMemory?: number }).deviceMemory as number) < 4;
+    const tier: RenderTier = isTouch || lowMem ? 'mobile' : 'desktop';
+
+    // Imperative post-processing composer (Bloom + grain), built lazily once the
+    // first world exists; sized to the 480×270 buffer. The RenderPass's scene is
+    // repointed when the world is rebuilt (camera object is stable).
+    let composer: ReturnType<typeof makeComposer> | null = null;
+
     let world: World | null = null;
     let builtFor: Level3D | null = null;
     let sprites: THREE.Sprite[] = [];
@@ -171,7 +184,14 @@ export function useFpsLoop(
     const buildFor = (g: FpsGameState) => {
       disposeExtras();
       world?.dispose();
-      world = buildWorld(g.level);
+      world = buildWorld(g.level, tier);
+      // Build the composer once; afterwards just repoint the RenderPass at the
+      // new scene (do NOT recreate the renderer or the whole composer).
+      if (!composer) {
+        composer = makeComposer(renderer, world.scene, camera, tier, RW, RH);
+      } else {
+        composer.renderPass.mainScene = world.scene;
+      }
       const mk = (canvas2: HTMLCanvasElement) => {
         const t = new THREE.CanvasTexture(canvas2);
         t.magFilter = THREE.NearestFilter;
@@ -759,7 +779,10 @@ export function useFpsLoop(
         camera.position.set(p.x, p.y + EYE, p.z);
         camera.rotation.y = p.yaw;
         camera.rotation.x = p.pitch;
-        if (world) renderer.render(world.scene, camera);
+        if (world) {
+          if (composer) composer.composer.render(dt);
+          else renderer.render(world.scene, camera);
+        }
 
         if (now - lastSnap > 70) {
           lastSnap = now;
@@ -816,6 +839,7 @@ export function useFpsLoop(
       disposeExtras();
       world?.dispose();
       ballGeo.dispose();
+      composer?.composer.dispose();
       renderer.dispose();
     };
   }, [canvasRef, gameRef, active, onSnapshot]);

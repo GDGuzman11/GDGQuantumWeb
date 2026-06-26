@@ -9,6 +9,7 @@ import * as THREE from 'three';
 import type { Level3D } from './level3d';
 import { getTextures, groundTex } from './textures';
 import { rng } from './rand';
+import { makeWallMaterial, makeGroundMaterial, type RenderTier } from './materials';
 
 export interface World {
   scene: THREE.Scene;
@@ -53,13 +54,14 @@ function skyTexture(seed: number): HTMLCanvasElement {
   return c;
 }
 
-export function buildWorld(level: Level3D): World {
+export function buildWorld(level: Level3D, tier: RenderTier = 'desktop'): World {
   const scene = new THREE.Scene();
-  scene.fog = new THREE.Fog('#0e1426', level.size * 0.55, level.size * 2.1);
+  // Slightly deeper fog gives the bloomed neon more atmosphere to read against.
+  scene.fog = new THREE.Fog('#0e1426', level.size * 0.5, level.size * 2.1);
 
   // Bright, even lighting so the arena reads clearly.
   scene.add(new THREE.HemisphereLight('#cfe0ff', '#3a4366', 1.7));
-  const dir = new THREE.DirectionalLight('#f0f5ff', 1.7);
+  const dir = new THREE.DirectionalLight('#f0f5ff', 1.8);
   dir.position.set(0.4, 1, 0.25);
   scene.add(dir);
   scene.add(new THREE.AmbientLight('#6b7796', 0.9));
@@ -80,7 +82,7 @@ export function buildWorld(level: Level3D): World {
   const gtex = tex(groundTex(), level.size);
   const ground = new THREE.Mesh(
     new THREE.PlaneGeometry(level.size, level.size),
-    new THREE.MeshLambertMaterial({ map: gtex }),
+    makeGroundMaterial(gtex, tier),
   );
   ground.rotation.x = -Math.PI / 2;
   scene.add(ground);
@@ -88,7 +90,7 @@ export function buildWorld(level: Level3D): World {
 
   // Walls / boxes
   const canvases = getTextures();
-  const mats = canvases.map((c) => new THREE.MeshLambertMaterial({ map: tex(c) }));
+  const mats = canvases.map((c) => makeWallMaterial(tex(c), tier));
   disposables.push(...mats);
   for (const b of level.boxes) {
     const geo = new THREE.BoxGeometry(b.sx, b.sy, b.sz);
