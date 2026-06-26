@@ -352,10 +352,10 @@
    all of these to an instant swap. */
 @keyframes gdg-crack-draw {
   0% {
-    stroke-dashoffset: 320;
+    stroke-dashoffset: var(--len, 320);
     opacity: 0;
   }
-  25% {
+  14% {
     opacity: 1;
   }
   100% {

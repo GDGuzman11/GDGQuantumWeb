@@ -8,45 +8,130 @@ import { PrimaryLink } from '@/components/home/PrimaryLink';
 import type { DiveSection } from '@/lib/dive';
 
 /**
- * The "quantum field" chamber — the cinematic Projects interior, as a 3D CARD
- * STACK. Projects are layered like a deck; selecting one brings it to the front,
- * the others receding behind it, so a single card is always centred (nothing is
- * clipped). Arrows / dots / swipe shuffle the deck.
+ * The cinematic Projects interior — a 3D CARD STACK (deck). Selecting a project
+ * brings its card to the front; arrows / dots / swipe shuffle the deck.
  *
- * "Expand" plays a real card→page shatter: glowing CRACKS draw along the seams,
- * then the card breaks into pieces that are CLONES OF THE REAL CARD (clip-path
- * slices of the actual content — no rasterising, no html2canvas). The pieces
- * enlarge and fly out as the full case study reveals (a clip-path growing from
- * the card's on-screen rect). Going back fractures the page and the pieces SHRINK
- * back together to reform the original card.
+ * "Expand" plays a procedurally-generated SHATTER: random crack lines slow-form
+ * out of an impact point and run until they intersect, then the card breaks along
+ * those exact seams into pieces (clip-path slices of the REAL card — no html2canvas)
+ * that enlarge and fly out as the full case study forms. Going back re-forms the
+ * SAME cracks across the screen and the pieces shrink back together into the card.
  *
- * Lazy-loaded by Hero (kept out of First Load). Crawlable copy lives in SeoContent.
+ * Lazy-loaded by Hero (out of First Load). Crawlable copy lives in SeoContent.
  */
 
 type Rect = { left: number; top: number; width: number; height: number };
+type Pt = [number, number];
+type GenCrack = { d: string; len: number; dur: number; delay: number };
+type GenShard = { clip: string; dx: string; dy: string; rot: string };
+type Shatter = { cracks: GenCrack[]; shards: GenShard[] };
 
-/** The shatter pieces: each is a fan slice from the card centre, with a fly-out
- *  direction. The crack seams are drawn along these same boundaries. */
-const SHARDS: { clip: string; dx: string; dy: string; rot: string }[] = [
-  { clip: 'polygon(48% 52%, 50% 0%, 100% 0%, 100% 28%)', dx: '26vw', dy: '-30vh', rot: '34deg' },
-  { clip: 'polygon(48% 52%, 100% 28%, 100% 76%)', dx: '44vw', dy: '-2vh', rot: '18deg' },
-  { clip: 'polygon(48% 52%, 100% 76%, 100% 100%, 54% 100%)', dx: '28vw', dy: '32vh', rot: '42deg' },
-  { clip: 'polygon(48% 52%, 54% 100%, 0% 100%, 0% 72%)', dx: '-28vw', dy: '32vh', rot: '-42deg' },
-  { clip: 'polygon(48% 52%, 0% 72%, 0% 26%)', dx: '-44vw', dy: '2vh', rot: '-18deg' },
-  { clip: 'polygon(48% 52%, 0% 26%, 0% 0%, 50% 0%)', dx: '-26vw', dy: '-30vh', rot: '-34deg' },
-];
+// ---- procedural shatter geometry (0..100 viewBox coords) --------------------
+const clamp = (v: number) => Math.max(0, Math.min(100, v));
 
-/** Crack seams (centre → perimeter), matching the shard boundaries. */
-const CRACK_PATHS = [
-  'M48,52 L49,28 L50,0',
-  'M48,52 L74,42 L100,28',
-  'M48,52 L76,66 L100,76',
-  'M48,52 L52,78 L54,100',
-  'M48,52 L22,64 L0,72',
-  'M48,52 L23,40 L0,26',
-];
+function perimeterPoint(t: number): Pt {
+  const u = ((t % 4) + 4) % 4;
+  if (u < 1) return [u * 100, 0];
+  if (u < 2) return [100, (u - 1) * 100];
+  if (u < 3) return [100 - (u - 2) * 100, 100];
+  return [0, 100 - (u - 3) * 100];
+}
+function pointToT([x, y]: Pt): number {
+  if (y <= 0.5) return x / 100;
+  if (x >= 99.5) return 1 + y / 100;
+  if (y >= 99.5) return 2 + (100 - x) / 100;
+  return 3 + (100 - y) / 100;
+}
+function rayExit(ix: number, iy: number, ang: number): Pt {
+  const dx = Math.cos(ang);
+  const dy = Math.sin(ang);
+  let s = Infinity;
+  if (dx > 1e-6) s = Math.min(s, (100 - ix) / dx);
+  if (dx < -1e-6) s = Math.min(s, (0 - ix) / dx);
+  if (dy > 1e-6) s = Math.min(s, (100 - iy) / dy);
+  if (dy < -1e-6) s = Math.min(s, (0 - iy) / dy);
+  return [clamp(ix + dx * s), clamp(iy + dy * s)];
+}
+function jagged(a: Pt, b: Pt, segs: number, jit: number): Pt[] {
+  const out: Pt[] = [a];
+  const dx = b[0] - a[0];
+  const dy = b[1] - a[1];
+  const L = Math.hypot(dx, dy) || 1;
+  const px = -dy / L;
+  const py = dx / L;
+  for (let i = 1; i < segs; i++) {
+    const f = i / segs;
+    const j = (Math.random() - 0.5) * jit * (1 - Math.abs(f - 0.5));
+    out.push([a[0] + dx * f + px * j, a[1] + dy * f + py * j]);
+  }
+  out.push(b);
+  return out;
+}
+function polyLen(pts: Pt[]): number {
+  let L = 0;
+  for (let i = 1; i < pts.length; i++) L += Math.hypot(pts[i][0] - pts[i - 1][0], pts[i][1] - pts[i - 1][1]);
+  return L;
+}
+const pathD = (pts: Pt[]) => 'M' + pts.map(([x, y]) => `${x.toFixed(1)},${y.toFixed(1)}`).join(' L');
+function cornersBetween(t0: number, t1: number): Pt[] {
+  let span = t1 - t0;
+  if (span <= 1e-6) span += 4;
+  const cs: { d: number; p: Pt }[] = [];
+  for (let c = 0; c < 4; c++) {
+    let d = c - t0;
+    if (d <= 1e-6) d += 4;
+    if (d < span - 1e-6) cs.push({ d, p: perimeterPoint(c) });
+  }
+  cs.sort((a, b) => a.d - b.d);
+  return cs.map((x) => x.p);
+}
+const pointAlong = (pts: Pt[], f: number): Pt => pts[Math.max(1, Math.min(pts.length - 2, Math.round(f * (pts.length - 1))))];
 
-/** One tech: brand glyph (accent-glowing) or a text chip when no glyph exists. */
+/** Build a fresh random shatter: radial cracks from an impact point (sectors =
+ *  shards), plus connector cracks that run between them and intersect. */
+function generateShatter(): Shatter {
+  const k = 5 + Math.floor(Math.random() * 3); // 5..7 main cracks
+  const ix = 38 + Math.random() * 24;
+  const iy = 42 + Math.random() * 16;
+  const radials = Array.from({ length: k }, (_, j) => {
+    const ang = (j / k) * Math.PI * 2 + (Math.random() - 0.5) * (Math.PI * 2 / k) * 0.85;
+    const exit = rayExit(ix, iy, ang);
+    const pts = jagged([ix, iy], exit, 4 + Math.floor(Math.random() * 3), 8);
+    return { pts, t: pointToT(exit), d: pathD(pts), len: polyLen(pts) };
+  }).sort((a, b) => a.t - b.t);
+
+  const shards: GenShard[] = radials.map((c, i) => {
+    const next = radials[(i + 1) % k];
+    const poly = [...c.pts, ...cornersBetween(c.t, next.t), ...[...next.pts].reverse()];
+    const clip = `polygon(${poly.map(([x, y]) => `${clamp(x).toFixed(1)}% ${clamp(y).toFixed(1)}%`).join(', ')})`;
+    const cx = poly.reduce((s, p) => s + p[0], 0) / poly.length;
+    const cy = poly.reduce((s, p) => s + p[1], 0) / poly.length;
+    let nx = cx - ix;
+    let ny = cy - iy;
+    const L = Math.hypot(nx, ny) || 1;
+    nx /= L;
+    ny /= L;
+    return { clip, dx: `${(nx * 42).toFixed(0)}vw`, dy: `${(ny * 44).toFixed(0)}vh`, rot: `${((Math.random() * 2 - 1) * 48).toFixed(0)}deg` };
+  });
+
+  const connectors: GenCrack[] = [];
+  for (let i = 0; i < k; i++) {
+    if (Math.random() < 0.65) {
+      const a = pointAlong(radials[i].pts, 0.4 + Math.random() * 0.4);
+      const b = pointAlong(radials[(i + 1) % k].pts, 0.4 + Math.random() * 0.4);
+      const pts = jagged(a, b, 3 + Math.floor(Math.random() * 2), 7);
+      connectors.push({ d: pathD(pts), len: polyLen(pts), dur: 0.34 + Math.random() * 0.18, delay: 0.34 + Math.random() * 0.26 });
+    }
+  }
+  const cracks: GenCrack[] = [
+    ...radials.map((c) => ({ d: c.d, len: c.len, dur: 0.5 + Math.random() * 0.32, delay: Math.random() * 0.14 })),
+    ...connectors,
+  ];
+  return { cracks, shards };
+}
+
+// ---- card visuals -----------------------------------------------------------
+
 function TechChip({ name, accent }: { name: string; accent: string }) {
   const path = TECH_ICON_PATHS[name];
   return (
@@ -65,8 +150,6 @@ function TechChip({ name, accent }: { name: string; accent: string }) {
   );
 }
 
-/** The reserved media viewport: video > image > placeholder. `still` (used for
- *  the shatter clones) shows the poster/image only — never a live <video>. */
 function MediaViewport({ project, fill, still }: { project: Project; fill?: boolean; still?: boolean }) {
   const { media, accent, name } = project;
   const [failed, setFailed] = useState(false);
@@ -98,7 +181,6 @@ function MediaViewport({ project, fill, still }: { project: Project; fill?: bool
   );
 }
 
-/** A real CTA — external link or in-app route. */
 function Cta({ href, label, accent, external, muted }: { href: string; label: string; accent: string; external?: boolean; muted?: boolean }) {
   return (
     <a
@@ -113,7 +195,6 @@ function Cta({ href, label, accent, external, muted }: { href: string; label: st
   );
 }
 
-/** Buttons shared by the deck card and the expanded detail. */
 function CtaRow({ project }: { project: Project }) {
   const { links, accent } = project;
   if (project.private) {
@@ -128,8 +209,7 @@ function CtaRow({ project }: { project: Project }) {
   );
 }
 
-/** The card SURFACE — no glass blur (so the shatter clones match it exactly).
- *  Rendered once for the live deck card, and N times (sliced) for the shatter. */
+/** Card surface — no glass blur, so the shatter clones match it exactly. */
 function CardVisual({ project, onExpand, still }: { project: Project; onExpand?: () => void; still?: boolean }) {
   const { codename, name, tagline, story, accent } = project;
   return (
@@ -162,7 +242,6 @@ function CardVisual({ project, onExpand, still }: { project: Project; onExpand?:
   );
 }
 
-/** A deck card. `pos` = depth from the front (0 = front, centred). */
 function DeckCard({ project, pos, total, onExpand }: { project: Project; pos: number; total: number; onExpand: () => void }) {
   const { accent } = project;
   const front = pos === 0;
@@ -181,26 +260,16 @@ function DeckCard({ project, pos, total, onExpand }: { project: Project; pos: nu
   );
 }
 
-/** The real card sliced into shards. `mode` spreads them out (open) or converges
- *  them back to reform the card (close). Each shard is a clip-path slice of the
- *  actual CardVisual, so the pieces show real content. */
-function ShatterCard({ project, rect, mode }: { project: Project; rect: Rect; mode: 'spread' | 'converge' }) {
+/** The real card sliced into the generated shards — spread out / converge back. */
+function ShatterCard({ project, rect, shards, mode }: { project: Project; rect: Rect; shards: GenShard[]; mode: 'spread' | 'converge' }) {
+  const anim = mode === 'spread' ? 'gdg-shard-spread 0.7s ease-in 0.66s both' : 'gdg-shard-converge 0.66s ease-out 0.18s both';
   return (
     <div className="pointer-events-none fixed z-[96]" style={{ left: rect.left, top: rect.top, width: rect.width, height: rect.height }} aria-hidden>
-      {SHARDS.map((s, i) => (
+      {shards.map((s, i) => (
         <div
           key={i}
           className="absolute inset-0"
-          style={
-            {
-              clipPath: s.clip,
-              filter: `drop-shadow(0 0 10px ${project.accent}55)`,
-              '--dx': s.dx,
-              '--dy': s.dy,
-              '--rot': s.rot,
-              animation: `${mode === 'spread' ? 'gdg-shard-spread 0.72s ease-in 0.28s' : 'gdg-shard-converge 0.66s ease-out'} both`,
-            } as CSSProperties
-          }
+          style={{ clipPath: s.clip, filter: `drop-shadow(0 0 10px ${project.accent}55)`, '--dx': s.dx, '--dy': s.dy, '--rot': s.rot, animation: anim } as CSSProperties}
         >
           <CardVisual project={project} still />
         </div>
@@ -209,34 +278,47 @@ function ShatterCard({ project, rect, mode }: { project: Project; rect: Rect; mo
   );
 }
 
-/** Glowing crack lines along the shard seams (card rect), or a full-screen flash. */
-function Cracks({ accent, area, flash }: { accent: string; area: Rect | 'full'; flash?: boolean }) {
+/** The generated crack lines, drawn (slow-forming) over the card rect or full screen. */
+function Cracks({ accent, area, cracks }: { accent: string; area: Rect | 'full'; cracks: GenCrack[] }) {
   const box: { left: number | string; top: number | string; width: number | string; height: number | string } =
     area === 'full' ? { left: 0, top: 0, width: '100vw', height: '100vh' } : area;
   return (
     <svg aria-hidden className="pointer-events-none fixed z-[97] overflow-visible" viewBox="0 0 100 100" preserveAspectRatio="none" style={{ left: box.left, top: box.top, width: box.width, height: box.height }}>
-      <g style={{ filter: `drop-shadow(0 0 3px ${accent}) drop-shadow(0 0 8px ${accent}aa)` }}>
-        {CRACK_PATHS.map((d, i) => (
-          <path key={i} d={d} fill="none" stroke={accent} strokeWidth={flash ? 1.1 : 0.7} strokeLinecap="round" strokeDasharray={320} strokeDashoffset={320} style={{ animation: `${flash ? 'gdg-crack-flash 0.4s' : 'gdg-crack-draw 0.3s'} ease-out ${i * 0.02}s both` }} />
+      <g style={{ filter: `drop-shadow(0 0 3px ${accent}) drop-shadow(0 0 9px ${accent}aa)` }}>
+        {cracks.map((c, i) => (
+          <path
+            key={i}
+            d={c.d}
+            fill="none"
+            stroke={accent}
+            strokeWidth={1.4}
+            strokeLinecap="round"
+            vectorEffect="non-scaling-stroke"
+            strokeDasharray={c.len}
+            strokeDashoffset={c.len}
+            style={{ '--len': c.len, animation: `gdg-crack-draw ${c.dur}s ease-out ${c.delay}s both` } as CSSProperties}
+          />
         ))}
       </g>
     </svg>
   );
 }
 
-/** Card→page shatter morph. */
+/** Card→page shatter morph (and back). */
 function ProjectMorph({ project, rect, onClose }: { project: Project; rect: Rect; onClose: () => void }) {
   const { codename, name, tagline, story, highlights, tech, accent } = project;
   const [phase, setPhase] = useState<'opening' | 'open' | 'closing'>('opening');
   const [expanded, setExpanded] = useState(false);
+  const [breaking, setBreaking] = useState(false); // close step 2: page shatters in
+  const gen = useState<Shatter>(generateShatter)[0]; // same cracks/shards for open AND close
   const dims = useRef({ vw: typeof window !== 'undefined' ? window.innerWidth : 0, vh: typeof window !== 'undefined' ? window.innerHeight : 0 });
 
   const closedClip = `inset(${rect.top}px ${dims.current.vw - (rect.left + rect.width)}px ${dims.current.vh - (rect.top + rect.height)}px ${rect.left}px round 16px)`;
   const openClip = 'inset(0px 0px 0px 0px round 0px)';
 
   useEffect(() => {
-    const t1 = window.setTimeout(() => setExpanded(true), 300); // page reveals as shards fly
-    const t2 = window.setTimeout(() => setPhase('open'), 1150); // shatter done → drop the shards
+    const t1 = window.setTimeout(() => setExpanded(true), 700); // cracks form first, THEN the card shatters open
+    const t2 = window.setTimeout(() => setPhase('open'), 1650);
     return () => {
       window.clearTimeout(t1);
       window.clearTimeout(t2);
@@ -244,12 +326,14 @@ function ProjectMorph({ project, rect, onClose }: { project: Project; rect: Rect
   }, []);
 
   const requestClose = useCallback(() => {
-    setPhase('closing');
-    setExpanded(false);
-    window.setTimeout(onClose, 760);
+    setPhase('closing'); // step 1: the same cracks re-form across the full screen
+    window.setTimeout(() => {
+      setExpanded(false); // step 2: it shatters — page recedes, pieces converge into the card
+      setBreaking(true);
+    }, 440);
+    window.setTimeout(onClose, 1240);
   }, [onClose]);
 
-  // Escape collapses back — capture so Hero's Escape doesn't also fire.
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
@@ -266,12 +350,10 @@ function ProjectMorph({ project, rect, onClose }: { project: Project; rect: Rect
 
   return createPortal(
     <div role="dialog" aria-modal="true" aria-label={`${name} case study`} className="fixed inset-0 z-[95]">
-      {/* backdrop — fades in as the page reveals, out on exit */}
-      <div className="absolute inset-0 bg-[rgba(2,3,7,0.86)] backdrop-blur-lg transition-opacity duration-[420ms]" style={{ opacity: expanded ? 1 : 0 }} />
+      <div className="absolute inset-0 bg-[rgba(2,3,7,0.86)] backdrop-blur-lg transition-opacity duration-[420ms]" style={{ opacity: closing && breaking ? 0 : expanded ? 1 : 0.5 }} />
 
-      {/* full case study, revealed by a clip-path growing from the card rect */}
       <div className="absolute inset-0 overflow-y-auto px-5 py-14 sm:py-16" style={{ clipPath: expanded ? openClip : closedClip, transition: 'clip-path 0.6s cubic-bezier(0.7,0,0.2,1)' }}>
-        <div className="mx-auto w-full max-w-3xl" style={{ animation: closing ? 'gdg-holo-out 0.42s ease-in both' : 'gdg-holo-in 0.6s ease-out 0.45s both' }}>
+        <div className="mx-auto w-full max-w-3xl" style={{ animation: closing ? (breaking ? 'gdg-holo-out 0.42s ease-in both' : 'none') : 'gdg-holo-in 0.6s ease-out 0.75s both' }}>
           <MediaViewport project={project} />
           <p className="mt-6 font-mono text-[11px] uppercase tracking-[0.32em]" style={{ color: accent }}>
             {codename}
@@ -300,12 +382,12 @@ function ProjectMorph({ project, rect, onClose }: { project: Project; rect: Rect
         </div>
       </div>
 
-      {/* cracks along the seams (open), full-screen fracture flash (close) */}
-      {phase === 'opening' && <Cracks accent={accent} area={rect} />}
-      {closing && <Cracks accent={accent} area="full" flash />}
+      {/* the SAME random cracks form on the card (open) or across the screen (close) */}
+      {phase === 'opening' && <Cracks accent={accent} area={rect} cracks={gen.cracks} />}
+      {closing && <Cracks accent={accent} area="full" cracks={gen.cracks} />}
 
-      {/* the real card, shattered — spreads out (open) / converges back (close) */}
-      {phase !== 'open' && <ShatterCard project={project} rect={rect} mode={closing ? 'converge' : 'spread'} />}
+      {/* the real card, shattered along the cracks — spreads out (open) / converges back (close) */}
+      {(phase === 'opening' || (closing && breaking)) && <ShatterCard project={project} rect={rect} shards={gen.shards} mode={closing ? 'converge' : 'spread'} />}
 
       <button
         type="button"
