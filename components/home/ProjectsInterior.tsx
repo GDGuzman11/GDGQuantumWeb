@@ -290,12 +290,12 @@ function SectionLabel({ accent, children }: { accent: string; children: React.Re
 }
 
 /** One gallery item: real media (with graceful placeholder fallback). */
-function GalleryMedia({ item, accent, thumb }: { item: GalleryItem; accent: string; thumb?: boolean }) {
+function GalleryMedia({ item, accent, thumb, fill }: { item: GalleryItem; accent: string; thumb?: boolean; fill?: boolean }) {
   const [failed, setFailed] = useState(false);
   const isVideo = item.kind === 'video';
   const ok = !failed;
   return (
-    <div className="relative aspect-video w-full overflow-hidden rounded-lg border border-white/10 bg-black/40">
+    <div className={`relative w-full overflow-hidden rounded-lg border border-white/10 bg-black/40 ${fill ? 'h-full' : 'aspect-video'}`}>
       {ok && isVideo && (
         <video className="h-full w-full object-cover" src={item.src} poster={item.poster} playsInline muted={thumb} controls={!thumb} onError={() => setFailed(true)} />
       )}
@@ -317,26 +317,32 @@ function GalleryMedia({ item, accent, thumb }: { item: GalleryItem; accent: stri
   );
 }
 
-/** The media gallery: a main viewer + selectable thumbnails. */
+/** The media gallery: a main viewer (fills its tile) + selectable thumbnails. */
 function Gallery({ project }: { project: Project }) {
   const items = project.gallery ?? [];
   const [sel, setSel] = useState(0);
-  if (items.length === 0) return <MediaViewport project={project} />;
+  if (items.length === 0) return <MediaViewport project={project} fill />;
   const i = Math.min(sel, items.length - 1);
   const cur = items[i];
   return (
-    <div>
-      <GalleryMedia item={cur} accent={project.accent} />
-      {cur.caption && <p className="mt-2 text-center font-sans text-xs text-white/55">{cur.caption}</p>}
-      <div className="mt-3 flex flex-wrap justify-center gap-2">
+    <div className="flex h-full min-h-0 flex-col">
+      <div className="relative min-h-0 flex-1">
+        <GalleryMedia item={cur} accent={project.accent} fill />
+        {cur.caption && (
+          <p className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/70 to-transparent px-3 py-2 text-center font-sans text-[11px] text-white/75">
+            {cur.caption}
+          </p>
+        )}
+      </div>
+      <div className="mt-2 flex shrink-0 flex-wrap justify-center gap-1.5">
         {items.map((it, idx) => (
           <button
             key={idx}
             type="button"
             aria-label={`View ${it.caption ?? `item ${idx + 1}`}`}
             onClick={() => setSel(idx)}
-            className="w-20 overflow-hidden rounded-md transition-opacity focus:outline-none focus-visible:ring-2 focus-visible:ring-white/60"
-            style={{ outline: idx === i ? `2px solid ${project.accent}` : '2px solid transparent', outlineOffset: 2, opacity: idx === i ? 1 : 0.6 }}
+            className="w-16 overflow-hidden rounded transition-opacity focus:outline-none focus-visible:ring-2 focus-visible:ring-white/60"
+            style={{ outline: idx === i ? `2px solid ${project.accent}` : '2px solid transparent', outlineOffset: 2, opacity: idx === i ? 1 : 0.55 }}
           >
             <GalleryMedia item={it} accent={project.accent} thumb />
           </button>
@@ -346,103 +352,109 @@ function Gallery({ project }: { project: Project }) {
   );
 }
 
-/** The full case study — sectioned for a recruiter / fellow-dev skim then deep read. */
+/** A bento tile — a glass panel that clips (no internal scroll) on the desktop grid. */
+function Tile({ className, accent, delay, children }: { className?: string; accent?: string; delay?: number; children: React.ReactNode }) {
+  return (
+    <div
+      className={`flex min-h-0 flex-col overflow-hidden rounded-2xl border border-white/12 bg-[rgba(10,13,22,0.62)] p-4 ${className ?? ''}`}
+      style={{ animation: `gdg-holo-in 0.5s ease-out ${delay ?? 0}s both`, ...(accent ? { boxShadow: `0 18px 60px -34px ${accent}88` } : {}) }}
+    >
+      {children}
+    </div>
+  );
+}
+
+/**
+ * The full case study as a BENTO GRID — every section is a tile, all on one
+ * screen (no scroll on desktop): a big gallery anchors top-left (F-pattern), the
+ * identity + CTAs sit top-right, and the breakdown / unique / stack tile in
+ * underneath. Below `lg` the tiles stack (the overlay scrolls — a phone can't fit
+ * it all). Tiles clip rather than scroll; the copy is kept scannable.
+ */
 function DetailView({ project, onBack }: { project: Project; onBack: () => void }) {
   const { codename, name, tagline, story, role, highlights, tech, sections, unique, accent } = project;
   return (
-    <div className="w-full max-w-3xl">
+    <div className="flex w-full max-w-5xl flex-col">
       <button
         type="button"
         onClick={onBack}
-        className="group inline-flex items-center gap-2 font-sans text-xs uppercase tracking-[0.22em] text-white/70 transition-colors duration-300 hover:text-white focus:outline-none focus-visible:text-white"
+        className="group mb-3 inline-flex shrink-0 items-center gap-2 self-start font-sans text-xs uppercase tracking-[0.22em] text-white/70 transition-colors duration-300 hover:text-white focus:outline-none focus-visible:text-white"
       >
         <span aria-hidden className="transition-transform duration-300 group-hover:-translate-x-1">&larr;</span>
         Back to projects
       </button>
 
-      {/* HERO — name, scope, links, and the metrics strip up top for the skim */}
-      <div className="mt-7">
-        <p className="font-mono text-[11px] uppercase tracking-[0.32em]" style={{ color: accent }}>
-          {codename}
-        </p>
-        <h2 className="mt-2 font-serif text-[clamp(2rem,5vw,3rem)] leading-tight text-ink">{name}</h2>
-        <p className="mt-2 font-sans text-base text-white/60">{tagline}</p>
-        {role && <p className="mt-2 font-sans text-sm text-white/45">{role}</p>}
-        <div className="mt-4 flex flex-wrap items-center gap-2.5">
-          <CtaRow project={project} />
-        </div>
-        <ul className="mt-5 flex flex-wrap gap-2">
-          {highlights.map((h) => (
-            <li key={h} className="flex items-center gap-1.5 rounded-full border border-white/10 bg-white/[0.03] px-3 py-1 font-mono text-[10px] text-white/70">
-              <span aria-hidden style={{ color: accent }}>
-                ▸
-              </span>
-              {h}
-            </li>
-          ))}
-        </ul>
-      </div>
+      <div className="grid gap-3 lg:h-[calc(100svh-12rem)] lg:max-h-[760px] lg:grid-cols-3 lg:grid-rows-[1.25fr_1fr_auto]">
+        {/* GALLERY — the big visual anchor (top-left) */}
+        <Tile accent={accent} delay={0} className="lg:col-span-2 lg:row-span-2 lg:col-start-1 lg:row-start-1">
+          <SectionLabel accent={accent}>Gallery</SectionLabel>
+          <div className="mt-2 min-h-[220px] flex-1 lg:min-h-0">
+            <Gallery project={project} />
+          </div>
+        </Tile>
 
-      {/* GALLERY */}
-      <section className="mt-12">
-        <SectionLabel accent={accent}>Gallery</SectionLabel>
-        <div className="mt-4">
-          <Gallery project={project} />
-        </div>
-      </section>
-
-      {/* OVERVIEW */}
-      <section className="mt-12">
-        <SectionLabel accent={accent}>Overview</SectionLabel>
-        <p className="mt-4 font-sans text-base leading-relaxed text-white/85">{story}</p>
-      </section>
-
-      {/* HOW IT'S BUILT — the component breakdown */}
-      {sections && sections.length > 0 && (
-        <section className="mt-12">
-          <SectionLabel accent={accent}>How it&rsquo;s built</SectionLabel>
-          <div className="mt-4 grid gap-4 sm:grid-cols-2">
-            {sections.map((s, idx) => (
-              <div key={s.title} className="rounded-xl border border-white/10 bg-white/[0.02] p-4" style={{ animation: `gdg-holo-in 0.5s ease-out ${0.05 + idx * 0.07}s both` }}>
-                <p className="font-mono text-[10px] tracking-widest text-white/30">{String(idx + 1).padStart(2, '0')}</p>
-                <h3 className="mt-1 font-sans text-[0.98rem] font-medium" style={{ color: accent }}>
-                  {s.title}
-                </h3>
-                <p className="mt-1.5 font-sans text-sm leading-relaxed text-white/70">{s.body}</p>
-              </div>
+        {/* HERO — identity, scope, links, metrics (top-right) */}
+        <Tile accent={accent} delay={0.05} className="lg:col-start-3 lg:row-start-1">
+          <p className="font-mono text-[10px] uppercase tracking-[0.3em]" style={{ color: accent }}>
+            {codename}
+          </p>
+          <h2 className="mt-1 font-serif text-[clamp(1.5rem,3vw,2.1rem)] leading-tight text-ink">{name}</h2>
+          <p className="mt-1 line-clamp-2 font-sans text-[0.85rem] text-white/60">{tagline}</p>
+          {role && <p className="mt-1.5 line-clamp-1 font-sans text-[0.75rem] text-white/45">{role}</p>}
+          <ul className="mt-2 flex min-h-0 flex-1 flex-wrap content-start gap-1.5 overflow-hidden">
+            {highlights.map((h) => (
+              <li key={h} className="flex items-center gap-1 rounded-full border border-white/10 bg-white/[0.03] px-2 py-0.5 font-mono text-[9px] text-white/70">
+                <span aria-hidden style={{ color: accent }}>
+                  ▸
+                </span>
+                {h}
+              </li>
             ))}
+          </ul>
+          <div className="mt-2 flex shrink-0 flex-wrap gap-2">
+            <CtaRow project={project} />
           </div>
-        </section>
-      )}
+        </Tile>
 
-      {/* WHAT MAKES IT UNIQUE */}
-      {unique && (
-        <section className="mt-12">
-          <SectionLabel accent={accent}>What makes it unique</SectionLabel>
-          <div className="mt-4 rounded-2xl border p-5 sm:p-6" style={{ borderColor: `${accent}55`, background: `linear-gradient(160deg, ${accent}14, rgba(6,8,14,0.5))`, boxShadow: `0 0 44px -12px ${accent}44` }}>
-            <p className="font-serif text-[clamp(1.1rem,2.4vw,1.45rem)] italic leading-relaxed text-white/90">{unique}</p>
+        {/* HOW IT'S BUILT — the component breakdown (right, mid) */}
+        <Tile accent={accent} delay={0.1} className="lg:col-start-3 lg:row-start-2">
+          <SectionLabel accent={accent}>How it&rsquo;s built</SectionLabel>
+          <ul className="mt-2 min-h-0 flex-1 space-y-1.5 overflow-hidden">
+            {(sections ?? []).map((s, idx) => (
+              <li key={s.title}>
+                <p className="font-sans text-[0.8rem] font-medium leading-tight" style={{ color: accent }}>
+                  <span className="text-white/30">{String(idx + 1).padStart(2, '0')} </span>
+                  {s.title}
+                </p>
+                <p className="line-clamp-2 font-sans text-[0.72rem] leading-snug text-white/65">{s.body}</p>
+              </li>
+            ))}
+          </ul>
+        </Tile>
+
+        {/* OVERVIEW (bottom-left) */}
+        <Tile accent={accent} delay={0.15} className="lg:col-start-1 lg:row-start-3">
+          <SectionLabel accent={accent}>Overview</SectionLabel>
+          <p className="mt-2 line-clamp-4 font-sans text-[0.82rem] leading-relaxed text-white/80">{story}</p>
+        </Tile>
+
+        {/* WHAT MAKES IT UNIQUE (bottom-middle, emphasized) */}
+        <Tile delay={0.2} className="lg:col-start-2 lg:row-start-3" >
+          <div className="-m-4 flex h-full min-h-0 flex-col p-4" style={{ background: `linear-gradient(160deg, ${accent}1c, rgba(6,8,14,0.4))`, borderRadius: '1rem' }}>
+            <SectionLabel accent={accent}>What makes it unique</SectionLabel>
+            <p className="mt-2 line-clamp-4 font-serif text-[0.95rem] italic leading-snug text-white/90">{unique}</p>
           </div>
-        </section>
-      )}
+        </Tile>
 
-      {/* STACK */}
-      <section className="mt-12">
-        <SectionLabel accent={accent}>Stack</SectionLabel>
-        <ul className="mt-4 flex flex-wrap gap-2">
-          {tech.map((t) => (
-            <TechChip key={t} name={t} accent={accent} />
-          ))}
-        </ul>
-      </section>
-
-      {/* FOOTER — links repeated + back */}
-      <div className="mt-12 flex flex-wrap items-center justify-between gap-4 border-t border-white/10 pt-6">
-        <div className="flex flex-wrap gap-2.5">
-          <CtaRow project={project} />
-        </div>
-        <button type="button" onClick={onBack} className="font-sans text-xs uppercase tracking-[0.22em] text-white/55 transition-colors hover:text-white focus:outline-none focus-visible:text-white">
-          &larr; Back to projects
-        </button>
+        {/* STACK (bottom-right) */}
+        <Tile accent={accent} delay={0.25} className="lg:col-start-3 lg:row-start-3">
+          <SectionLabel accent={accent}>Stack</SectionLabel>
+          <ul className="mt-2 flex flex-wrap gap-1.5 overflow-hidden">
+            {tech.map((t) => (
+              <TechChip key={t} name={t} accent={accent} />
+            ))}
+          </ul>
+        </Tile>
       </div>
     </div>
   );
