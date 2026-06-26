@@ -376,28 +376,25 @@
 }
 @keyframes gdg-shard-spread {
   0% {
-    opacity: 0;
+    opacity: 1;
     transform: translate3d(0, 0, 0) scale(1) rotate(0);
-  }
-  18% {
-    opacity: 0.9;
   }
   100% {
     opacity: 0;
-    transform: translate3d(var(--dx, 0), var(--dy, 0), 0) scale(1.7) rotate(var(--rot, 0deg));
+    transform: translate3d(var(--dx, 0), var(--dy, 0), 0) scale(1.5) rotate(var(--rot, 0deg));
   }
 }
 @keyframes gdg-shard-converge {
   0% {
     opacity: 0;
-    transform: translate3d(var(--dx, 0), var(--dy, 0), 0) scale(1.7) rotate(var(--rot, 0deg));
+    transform: translate3d(var(--dx, 0), var(--dy, 0), 0) scale(1.5) rotate(var(--rot, 0deg));
   }
-  25% {
-    opacity: 0.9;
+  55% {
+    opacity: 1;
   }
   100% {
-    opacity: 0;
-    transform: translate3d(0, 0, 0) scale(0.5) rotate(0);
+    opacity: 1;
+    transform: translate3d(0, 0, 0) scale(1) rotate(0);
   }
 }
 @keyframes gdg-holo-out {

@@ -10,18 +10,41 @@ import type { DiveSection } from '@/lib/dive';
 /**
  * The "quantum field" chamber — the cinematic Projects interior, as a 3D CARD
  * STACK. Projects are layered like a deck; selecting one brings it to the front,
- * the others receding behind it with depth, so a single card is always centred
- * and nothing is clipped. Arrows / dots / swipe shuffle the deck.
+ * the others receding behind it, so a single card is always centred (nothing is
+ * clipped). Arrows / dots / swipe shuffle the deck.
  *
- * "Expand" plays a card→page morph: glowing CRACKS draw across the selected
- * card, it SHATTERS, and the pieces enlarge to re-form the full case study (the
- * card↔page morph is a clip-path reveal anchored to the card's on-screen rect).
- * Going back fractures the page again and the pieces SHRINK back into the card.
+ * "Expand" plays a real card→page shatter: glowing CRACKS draw along the seams,
+ * then the card breaks into pieces that are CLONES OF THE REAL CARD (clip-path
+ * slices of the actual content — no rasterising, no html2canvas). The pieces
+ * enlarge and fly out as the full case study reveals (a clip-path growing from
+ * the card's on-screen rect). Going back fractures the page and the pieces SHRINK
+ * back together to reform the original card.
  *
  * Lazy-loaded by Hero (kept out of First Load). Crawlable copy lives in SeoContent.
  */
 
 type Rect = { left: number; top: number; width: number; height: number };
+
+/** The shatter pieces: each is a fan slice from the card centre, with a fly-out
+ *  direction. The crack seams are drawn along these same boundaries. */
+const SHARDS: { clip: string; dx: string; dy: string; rot: string }[] = [
+  { clip: 'polygon(48% 52%, 50% 0%, 100% 0%, 100% 28%)', dx: '26vw', dy: '-30vh', rot: '34deg' },
+  { clip: 'polygon(48% 52%, 100% 28%, 100% 76%)', dx: '44vw', dy: '-2vh', rot: '18deg' },
+  { clip: 'polygon(48% 52%, 100% 76%, 100% 100%, 54% 100%)', dx: '28vw', dy: '32vh', rot: '42deg' },
+  { clip: 'polygon(48% 52%, 54% 100%, 0% 100%, 0% 72%)', dx: '-28vw', dy: '32vh', rot: '-42deg' },
+  { clip: 'polygon(48% 52%, 0% 72%, 0% 26%)', dx: '-44vw', dy: '2vh', rot: '-18deg' },
+  { clip: 'polygon(48% 52%, 0% 26%, 0% 0%, 50% 0%)', dx: '-26vw', dy: '-30vh', rot: '-34deg' },
+];
+
+/** Crack seams (centre → perimeter), matching the shard boundaries. */
+const CRACK_PATHS = [
+  'M48,52 L49,28 L50,0',
+  'M48,52 L74,42 L100,28',
+  'M48,52 L76,66 L100,76',
+  'M48,52 L52,78 L54,100',
+  'M48,52 L22,64 L0,72',
+  'M48,52 L23,40 L0,26',
+];
 
 /** One tech: brand glyph (accent-glowing) or a text chip when no glyph exists. */
 function TechChip({ name, accent }: { name: string; accent: string }) {
@@ -42,12 +65,15 @@ function TechChip({ name, accent }: { name: string; accent: string }) {
   );
 }
 
-/** The reserved media viewport: video > image > graceful placeholder. */
-function MediaViewport({ project, fill }: { project: Project; fill?: boolean }) {
+/** The reserved media viewport: video > image > placeholder. `still` (used for
+ *  the shatter clones) shows the poster/image only — never a live <video>. */
+function MediaViewport({ project, fill, still }: { project: Project; fill?: boolean; still?: boolean }) {
   const { media, accent, name } = project;
   const [failed, setFailed] = useState(false);
-  const showVideo = !!media?.video && !failed;
-  const showImage = !!media?.image && !media?.video && !failed;
+  const useVideo = !still && !!media?.video;
+  const imgSrc = media?.image || (still ? media?.poster : undefined);
+  const showVideo = useVideo && !failed;
+  const showImage = !useVideo && !!imgSrc && !failed;
   const showPlaceholder = !showVideo && !showImage;
 
   return (
@@ -55,7 +81,7 @@ function MediaViewport({ project, fill }: { project: Project; fill?: boolean }) 
       {showVideo && <video className="h-full w-full object-cover" src={media!.video} poster={media!.poster} autoPlay muted loop playsInline onError={() => setFailed(true)} />}
       {showImage && (
         // eslint-disable-next-line @next/next/no-img-element
-        <img className="h-full w-full object-cover" src={media!.image} alt={`${name} preview`} onError={() => setFailed(true)} />
+        <img className="h-full w-full object-cover" src={imgSrc} alt={`${name} preview`} onError={() => setFailed(true)} />
       )}
       {showPlaceholder && (
         <div className="absolute inset-0 grid place-items-center" style={{ background: `radial-gradient(130% 130% at 30% 20%, ${accent}24, transparent 60%), linear-gradient(160deg, rgba(255,255,255,0.04), rgba(0,0,0,0.25))` }}>
@@ -65,7 +91,7 @@ function MediaViewport({ project, fill }: { project: Project; fill?: boolean }) 
           </div>
         </div>
       )}
-      <span aria-hidden className="pointer-events-none absolute inset-x-0 top-0 h-12 opacity-40" style={{ background: `linear-gradient(${accent}00, ${accent}44, ${accent}00)`, animation: 'gdg-scanline 5.5s linear infinite' }} />
+      {!still && <span aria-hidden className="pointer-events-none absolute inset-x-0 top-0 h-12 opacity-40" style={{ background: `linear-gradient(${accent}00, ${accent}44, ${accent}00)`, animation: 'gdg-scanline 5.5s linear infinite' }} />}
       <span aria-hidden className="absolute left-2 top-2 h-3 w-3 border-l border-t" style={{ borderColor: `${accent}99` }} />
       <span aria-hidden className="absolute bottom-2 right-2 h-3 w-3 border-b border-r" style={{ borderColor: `${accent}99` }} />
     </div>
@@ -102,22 +128,14 @@ function CtaRow({ project }: { project: Project }) {
   );
 }
 
-/** A deck card. `pos` = depth from the front (0 = front, centred). */
-function DeckCard({ project, pos, total, onExpand }: { project: Project; pos: number; total: number; onExpand: () => void }) {
+/** The card SURFACE — no glass blur (so the shatter clones match it exactly).
+ *  Rendered once for the live deck card, and N times (sliced) for the shatter. */
+function CardVisual({ project, onExpand, still }: { project: Project; onExpand?: () => void; still?: boolean }) {
   const { codename, name, tagline, story, accent } = project;
-  const hidden = pos > 2;
-  const style: CSSProperties = {
-    zIndex: total - pos,
-    opacity: hidden ? 0 : 1 - pos * 0.22,
-    transform: `translateY(${-pos * 22}px) translateZ(${-pos * 120}px) scale(${1 - pos * 0.05})`,
-    transition: 'transform 0.6s cubic-bezier(0.22,1,0.36,1), opacity 0.6s ease, box-shadow 0.6s ease',
-    boxShadow: `0 ${30 + pos * 6}px 80px -30px ${accent}${pos === 0 ? 'aa' : '55'}`,
-    pointerEvents: pos === 0 ? 'auto' : 'none',
-  };
   return (
-    <article className="absolute inset-0 flex flex-col overflow-hidden rounded-2xl border border-white/12 bg-[rgba(6,8,14,0.7)] p-5 backdrop-blur-md sm:p-7" style={style} aria-hidden={pos !== 0}>
+    <div className="flex h-full w-full flex-col overflow-hidden rounded-2xl border border-white/12 p-5 sm:p-7" style={{ background: 'linear-gradient(165deg, rgba(13,16,26,0.97), rgba(6,8,13,0.98))' }}>
       <div className="h-[46%] min-h-0 shrink-0">
-        <MediaViewport project={project} fill />
+        <MediaViewport project={project} fill still={still} />
       </div>
       <div className="mt-4 flex min-h-0 flex-1 flex-col">
         <p className="font-mono text-[11px] uppercase tracking-[0.3em]" style={{ color: accent }}>
@@ -130,6 +148,7 @@ function DeckCard({ project, pos, total, onExpand }: { project: Project; pos: nu
           <button
             type="button"
             onClick={onExpand}
+            tabIndex={still ? -1 : 0}
             className="inline-flex items-center gap-1.5 rounded-full px-4 py-2 font-sans text-xs uppercase tracking-[0.16em] text-white transition-all duration-300 hover:brightness-125 focus:outline-none focus-visible:ring-2 focus-visible:ring-white/60"
             style={{ backgroundColor: `${accent}2a`, border: `1px solid ${accent}88`, boxShadow: `0 0 22px ${accent}44` }}
           >
@@ -139,99 +158,95 @@ function DeckCard({ project, pos, total, onExpand }: { project: Project; pos: nu
           <CtaRow project={project} />
         </div>
       </div>
-    </article>
+    </div>
   );
 }
 
-/** Glowing crack lines that draw across an area (card rect, or full screen). */
-function Cracks({ accent, area, flash }: { accent: string; area: Rect | 'full'; flash?: boolean }) {
-  const box: { left: number | string; top: number | string; width: number | string; height: number | string } =
-    area === 'full' ? { left: 0, top: 0, width: '100vw', height: '100vh' } : area;
-  const paths = [
-    'M50,2 L46,24 L57,41 L43,60 L55,82 L49,99',
-    'M2,46 L25,51 L41,43 L64,55 L83,47 L99,53',
-    'M30,4 L37,30 L28,52 L40,74 L33,98',
-    'M70,3 L63,28 L73,50 L62,73 L69,97',
-    'M6,72 L30,66 L52,76 L74,63 L97,70',
-  ];
+/** A deck card. `pos` = depth from the front (0 = front, centred). */
+function DeckCard({ project, pos, total, onExpand }: { project: Project; pos: number; total: number; onExpand: () => void }) {
+  const { accent } = project;
+  const front = pos === 0;
+  const style: CSSProperties = {
+    zIndex: total - pos,
+    opacity: pos > 2 ? 0 : 1 - pos * 0.22,
+    transform: `translateY(${-pos * 22}px) translateZ(${-pos * 120}px) scale(${1 - pos * 0.05})`,
+    transition: 'transform 0.6s cubic-bezier(0.22,1,0.36,1), opacity 0.6s ease, box-shadow 0.6s ease',
+    boxShadow: `0 ${30 + pos * 6}px 80px -30px ${accent}${front ? 'aa' : '55'}`,
+    pointerEvents: front ? 'auto' : 'none',
+  };
   return (
-    <svg
-      aria-hidden
-      className="pointer-events-none fixed z-[97] overflow-visible"
-      viewBox="0 0 100 100"
-      preserveAspectRatio="none"
-      style={{ left: box.left, top: box.top, width: box.width, height: box.height }}
-    >
-      <g style={{ filter: `drop-shadow(0 0 3px ${accent}) drop-shadow(0 0 8px ${accent}aa)` }}>
-        {paths.map((d, i) => (
-          <path
-            key={i}
-            d={d}
-            fill="none"
-            stroke={accent}
-            strokeWidth={flash ? 1.1 : 0.7}
-            strokeLinecap="round"
-            strokeDasharray={320}
-            strokeDashoffset={320}
-            style={{ animation: `${flash ? 'gdg-crack-flash 0.4s' : 'gdg-crack-draw 0.32s'} ease-out ${i * 0.025}s both` }}
-          />
-        ))}
-      </g>
-    </svg>
+    <div className="absolute inset-0" style={style} aria-hidden={!front}>
+      <CardVisual project={project} onExpand={onExpand} still={!front} />
+    </div>
   );
 }
 
-/** Glass shards over the card rect that spread outward (open) / converge in (close). */
-function ShardBurst({ accent, area, mode }: { accent: string; area: Rect; mode: 'spread' | 'converge' }) {
-  const shards = [
-    { clip: 'polygon(0% 0%, 52% 0%, 32% 46%, 0% 56%)', dx: '-30vw', dy: '-26vh', rot: '-42deg' },
-    { clip: 'polygon(52% 0%, 100% 0%, 100% 52%, 56% 34%)', dx: '32vw', dy: '-26vh', rot: '40deg' },
-    { clip: 'polygon(0% 56%, 32% 46%, 26% 100%, 0% 100%)', dx: '-34vw', dy: '24vh', rot: '-30deg' },
-    { clip: 'polygon(56% 34%, 100% 52%, 100% 100%, 60% 82%)', dx: '34vw', dy: '26vh', rot: '46deg' },
-    { clip: 'polygon(32% 46%, 56% 34%, 60% 82%, 26% 100%)', dx: '0vw', dy: '36vh', rot: '12deg' },
-  ];
+/** The real card sliced into shards. `mode` spreads them out (open) or converges
+ *  them back to reform the card (close). Each shard is a clip-path slice of the
+ *  actual CardVisual, so the pieces show real content. */
+function ShatterCard({ project, rect, mode }: { project: Project; rect: Rect; mode: 'spread' | 'converge' }) {
   return (
-    <div aria-hidden className="pointer-events-none fixed z-[96]" style={{ left: area.left, top: area.top, width: area.width, height: area.height }}>
-      {shards.map((s, i) => (
+    <div className="pointer-events-none fixed z-[96]" style={{ left: rect.left, top: rect.top, width: rect.width, height: rect.height }} aria-hidden>
+      {SHARDS.map((s, i) => (
         <div
           key={i}
           className="absolute inset-0"
           style={
             {
               clipPath: s.clip,
-              background: `linear-gradient(135deg, ${accent}44, rgba(6,8,14,0.4))`,
-              border: `1px solid ${accent}66`,
-              filter: `drop-shadow(0 0 8px ${accent}66)`,
+              filter: `drop-shadow(0 0 10px ${project.accent}55)`,
               '--dx': s.dx,
               '--dy': s.dy,
               '--rot': s.rot,
-              animation: `${mode === 'spread' ? 'gdg-shard-spread 0.62s' : 'gdg-shard-converge 0.6s'} ease-out ${i * 0.02}s both`,
+              animation: `${mode === 'spread' ? 'gdg-shard-spread 0.72s ease-in 0.28s' : 'gdg-shard-converge 0.66s ease-out'} both`,
             } as CSSProperties
           }
-        />
+        >
+          <CardVisual project={project} still />
+        </div>
       ))}
     </div>
   );
 }
 
-/** Card→page morph: cracks → shatter → pieces enlarge into the full case study. */
+/** Glowing crack lines along the shard seams (card rect), or a full-screen flash. */
+function Cracks({ accent, area, flash }: { accent: string; area: Rect | 'full'; flash?: boolean }) {
+  const box: { left: number | string; top: number | string; width: number | string; height: number | string } =
+    area === 'full' ? { left: 0, top: 0, width: '100vw', height: '100vh' } : area;
+  return (
+    <svg aria-hidden className="pointer-events-none fixed z-[97] overflow-visible" viewBox="0 0 100 100" preserveAspectRatio="none" style={{ left: box.left, top: box.top, width: box.width, height: box.height }}>
+      <g style={{ filter: `drop-shadow(0 0 3px ${accent}) drop-shadow(0 0 8px ${accent}aa)` }}>
+        {CRACK_PATHS.map((d, i) => (
+          <path key={i} d={d} fill="none" stroke={accent} strokeWidth={flash ? 1.1 : 0.7} strokeLinecap="round" strokeDasharray={320} strokeDashoffset={320} style={{ animation: `${flash ? 'gdg-crack-flash 0.4s' : 'gdg-crack-draw 0.3s'} ease-out ${i * 0.02}s both` }} />
+        ))}
+      </g>
+    </svg>
+  );
+}
+
+/** Card→page shatter morph. */
 function ProjectMorph({ project, rect, onClose }: { project: Project; rect: Rect; onClose: () => void }) {
   const { codename, name, tagline, story, highlights, tech, accent } = project;
-  const [phase, setPhase] = useState<'cracks' | 'open' | 'closing'>('cracks');
+  const [phase, setPhase] = useState<'opening' | 'open' | 'closing'>('opening');
+  const [expanded, setExpanded] = useState(false);
   const dims = useRef({ vw: typeof window !== 'undefined' ? window.innerWidth : 0, vh: typeof window !== 'undefined' ? window.innerHeight : 0 });
 
   const closedClip = `inset(${rect.top}px ${dims.current.vw - (rect.left + rect.width)}px ${dims.current.vh - (rect.top + rect.height)}px ${rect.left}px round 16px)`;
   const openClip = 'inset(0px 0px 0px 0px round 0px)';
 
-  // Cracks draw on the card first, then it shatters open.
   useEffect(() => {
-    const t = window.setTimeout(() => setPhase('open'), 330);
-    return () => window.clearTimeout(t);
+    const t1 = window.setTimeout(() => setExpanded(true), 300); // page reveals as shards fly
+    const t2 = window.setTimeout(() => setPhase('open'), 1150); // shatter done → drop the shards
+    return () => {
+      window.clearTimeout(t1);
+      window.clearTimeout(t2);
+    };
   }, []);
 
   const requestClose = useCallback(() => {
     setPhase('closing');
-    window.setTimeout(onClose, 720);
+    setExpanded(false);
+    window.setTimeout(onClose, 760);
   }, [onClose]);
 
   // Escape collapses back — capture so Hero's Escape doesn't also fire.
@@ -247,17 +262,16 @@ function ProjectMorph({ project, rect, onClose }: { project: Project; rect: Rect
     return () => window.removeEventListener('keydown', onKey, true);
   }, [requestClose]);
 
-  const clip = phase === 'open' ? openClip : closedClip;
   const closing = phase === 'closing';
 
   return createPortal(
-    <div className="fixed inset-0 z-[95]">
-      {/* backdrop — transparent during the crack beat (card stays visible), then in */}
-      <div className="absolute inset-0 bg-[rgba(2,3,7,0.82)] backdrop-blur-lg transition-opacity duration-[450ms]" style={{ opacity: phase === 'open' ? 1 : 0 }} />
+    <div role="dialog" aria-modal="true" aria-label={`${name} case study`} className="fixed inset-0 z-[95]">
+      {/* backdrop — fades in as the page reveals, out on exit */}
+      <div className="absolute inset-0 bg-[rgba(2,3,7,0.86)] backdrop-blur-lg transition-opacity duration-[420ms]" style={{ opacity: expanded ? 1 : 0 }} />
 
-      {/* the full case study, revealed by a clip-path growing from the card rect */}
-      <div className="absolute inset-0 overflow-y-auto px-5 py-14 sm:py-16" style={{ clipPath: clip, transition: 'clip-path 0.62s cubic-bezier(0.7,0,0.2,1)' }}>
-        <div className="mx-auto w-full max-w-3xl" style={{ animation: closing ? 'gdg-holo-out 0.42s ease-in both' : 'gdg-holo-in 0.6s ease-out 0.3s both' }}>
+      {/* full case study, revealed by a clip-path growing from the card rect */}
+      <div className="absolute inset-0 overflow-y-auto px-5 py-14 sm:py-16" style={{ clipPath: expanded ? openClip : closedClip, transition: 'clip-path 0.6s cubic-bezier(0.7,0,0.2,1)' }}>
+        <div className="mx-auto w-full max-w-3xl" style={{ animation: closing ? 'gdg-holo-out 0.42s ease-in both' : 'gdg-holo-in 0.6s ease-out 0.45s both' }}>
           <MediaViewport project={project} />
           <p className="mt-6 font-mono text-[11px] uppercase tracking-[0.32em]" style={{ color: accent }}>
             {codename}
@@ -286,12 +300,12 @@ function ProjectMorph({ project, rect, onClose }: { project: Project; rect: Rect
         </div>
       </div>
 
-      {/* cracks: on the card while opening, full-screen flash on close */}
-      {phase === 'cracks' && <Cracks accent={accent} area={rect} />}
+      {/* cracks along the seams (open), full-screen fracture flash (close) */}
+      {phase === 'opening' && <Cracks accent={accent} area={rect} />}
       {closing && <Cracks accent={accent} area="full" flash />}
 
-      {/* shards spread out of the card (open) / converge back to it (close) */}
-      {phase !== 'cracks' && <ShardBurst accent={accent} area={rect} mode={closing ? 'converge' : 'spread'} />}
+      {/* the real card, shattered — spreads out (open) / converges back (close) */}
+      {phase !== 'open' && <ShatterCard project={project} rect={rect} mode={closing ? 'converge' : 'spread'} />}
 
       <button
         type="button"
@@ -332,7 +346,6 @@ export function ProjectsInterior({ onNavigate }: { onNavigate: (s: Exclude<DiveS
     if (r) setExpand({ project, rect: { left: r.left, top: r.top, width: r.width, height: r.height } });
   };
 
-  // Arrow-key navigation while the deck is showing.
   useEffect(() => {
     if (expand) return;
     const onKey = (e: KeyboardEvent) => {
@@ -353,7 +366,6 @@ export function ProjectsInterior({ onNavigate }: { onNavigate: (s: Exclude<DiveS
         <h2 className="mt-3 font-serif text-[clamp(1.7rem,4vw,2.8rem)] leading-tight tracking-tight text-ink">Built from first principles.</h2>
       </div>
 
-      {/* 3D card deck — selecting brings a card to the front of the stack. */}
       <div
         ref={deckRef}
         className="relative mt-8"
@@ -372,7 +384,6 @@ export function ProjectsInterior({ onNavigate }: { onNavigate: (s: Exclude<DiveS
         ))}
       </div>
 
-      {/* Controls — arrows flanking the dots. */}
       <div className="mt-7 flex items-center justify-center gap-4">
         <NavArrow dir="prev" onClick={() => go(active - 1)} />
         <div className="flex items-center gap-2.5">
