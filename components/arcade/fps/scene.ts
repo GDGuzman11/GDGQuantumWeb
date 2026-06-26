@@ -100,6 +100,29 @@ export function buildWorld(level: Level3D, tier: RenderTier = 'desktop'): World 
     disposables.push(geo);
   }
 
+  // Ramps — VISUAL sloped slabs. The collider is the height function in physics;
+  // this mesh is only what you see. A thin box tilted to the incline, sized to
+  // the footprint across-slope and to the true incline length along-slope.
+  for (const rmp of level.ramps ?? []) {
+    const alongX = rmp.dir === '+x' || rmp.dir === '-x';
+    const run = alongX ? rmp.sx : rmp.sz; // horizontal run along the slope
+    const across = alongX ? rmp.sz : rmp.sx; // width perpendicular to the slope
+    const dy = rmp.yHi - rmp.yLo;
+    const inclineLen = Math.hypot(run, dy);
+    const angle = Math.atan2(dy, run); // tilt up toward the high end
+    const geo = new THREE.BoxGeometry(alongX ? inclineLen : across, 0.2, alongX ? across : inclineLen);
+    const mesh = new THREE.Mesh(geo, mats[rmp.tex % mats.length]);
+    mesh.position.set(rmp.x, (rmp.yLo + rmp.yHi) / 2, rmp.z);
+    // Rotate so the high end lifts up in the ramp's direction. (Three.js: +rot
+    // about Z sends +X→+Y; +rot about X sends +Z→-Y.)
+    if (rmp.dir === '+x') mesh.rotation.z = angle; // raise +X end
+    else if (rmp.dir === '-x') mesh.rotation.z = -angle; // raise -X end
+    else if (rmp.dir === '+z') mesh.rotation.x = -angle; // raise +Z end
+    else mesh.rotation.x = angle; // '-z' → raise -Z end
+    scene.add(mesh);
+    disposables.push(geo);
+  }
+
   // Jump pads — glowing green discs.
   const padMat = new THREE.MeshBasicMaterial({ color: '#aef5c8', transparent: true, opacity: 0.65 });
   disposables.push(padMat);

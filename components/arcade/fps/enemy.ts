@@ -9,7 +9,7 @@
 import { segBlocked, segHitsSphere, type Vec3 } from './combat';
 import type { Ladder, Level3D } from './level3d';
 import type { SpatialGrid } from './level/grid';
-import { EYE, type Player3 } from './physics';
+import { EYE, groundHeightAt, type Player3 } from './physics';
 
 export type Difficulty = 'normal' | 'hard' | 'nightmare';
 
@@ -174,6 +174,9 @@ function avoidWalls(e: Enemy, lvl: Level3D, dx: number, dz: number, r: number, g
   return [dx, dz];
 }
 
+/** Max vertical a grounded bot follows per move (ramps/trenches, not tall boxes). */
+const GROUND_FOLLOW = 0.55;
+
 function moveEnemy(e: Enemy, lvl: Level3D, wx: number, wz: number, speed: number, dt: number, r = R, grid?: SpatialGrid): void {
   const l = Math.hypot(wx, wz);
   if (l < 0.01) return;
@@ -184,6 +187,13 @@ function moveEnemy(e: Enemy, lvl: Level3D, wx: number, wz: number, speed: number
   if (!blocked(lvl, nx, e.z, r, grid)) e.x = nx;
   if (!blocked(lvl, e.x, nz, r, grid)) e.z = nz;
   e.step += speed * dt * 1.3; // advance the running gait
+  // Follow ground elevation (ramps up/down, trench floors). Only when NOT on an
+  // elevated deck (the box-climbing system owns those) and only within a small
+  // step so bots don't pop onto tall cover.
+  if (!e.onDeck) {
+    const g = groundHeightAt(e.x, e.z, lvl, grid, e.y + GROUND_FOLLOW);
+    if (Math.abs(g - e.y) <= GROUND_FOLLOW) e.y = g;
+  }
 }
 
 const ECLIMB = 3.2; // enemy climb speed
