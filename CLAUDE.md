@@ -103,10 +103,36 @@ SHIPPED SINCE (2026-06-21, Gabe-driven in main session; subagent harness was sta
 QA: tsc 0, lint 0, `npm run build` exit 0; `/` First Load ~94 kB (three.js + postprocessing + the
 About logo data all async-isolated; `<h1>` still LCP); `/` is `force-dynamic` (nonce CSP). All on
 `main` (auto-committed by the repo watcher; pushed to origin). OPEN: framing/pacing/bloom/lensing are
-visually tuned by Gabe; PROJECTS + CONTACT interior CONTENT still placeholder (About now done); mobile
+visually tuned by Gabe; CONTACT interior CONTENT still placeholder (About + PROJECTS now done); mobile
 pass not yet done for the new experience; old retired component files pending deletion; unused
 `gdg-glitch` keyframe in globals.css. The nine-phase history below is RETAINED as the record of the
 prior site (its front-end is superseded; its backend/security/deploy still power this rebuild).
+
+PROJECTS INTERIOR — BUILT (2026-06-25, Gabe-driven; UX/UI design pass). The Projects dive (depth 2,
+over the quantum field) is no longer a placeholder. New `components/home/ProjectsInterior.tsx` (lazy
+`ssr:false`, the twin of `AboutInterior`, rendered by `Hero.tsx`'s Projects branch — NOT a route):
+- A 3D CARD STACK (deck) of the real projects, data-driven from a rewritten `lib/projects.ts` (Helix
+  [private, story-only], GDG Quantum [this site], Starshell — each: name/codename/tagline/story/
+  highlights/tech/media/links/accent). Front card centred; others recede with depth; arrows + dots +
+  swipe + ←/→ shuffle. Cards are SOLID (glass blur removed). Each card reserves a media viewport
+  (video/image/poster, graceful placeholder; drop files in `public/projects/<id>.*`). CTAs per the
+  spec: GDG Quantum Live+Source, Starshell Play(/arcade)+Source, Helix none ("Private build").
+- "Expand" → a full-screen TV-STATIC "tune-in" transition: a generated canvas snow burst (scanlines +
+  rolling sync bar + vignette) fills the whole screen ~1.1s (signal lost), the view swaps underneath,
+  then it fizzes out and the destination tunes in. Same on Back. Reduced-motion = instant swap, no
+  static. (Earlier iterations — a clip-path "shatter into glass shards" and a procedural "cracking"
+  morph — were REJECTED by Gabe as too cheesy / off-theme; the cracks/shards/holo-out keyframes in
+  globals.css are now UNUSED, pending cleanup.)
+- Crawlable copy mirrored in `components/home/SeoContent.tsx` (real projects). Retired snap-deck
+  `components/sections/projects/*` + `Systems.tsx` DELETED (they consumed the old projects shape).
+- QA each step: tsc 0, lint 0, `npm run build` exit 0; `/` First Load held ~94 kB (showcase is lazy).
+>>> NEXT (queued, do when Gabe returns): rework the EXPANDED detail (`DetailView` in
+ProjectsInterior.tsx) so it is NOT just the same card enlarged in the middle. Keep the SAME overall
+layout/theme, but break the project into READABLE SECTIONS: ① one media GALLERY section (videos +
+pictures the user can view/scrub), ② several "how it's made / components" sections that decompose the
+project so a reader understands how it works, ③ one dedicated section on WHAT MAKES THIS PROJECT
+UNIQUE. The static tune-in transition + the deck stay as-is; only the detail content/layout changes.
+Likely add structured fields to `lib/projects.ts` (gallery[], sections[{title, body}], unique). <<<
 
 STARSHELL ARCADE — the "Have Fun!" tab (2026-06-23, Gabe-driven in main session). The landing's
 "▸ STARSHELL" link (pixel font, `components/home/Hero.tsx`) opens a CODE-SPLIT `/arcade` route
