@@ -126,13 +126,21 @@ over the quantum field) is no longer a placeholder. New `components/home/Project
 - Crawlable copy mirrored in `components/home/SeoContent.tsx` (real projects). Retired snap-deck
   `components/sections/projects/*` + `Systems.tsx` DELETED (they consumed the old projects shape).
 - QA each step: tsc 0, lint 0, `npm run build` exit 0; `/` First Load held ~94 kB (showcase is lazy).
->>> NEXT (queued, do when Gabe returns): rework the EXPANDED detail (`DetailView` in
-ProjectsInterior.tsx) so it is NOT just the same card enlarged in the middle. Keep the SAME overall
-layout/theme, but break the project into READABLE SECTIONS: ① one media GALLERY section (videos +
-pictures the user can view/scrub), ② several "how it's made / components" sections that decompose the
-project so a reader understands how it works, ③ one dedicated section on WHAT MAKES THIS PROJECT
-UNIQUE. The static tune-in transition + the deck stay as-is; only the detail content/layout changes.
-Likely add structured fields to `lib/projects.ts` (gallery[], sections[{title, body}], unique). <<<
+
+EXPANDED DETAIL — FULL-BLEED BENTO (2026-06-26, done; was the queued task). "Expand" now opens a
+case study laid out as a BENTO GRID on its OWN full-screen layer (`DetailView` `createPortal` to body,
+`fixed inset-0 z-[90]`, dark `backdrop-blur` over the field) — NOT the same card enlarged. Tiles:
+big GALLERY anchor (top-left, F-pattern) · IDENTITY (name/scope/metrics/CTAs) · HOW IT'S BUILT (the
+component breakdown) · OVERVIEW · WHAT MAKES IT UNIQUE (accent-washed) · STACK. Reflows 3-col desktop
+(fills the viewport, no scroll) → 2-col tablet → 1-col phone (tall breathing tiles, scrolls). New
+structured fields in `lib/projects.ts`: `role`, `gallery[{kind,src,poster,caption}]`, `sections[{title,
+body}]`, `unique`; real content written for all three. Gallery = a main viewer + thumbnails
+(`Gallery`/`GalleryMedia`, video/image with graceful placeholder). HELIX now has a real video
+(`public/projects/helix.mp4`, ~19 MB — a sarcastic "takes" bit; OPEN: compress to ~2-4 MB + add a
+poster frame; no ffmpeg locally) as its card media + gallery item 1; the brain/agents gallery slots
+stay placeholders. QA: tsc 0, lint 0, build exit 0; `/` First Load held 93.9 kB (video is a static
+/public asset, unbundled). OPEN: real media for the other gallery slots; mobile bento pass; the unused
+cracks/shards/holo-out keyframes in globals.css pending cleanup.
 
 STARSHELL ARCADE — the "Have Fun!" tab (2026-06-23, Gabe-driven in main session). The landing's
 "▸ STARSHELL" link (pixel font, `components/home/Hero.tsx`) opens a CODE-SPLIT `/arcade` route

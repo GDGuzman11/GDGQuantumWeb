@@ -60,8 +60,10 @@ lensing, ending at a cinematic singularity where the (real, working) contact for
 - **Projects showcase.** Diving to Projects (over the quantum field) opens a **3D card‑stack deck** of
   the real builds (data in `lib/projects.ts`), navigated by arrows / dots / swipe. Each card reserves a
   media viewport and links out (Live / Source / Play). **Expand** plays a full‑screen **TV‑static
-  "tune‑in"** transition (generated canvas snow + scanlines) into the project's full case study, and
-  back. All lazy‑loaded, so the homepage First Load stays ≈ 94 kB.
+  "tune‑in"** transition (generated canvas snow + scanlines) into the project's full case study — a
+  **full‑bleed bento grid** (gallery, identity + metrics, how‑it's‑built, what‑makes‑it‑unique, stack)
+  that fills the viewport and reflows 3‑col → 2‑col → 1‑col. All lazy‑loaded, so the homepage First
+  Load stays ≈ 94 kB.
 - **STARSHELL — the "Have Fun!" arcade.** The "▸ STARSHELL" link opens a **code‑split `/arcade` route**
   with a full **'93‑pixel first‑person shooter** built on Three.js (`components/arcade/`), also published
   as a standalone runnable repo at **github.com/GDGuzman11/Starshell**. What's in it:
