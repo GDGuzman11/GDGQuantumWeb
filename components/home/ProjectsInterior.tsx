@@ -352,12 +352,13 @@ function Gallery({ project }: { project: Project }) {
   );
 }
 
-/** A bento tile — a glass panel that clips (no internal scroll) on the desktop grid. */
+/** A bento tile — a glass panel. Breathes (min-height) on small screens; clips
+ *  to its cell (no internal scroll) on the desktop grid. */
 function Tile({ className, accent, delay, children }: { className?: string; accent?: string; delay?: number; children: React.ReactNode }) {
   return (
     <div
-      className={`flex min-h-0 flex-col overflow-hidden rounded-2xl border border-white/12 bg-[rgba(10,13,22,0.62)] p-4 ${className ?? ''}`}
-      style={{ animation: `gdg-holo-in 0.5s ease-out ${delay ?? 0}s both`, ...(accent ? { boxShadow: `0 18px 60px -34px ${accent}88` } : {}) }}
+      className={`flex min-h-[150px] flex-col overflow-hidden rounded-2xl border border-white/12 bg-[rgba(11,14,23,0.72)] p-5 lg:min-h-0 ${className ?? ''}`}
+      style={{ animation: `gdg-holo-in 0.5s ease-out ${delay ?? 0}s both`, ...(accent ? { boxShadow: `0 20px 60px -34px ${accent}88` } : {}) }}
     >
       {children}
     </div>
@@ -365,98 +366,104 @@ function Tile({ className, accent, delay, children }: { className?: string; acce
 }
 
 /**
- * The full case study as a BENTO GRID — every section is a tile, all on one
- * screen (no scroll on desktop): a big gallery anchors top-left (F-pattern), the
- * identity + CTAs sit top-right, and the breakdown / unique / stack tile in
- * underneath. Below `lg` the tiles stack (the overlay scrolls — a phone can't fit
- * it all). Tiles clip rather than scroll; the copy is kept scannable.
+ * The full case study as a full-bleed BENTO GRID that fills the WHOLE viewport
+ * (its own fixed layer). Every section is a generously-sized tile: a big gallery
+ * anchors top-left (F-pattern, visual first), identity + CTAs top-right, the
+ * breakdown beneath, with overview / unique / stack across the bottom. It reflows
+ * 3-col (desktop, no scroll) → 2-col (tablet) → 1-col (phone, scrolls with tall
+ * breathing tiles so nothing is squished). Copy is chunked, not a laundry list.
  */
 function DetailView({ project, onBack }: { project: Project; onBack: () => void }) {
   const { codename, name, tagline, story, role, highlights, tech, sections, unique, accent } = project;
-  return (
-    <div className="flex w-full max-w-5xl flex-col">
-      <button
-        type="button"
-        onClick={onBack}
-        className="group mb-3 inline-flex shrink-0 items-center gap-2 self-start font-sans text-xs uppercase tracking-[0.22em] text-white/70 transition-colors duration-300 hover:text-white focus:outline-none focus-visible:text-white"
-      >
-        <span aria-hidden className="transition-transform duration-300 group-hover:-translate-x-1">&larr;</span>
-        Back to projects
-      </button>
+  return createPortal(
+    <div className="fixed inset-0 z-[90] bg-[rgba(3,4,9,0.92)] backdrop-blur-2xl">
+      <div className="flex h-full flex-col p-3 sm:p-4 lg:p-5">
+        <button
+          type="button"
+          onClick={onBack}
+          className="group mb-3 inline-flex shrink-0 items-center gap-2 self-start font-sans text-xs uppercase tracking-[0.22em] text-white/70 transition-colors duration-300 hover:text-white focus:outline-none focus-visible:text-white"
+        >
+          <span aria-hidden className="transition-transform duration-300 group-hover:-translate-x-1">&larr;</span>
+          Back to projects
+        </button>
 
-      <div className="grid gap-3 lg:h-[calc(100svh-12rem)] lg:max-h-[760px] lg:grid-cols-3 lg:grid-rows-[1.25fr_1fr_auto]">
-        {/* GALLERY — the big visual anchor (top-left) */}
-        <Tile accent={accent} delay={0} className="lg:col-span-2 lg:row-span-2 lg:col-start-1 lg:row-start-1">
-          <SectionLabel accent={accent}>Gallery</SectionLabel>
-          <div className="mt-2 min-h-[220px] flex-1 lg:min-h-0">
-            <Gallery project={project} />
+        <div className="min-h-0 flex-1 overflow-y-auto lg:overflow-hidden">
+          <div className="grid grid-cols-1 gap-3 md:grid-cols-2 lg:h-full lg:grid-cols-3 lg:grid-rows-[1.25fr_1fr_1fr] lg:gap-4">
+            {/* GALLERY — the big visual anchor */}
+            <Tile accent={accent} delay={0} className="min-h-[280px] md:col-span-2 lg:col-span-2 lg:col-start-1 lg:row-span-2 lg:row-start-1">
+              <SectionLabel accent={accent}>Gallery</SectionLabel>
+              <div className="mt-3 min-h-0 flex-1">
+                <Gallery project={project} />
+              </div>
+            </Tile>
+
+            {/* IDENTITY — name, scope, metrics, links */}
+            <Tile accent={accent} delay={0.05} className="lg:col-start-3 lg:row-start-1">
+              <p className="font-mono text-[10px] uppercase tracking-[0.3em]" style={{ color: accent }}>
+                {codename}
+              </p>
+              <h2 className="mt-1.5 font-serif text-[clamp(1.7rem,3vw,2.4rem)] leading-tight text-ink">{name}</h2>
+              <p className="mt-1.5 line-clamp-2 font-sans text-sm text-white/65">{tagline}</p>
+              {role && <p className="mt-2 line-clamp-2 font-sans text-xs text-white/45">{role}</p>}
+              <ul className="mt-3 flex min-h-0 flex-1 flex-wrap content-start gap-1.5 overflow-hidden">
+                {highlights.map((h) => (
+                  <li key={h} className="flex items-center gap-1.5 rounded-full border border-white/10 bg-white/[0.03] px-2.5 py-1 font-mono text-[10px] text-white/75">
+                    <span aria-hidden style={{ color: accent }}>
+                      ▸
+                    </span>
+                    {h}
+                  </li>
+                ))}
+              </ul>
+              <div className="mt-3 flex shrink-0 flex-wrap gap-2">
+                <CtaRow project={project} />
+              </div>
+            </Tile>
+
+            {/* HOW IT'S BUILT */}
+            <Tile accent={accent} delay={0.1} className="lg:col-start-3 lg:row-start-2">
+              <SectionLabel accent={accent}>How it&rsquo;s built</SectionLabel>
+              <ul className="mt-3 min-h-0 flex-1 space-y-2.5 overflow-hidden">
+                {(sections ?? []).map((s, idx) => (
+                  <li key={s.title}>
+                    <p className="font-sans text-[0.86rem] font-medium leading-tight" style={{ color: accent }}>
+                      <span className="text-white/30">{String(idx + 1).padStart(2, '0')} </span>
+                      {s.title}
+                    </p>
+                    <p className="mt-0.5 line-clamp-2 font-sans text-[0.78rem] leading-snug text-white/65">{s.body}</p>
+                  </li>
+                ))}
+              </ul>
+            </Tile>
+
+            {/* OVERVIEW */}
+            <Tile accent={accent} delay={0.15} className="lg:col-start-1 lg:row-start-3">
+              <SectionLabel accent={accent}>Overview</SectionLabel>
+              <p className="mt-3 line-clamp-5 font-sans text-[0.9rem] leading-relaxed text-white/80">{story}</p>
+            </Tile>
+
+            {/* WHAT MAKES IT UNIQUE */}
+            <Tile delay={0.2} accent={accent} className="lg:col-start-2 lg:row-start-3">
+              <div className="-m-5 flex h-full min-h-0 flex-col rounded-2xl p-5" style={{ background: `linear-gradient(160deg, ${accent}20, rgba(6,8,14,0.35))` }}>
+                <SectionLabel accent={accent}>What makes it unique</SectionLabel>
+                <p className="mt-3 line-clamp-4 font-serif text-[1.05rem] italic leading-snug text-white/90">{unique}</p>
+              </div>
+            </Tile>
+
+            {/* STACK */}
+            <Tile accent={accent} delay={0.25} className="md:col-span-2 lg:col-span-1 lg:col-start-3 lg:row-start-3">
+              <SectionLabel accent={accent}>Stack</SectionLabel>
+              <ul className="mt-3 flex flex-wrap gap-2 overflow-hidden">
+                {tech.map((t) => (
+                  <TechChip key={t} name={t} accent={accent} />
+                ))}
+              </ul>
+            </Tile>
           </div>
-        </Tile>
-
-        {/* HERO — identity, scope, links, metrics (top-right) */}
-        <Tile accent={accent} delay={0.05} className="lg:col-start-3 lg:row-start-1">
-          <p className="font-mono text-[10px] uppercase tracking-[0.3em]" style={{ color: accent }}>
-            {codename}
-          </p>
-          <h2 className="mt-1 font-serif text-[clamp(1.5rem,3vw,2.1rem)] leading-tight text-ink">{name}</h2>
-          <p className="mt-1 line-clamp-2 font-sans text-[0.85rem] text-white/60">{tagline}</p>
-          {role && <p className="mt-1.5 line-clamp-1 font-sans text-[0.75rem] text-white/45">{role}</p>}
-          <ul className="mt-2 flex min-h-0 flex-1 flex-wrap content-start gap-1.5 overflow-hidden">
-            {highlights.map((h) => (
-              <li key={h} className="flex items-center gap-1 rounded-full border border-white/10 bg-white/[0.03] px-2 py-0.5 font-mono text-[9px] text-white/70">
-                <span aria-hidden style={{ color: accent }}>
-                  ▸
-                </span>
-                {h}
-              </li>
-            ))}
-          </ul>
-          <div className="mt-2 flex shrink-0 flex-wrap gap-2">
-            <CtaRow project={project} />
-          </div>
-        </Tile>
-
-        {/* HOW IT'S BUILT — the component breakdown (right, mid) */}
-        <Tile accent={accent} delay={0.1} className="lg:col-start-3 lg:row-start-2">
-          <SectionLabel accent={accent}>How it&rsquo;s built</SectionLabel>
-          <ul className="mt-2 min-h-0 flex-1 space-y-1.5 overflow-hidden">
-            {(sections ?? []).map((s, idx) => (
-              <li key={s.title}>
-                <p className="font-sans text-[0.8rem] font-medium leading-tight" style={{ color: accent }}>
-                  <span className="text-white/30">{String(idx + 1).padStart(2, '0')} </span>
-                  {s.title}
-                </p>
-                <p className="line-clamp-2 font-sans text-[0.72rem] leading-snug text-white/65">{s.body}</p>
-              </li>
-            ))}
-          </ul>
-        </Tile>
-
-        {/* OVERVIEW (bottom-left) */}
-        <Tile accent={accent} delay={0.15} className="lg:col-start-1 lg:row-start-3">
-          <SectionLabel accent={accent}>Overview</SectionLabel>
-          <p className="mt-2 line-clamp-4 font-sans text-[0.82rem] leading-relaxed text-white/80">{story}</p>
-        </Tile>
-
-        {/* WHAT MAKES IT UNIQUE (bottom-middle, emphasized) */}
-        <Tile delay={0.2} className="lg:col-start-2 lg:row-start-3" >
-          <div className="-m-4 flex h-full min-h-0 flex-col p-4" style={{ background: `linear-gradient(160deg, ${accent}1c, rgba(6,8,14,0.4))`, borderRadius: '1rem' }}>
-            <SectionLabel accent={accent}>What makes it unique</SectionLabel>
-            <p className="mt-2 line-clamp-4 font-serif text-[0.95rem] italic leading-snug text-white/90">{unique}</p>
-          </div>
-        </Tile>
-
-        {/* STACK (bottom-right) */}
-        <Tile accent={accent} delay={0.25} className="lg:col-start-3 lg:row-start-3">
-          <SectionLabel accent={accent}>Stack</SectionLabel>
-          <ul className="mt-2 flex flex-wrap gap-1.5 overflow-hidden">
-            {tech.map((t) => (
-              <TechChip key={t} name={t} accent={accent} />
-            ))}
-          </ul>
-        </Tile>
+        </div>
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 }
 
