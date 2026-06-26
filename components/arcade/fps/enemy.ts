@@ -8,6 +8,7 @@
  */
 import { segBlocked, segHitsSphere, type Vec3 } from './combat';
 import type { Ladder, Level3D } from './level3d';
+import type { SpatialGrid } from './level/grid';
 import { EYE, type Player3 } from './physics';
 
 export type Difficulty = 'normal' | 'hard' | 'nightmare';
@@ -142,8 +143,10 @@ const PARAMS: Record<Difficulty, Params> = {
   nightmare: { acc: 0.5, dmg: 12, rate: 0.62, speed: 3.6, view: 42 },
 };
 
-function blocked(lvl: Level3D, x: number, z: number, r = R): boolean {
-  for (const b of lvl.boxes) {
+function blocked(lvl: Level3D, x: number, z: number, r = R, grid?: SpatialGrid): boolean {
+  const boxes = grid ? grid.queryAABB(x - r, z - r, x + r, z + r) : lvl.boxes;
+  for (let i = 0; i < boxes.length; i++) {
+    const b = boxes[i];
     if (
       x + r > b.x - b.sx / 2 &&
       x - r < b.x + b.sx / 2 &&
@@ -158,28 +161,28 @@ function blocked(lvl: Level3D, x: number, z: number, r = R): boolean {
 }
 
 /** If a wall is dead ahead, steer around it (probe rotated directions). */
-function avoidWalls(e: Enemy, lvl: Level3D, dx: number, dz: number, r: number): [number, number] {
+function avoidWalls(e: Enemy, lvl: Level3D, dx: number, dz: number, r: number, grid?: SpatialGrid): [number, number] {
   const look = 1.8;
-  if (!blocked(lvl, e.x + dx * look, e.z + dz * look, r)) return [dx, dz];
+  if (!blocked(lvl, e.x + dx * look, e.z + dz * look, r, grid)) return [dx, dz];
   for (const a of [0.9, -0.9, 1.6, -1.6, 2.4, -2.4]) {
     const c = Math.cos(a);
     const s = Math.sin(a);
     const nx = dx * c - dz * s;
     const nz = dx * s + dz * c;
-    if (!blocked(lvl, e.x + nx * look, e.z + nz * look, r)) return [nx, nz];
+    if (!blocked(lvl, e.x + nx * look, e.z + nz * look, r, grid)) return [nx, nz];
   }
   return [dx, dz];
 }
 
-function moveEnemy(e: Enemy, lvl: Level3D, wx: number, wz: number, speed: number, dt: number, r = R): void {
+function moveEnemy(e: Enemy, lvl: Level3D, wx: number, wz: number, speed: number, dt: number, r = R, grid?: SpatialGrid): void {
   const l = Math.hypot(wx, wz);
   if (l < 0.01) return;
-  const [dx, dz] = avoidWalls(e, lvl, wx / l, wz / l, r); // path around walls, not into them
+  const [dx, dz] = avoidWalls(e, lvl, wx / l, wz / l, r, grid); // path around walls, not into them
   const sp = speed * dt;
   const nx = e.x + dx * sp;
   const nz = e.z + dz * sp;
-  if (!blocked(lvl, nx, e.z, r)) e.x = nx;
-  if (!blocked(lvl, e.x, nz, r)) e.z = nz;
+  if (!blocked(lvl, nx, e.z, r, grid)) e.x = nx;
+  if (!blocked(lvl, e.x, nz, r, grid)) e.z = nz;
   e.step += speed * dt * 1.3; // advance the running gait
 }
 
@@ -211,7 +214,7 @@ function nearestGroundLadder(lvl: Level3D, x: number, z: number): Ladder | null 
 /** Move an enemy toward a target standing height: walk to the nearest ladder,
  *  ride it up, step onto the deck, or drop back down. Returns true if it took
  *  over this bot's motion (the caller should skip its normal ground move). */
-function climbToward(e: Enemy, lvl: Level3D, targetY: number, speed: number, dt: number): boolean {
+function climbToward(e: Enemy, lvl: Level3D, targetY: number, speed: number, dt: number, grid?: SpatialGrid): boolean {
   const need = targetY - e.y;
   if (Math.abs(need) < 0.5) {
     e.onDeck = e.y > 0.5;
@@ -233,7 +236,7 @@ function climbToward(e: Enemy, lvl: Level3D, targetY: number, speed: number, dt:
     // Otherwise head to the nearest building's ground ladder.
     const gl = nearestGroundLadder(lvl, e.x, e.z);
     if (gl) {
-      moveEnemy(e, lvl, gl.x - gl.exX * 1.0 - e.x, gl.z - gl.exZ * 1.0 - e.z, speed, dt);
+      moveEnemy(e, lvl, gl.x - gl.exX * 1.0 - e.x, gl.z - gl.exZ * 1.0 - e.z, speed, dt, R, grid);
       return true;
     }
     return false;
@@ -328,6 +331,7 @@ export function updateEnemies(
   now: number,
   squad: Squad,
   smokes: Smoke[],
+  grid?: SpatialGrid,
 ): { damage: number; tracers: EnemyTracer[]; seen: boolean } {
   const P = PARAMS[diff];
   const peye: Vec3 = [player.x, player.y + EYE, player.z];
@@ -343,7 +347,7 @@ export function updateEnemies(
     const dist = Math.hypot(player.x - e.x, player.z - e.z);
     if (dist >= (e.boss ? 220 : e.role === 'sniper' ? SNIPER_VIEW : P.view)) return false;
     const eeye: Vec3 = [e.x, e.y + EYE_H, e.z];
-    if (segBlocked(eeye, peye, lvl)) return false;
+    if (segBlocked(eeye, peye, lvl, grid)) return false;
     for (const sm of smokes) if (segHitsSphere(eeye, peye, [sm.x, sm.y, sm.z], sm.r)) return false;
     return true;
   });
@@ -407,7 +411,7 @@ export function updateEnemies(
             wz += (dz / d) * 0.6;
           }
         }
-        moveEnemy(e, lvl, wx, wz, P.speed * 2, dt, bd.radius); // 2× normal enemy speed
+        moveEnemy(e, lvl, wx, wz, P.speed * 2, dt, bd.radius, grid); // 2× normal enemy speed
         const dist = Math.hypot(player.x - e.x, player.z - e.z);
         e.fireCd -= dt;
         if (dist < bd.meleeRange) {
@@ -439,8 +443,8 @@ export function updateEnemies(
     if (e.role === 'sniper' && e.perch) {
       const reached = e.onDeck && Math.abs(e.y - e.perch.y) < 0.7 && Math.hypot(e.x - e.perch.x, e.z - e.perch.z) < 2.6;
       if (!reached) {
-        const busy = climbToward(e, lvl, e.perch.y, P.speed * role.speedMul * slow, dt);
-        if (!busy && e.onDeck) moveEnemy(e, lvl, e.perch.x - e.x, e.perch.z - e.z, P.speed * 0.7 * slow, dt);
+        const busy = climbToward(e, lvl, e.perch.y, P.speed * role.speedMul * slow, dt, grid);
+        if (!busy && e.onDeck) moveEnemy(e, lvl, e.perch.x - e.x, e.perch.z - e.z, P.speed * 0.7 * slow, dt, R, grid);
       }
       if (tgt) e.state = 'alert';
       fireAt(e, sees[i]);
@@ -455,7 +459,7 @@ export function updateEnemies(
       let wantY = e.y;
       if (player.y > e.y + 2) wantY = player.y;
       else if (e.onDeck && player.y < e.y - 1.5) wantY = 0;
-      if (Math.abs(wantY - e.y) > 0.6 && climbToward(e, lvl, wantY, P.speed * role.speedMul * slow, dt)) {
+      if (Math.abs(wantY - e.y) > 0.6 && climbToward(e, lvl, wantY, P.speed * role.speedMul * slow, dt, grid)) {
         fireAt(e, sees[i]);
         continue;
       }
@@ -491,7 +495,7 @@ export function updateEnemies(
           wz += (dz / d) * 0.5;
         }
       }
-      moveEnemy(e, lvl, wx, wz, P.speed * role.speedMul * (boosted ? 1.25 : 1) * slow, dt);
+      moveEnemy(e, lvl, wx, wz, P.speed * role.speedMul * (boosted ? 1.25 : 1) * slow, dt, R, grid);
       fireAt(e, sees[i]);
       // Give up only when there's no personal sight, no shared intel, and the
       // bot has reached the spot.
@@ -500,9 +504,9 @@ export function updateEnemies(
         e.lastSeen = null;
       }
     } else if (e.onDeck) {
-      climbToward(e, lvl, 0, P.speed * 0.5, dt); // no target: come down off the deck
+      climbToward(e, lvl, 0, P.speed * 0.5, dt, grid); // no target: come down off the deck
     } else {
-      moveEnemy(e, lvl, Math.sin(now / 1500 + e.wander), Math.cos(now / 1700 + e.wander * 2), P.speed * 0.35 * slow, dt);
+      moveEnemy(e, lvl, Math.sin(now / 1500 + e.wander), Math.cos(now / 1700 + e.wander * 2), P.speed * 0.35 * slow, dt, R, grid);
     }
   }
   return { damage, tracers, seen };

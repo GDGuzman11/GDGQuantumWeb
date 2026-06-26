@@ -12,6 +12,7 @@ import type { GunDef, ThrowDef } from './fps/weapons';
 import { sfx } from './engine/audio';
 import { makeComposer } from './fps/postfx';
 import type { RenderTier } from './fps/materials';
+import { SpatialGrid } from './fps/level/grid';
 
 const RW = 480;
 const RH = 270;
@@ -131,6 +132,9 @@ export function useFpsLoop(
 
     let world: World | null = null;
     let builtFor: Level3D | null = null;
+    // Spatial grid over the current level's boxes — narrows collision/LoS queries
+    // to local candidates. Rebuilt with the world; identical results, fewer tests.
+    let grid: SpatialGrid | null = null;
     let sprites: THREE.Sprite[] = [];
     let barBg: THREE.Sprite[] = [];
     let barFill: THREE.Sprite[] = [];
@@ -185,6 +189,8 @@ export function useFpsLoop(
       disposeExtras();
       world?.dispose();
       world = buildWorld(g.level, tier);
+      // (Re)build the spatial grid for this level's boxes.
+      grid = SpatialGrid.build(g.level.boxes);
       // Build the composer once; afterwards just repoint the RenderPass at the
       // new scene (do NOT recreate the renderer or the whole composer).
       if (!composer) {
@@ -351,7 +357,7 @@ export function useFpsLoop(
             camera.updateProjectionMatrix();
           }
 
-          stepPlayer(p, g.level, { fwd, strafe, jump: keys.current.has(' ') }, dt);
+          stepPlayer(p, g.level, { fwd, strafe, jump: keys.current.has(' ') }, dt, grid ?? undefined);
           const pvx = (p.x - prevPos.x) / Math.max(dt, 0.001);
           const pvz = (p.z - prevPos.z) / Math.max(dt, 0.001);
           prevPos.x = p.x;
@@ -406,7 +412,7 @@ export function useFpsLoop(
               const ey = e.y + 1.1 - (p.y + EYE);
               const ez = e.z - p.z;
               const el = Math.hypot(ex, ey, ez) || 1;
-              if ((ex / el) * fx + (ey / el) * fy + (ez / el) * fz > 0.985 && !segBlocked(eye, [e.x, e.y + 1.1, e.z], g.level)) {
+              if ((ex / el) * fx + (ey / el) * fy + (ez / el) * fz > 0.985 && !segBlocked(eye, [e.x, e.y + 1.1, e.z], g.level, grid ?? undefined)) {
                 autoFire = true;
                 break;
               }
@@ -422,7 +428,7 @@ export function useFpsLoop(
             g.mags[g.active]--;
             snap.fireAt = now;
             sfx.gun(gun.id, gun.family);
-            const wallD = rayWallDist(eye, dir, g.level, RANGE);
+            const wallD = rayWallDist(eye, dir, g.level, RANGE, grid ?? undefined);
             let hitT = wallD;
             let hit: Enemy | null = null;
             for (const e of g.enemies) {
@@ -707,7 +713,7 @@ export function useFpsLoop(
           }
 
           // Enemies
-          const res = updateEnemies(g.enemies, p, g.level, g.difficulty, pvx, pvz, dt, now, g.squad, smokes);
+          const res = updateEnemies(g.enemies, p, g.level, g.difficulty, pvx, pvz, dt, now, g.squad, smokes, grid ?? undefined);
           for (const tr of res.tracers) addTracer(tr.from, [p.x, p.y + EYE - 0.1, p.z], tr.color);
           if (res.damage > 0) {
             p.health = Math.max(0, p.health - res.damage);

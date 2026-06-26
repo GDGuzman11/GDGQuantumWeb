@@ -4,6 +4,7 @@
  * gravity + jump, and ladder zones you climb by simply walking into them.
  */
 import type { Box, Ladder, Level3D } from './level3d';
+import type { SpatialGrid } from './level/grid';
 
 export interface Player3 {
   x: number;
@@ -62,7 +63,11 @@ function inLadder(p: Player3, l: Ladder): boolean {
   );
 }
 
-export function stepPlayer(p: Player3, lvl: Level3D, input: MoveInput, dt: number): void {
+export function stepPlayer(p: Player3, lvl: Level3D, input: MoveInput, dt: number, grid?: SpatialGrid): void {
+  // Candidate boxes overlapping the player's XZ footprint at the current pos.
+  // Returns the full box list when no grid is supplied (identical behavior).
+  const near = (): readonly Box[] =>
+    grid ? grid.queryAABB(p.x - R, p.z - R, p.x + R, p.z + R) : lvl.boxes;
   // Zipline ride — slide along the line, look freely, drop off at the end.
   if (p.zip) {
     const zl = lvl.ziplines[p.zip.i];
@@ -133,19 +138,31 @@ export function stepPlayer(p: Player3, lvl: Level3D, input: MoveInput, dt: numbe
     p.vy -= GRAV * dt;
   }
 
-  // Move + collide, one axis at a time.
+  // Move + collide, one axis at a time. Each axis re-queries `near()` AFTER the
+  // move so the candidate set matches the resolved position (the same boxes the
+  // full loop's overlapXZ would test).
   p.x += vx * dt;
-  for (const b of lvl.boxes) {
-    if (overlapXZ(p, b) && overlapY(p, b)) p.x = vx > 0 ? b.x - b.sx / 2 - R : b.x + b.sx / 2 + R;
+  {
+    const boxes = near();
+    for (let i = 0; i < boxes.length; i++) {
+      const b = boxes[i];
+      if (overlapXZ(p, b) && overlapY(p, b)) p.x = vx > 0 ? b.x - b.sx / 2 - R : b.x + b.sx / 2 + R;
+    }
   }
   p.z += vz * dt;
-  for (const b of lvl.boxes) {
-    if (overlapXZ(p, b) && overlapY(p, b)) p.z = vz > 0 ? b.z - b.sz / 2 - R : b.z + b.sz / 2 + R;
+  {
+    const boxes = near();
+    for (let i = 0; i < boxes.length; i++) {
+      const b = boxes[i];
+      if (overlapXZ(p, b) && overlapY(p, b)) p.z = vz > 0 ? b.z - b.sz / 2 - R : b.z + b.sz / 2 + R;
+    }
   }
 
   p.y += p.vy * dt;
   p.onGround = false;
-  for (const b of lvl.boxes) {
+  const yboxes = near();
+  for (let i = 0; i < yboxes.length; i++) {
+    const b = yboxes[i];
     if (!overlapXZ(p, b) || !overlapY(p, b)) continue;
     if (p.vy <= 0) {
       // landing on top of a box
