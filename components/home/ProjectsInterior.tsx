@@ -11,127 +11,22 @@ import type { DiveSection } from '@/lib/dive';
  * The cinematic Projects interior — a 3D CARD STACK (deck). Selecting a project
  * brings its card to the front; arrows / dots / swipe shuffle the deck.
  *
- * "Expand" plays a procedurally-generated SHATTER: random crack lines slow-form
- * out of an impact point and run until they intersect, then the card breaks along
- * those exact seams into pieces (clip-path slices of the REAL card — no html2canvas)
- * that enlarge and fly out as the full case study forms. Going back re-forms the
- * SAME cracks across the screen and the pieces shrink back together into the card.
+ * "Expand" plays a TV-static "tune-in": the whole screen fills with generated
+ * snow (signal lost) for ~1s, the view swaps to that project's full case study
+ * underneath, then the static fizzes out and it tunes in. Going back does the
+ * same in reverse — static, then the deck tunes back in. Reduced-motion skips the
+ * static (instant swap).
  *
  * Lazy-loaded by Hero (out of First Load). Crawlable copy lives in SeoContent.
  */
 
 type Rect = { left: number; top: number; width: number; height: number };
-type Pt = [number, number];
-type GenCrack = { d: string; len: number; dur: number; delay: number };
-type GenShard = { clip: string; dx: string; dy: string; rot: string };
-type Shatter = { cracks: GenCrack[]; shards: GenShard[] };
 
-// ---- procedural shatter geometry (0..100 viewBox coords) --------------------
-const clamp = (v: number) => Math.max(0, Math.min(100, v));
-
-function perimeterPoint(t: number): Pt {
-  const u = ((t % 4) + 4) % 4;
-  if (u < 1) return [u * 100, 0];
-  if (u < 2) return [100, (u - 1) * 100];
-  if (u < 3) return [100 - (u - 2) * 100, 100];
-  return [0, 100 - (u - 3) * 100];
-}
-function pointToT([x, y]: Pt): number {
-  if (y <= 0.5) return x / 100;
-  if (x >= 99.5) return 1 + y / 100;
-  if (y >= 99.5) return 2 + (100 - x) / 100;
-  return 3 + (100 - y) / 100;
-}
-function rayExit(ix: number, iy: number, ang: number): Pt {
-  const dx = Math.cos(ang);
-  const dy = Math.sin(ang);
-  let s = Infinity;
-  if (dx > 1e-6) s = Math.min(s, (100 - ix) / dx);
-  if (dx < -1e-6) s = Math.min(s, (0 - ix) / dx);
-  if (dy > 1e-6) s = Math.min(s, (100 - iy) / dy);
-  if (dy < -1e-6) s = Math.min(s, (0 - iy) / dy);
-  return [clamp(ix + dx * s), clamp(iy + dy * s)];
-}
-function jagged(a: Pt, b: Pt, segs: number, jit: number): Pt[] {
-  const out: Pt[] = [a];
-  const dx = b[0] - a[0];
-  const dy = b[1] - a[1];
-  const L = Math.hypot(dx, dy) || 1;
-  const px = -dy / L;
-  const py = dx / L;
-  for (let i = 1; i < segs; i++) {
-    const f = i / segs;
-    const j = (Math.random() - 0.5) * jit * (1 - Math.abs(f - 0.5));
-    out.push([a[0] + dx * f + px * j, a[1] + dy * f + py * j]);
-  }
-  out.push(b);
-  return out;
-}
-function polyLen(pts: Pt[]): number {
-  let L = 0;
-  for (let i = 1; i < pts.length; i++) L += Math.hypot(pts[i][0] - pts[i - 1][0], pts[i][1] - pts[i - 1][1]);
-  return L;
-}
-const pathD = (pts: Pt[]) => 'M' + pts.map(([x, y]) => `${x.toFixed(1)},${y.toFixed(1)}`).join(' L');
-function cornersBetween(t0: number, t1: number): Pt[] {
-  let span = t1 - t0;
-  if (span <= 1e-6) span += 4;
-  const cs: { d: number; p: Pt }[] = [];
-  for (let c = 0; c < 4; c++) {
-    let d = c - t0;
-    if (d <= 1e-6) d += 4;
-    if (d < span - 1e-6) cs.push({ d, p: perimeterPoint(c) });
-  }
-  cs.sort((a, b) => a.d - b.d);
-  return cs.map((x) => x.p);
-}
-const pointAlong = (pts: Pt[], f: number): Pt => pts[Math.max(1, Math.min(pts.length - 2, Math.round(f * (pts.length - 1))))];
-
-/** Build a fresh random shatter: radial cracks from an impact point (sectors =
- *  shards), plus connector cracks that run between them and intersect. */
-function generateShatter(): Shatter {
-  const k = 5 + Math.floor(Math.random() * 3); // 5..7 main cracks
-  const ix = 38 + Math.random() * 24;
-  const iy = 42 + Math.random() * 16;
-  const radials = Array.from({ length: k }, (_, j) => {
-    const ang = (j / k) * Math.PI * 2 + (Math.random() - 0.5) * (Math.PI * 2 / k) * 0.85;
-    const exit = rayExit(ix, iy, ang);
-    const pts = jagged([ix, iy], exit, 4 + Math.floor(Math.random() * 3), 8);
-    return { pts, t: pointToT(exit), d: pathD(pts), len: polyLen(pts) };
-  }).sort((a, b) => a.t - b.t);
-
-  const shards: GenShard[] = radials.map((c, i) => {
-    const next = radials[(i + 1) % k];
-    const poly = [...c.pts, ...cornersBetween(c.t, next.t), ...[...next.pts].reverse()];
-    const clip = `polygon(${poly.map(([x, y]) => `${clamp(x).toFixed(1)}% ${clamp(y).toFixed(1)}%`).join(', ')})`;
-    const cx = poly.reduce((s, p) => s + p[0], 0) / poly.length;
-    const cy = poly.reduce((s, p) => s + p[1], 0) / poly.length;
-    let nx = cx - ix;
-    let ny = cy - iy;
-    const L = Math.hypot(nx, ny) || 1;
-    nx /= L;
-    ny /= L;
-    return { clip, dx: `${(nx * 42).toFixed(0)}vw`, dy: `${(ny * 44).toFixed(0)}vh`, rot: `${((Math.random() * 2 - 1) * 48).toFixed(0)}deg` };
-  });
-
-  const connectors: GenCrack[] = [];
-  for (let i = 0; i < k; i++) {
-    if (Math.random() < 0.65) {
-      const a = pointAlong(radials[i].pts, 0.4 + Math.random() * 0.4);
-      const b = pointAlong(radials[(i + 1) % k].pts, 0.4 + Math.random() * 0.4);
-      const pts = jagged(a, b, 3 + Math.floor(Math.random() * 2), 7);
-      connectors.push({ d: pathD(pts), len: polyLen(pts), dur: 0.34 + Math.random() * 0.18, delay: 0.34 + Math.random() * 0.26 });
-    }
-  }
-  const cracks: GenCrack[] = [
-    ...radials.map((c) => ({ d: c.d, len: c.len, dur: 0.5 + Math.random() * 0.32, delay: Math.random() * 0.14 })),
-    ...connectors,
-  ];
-  return { cracks, shards };
+function reducedMotion(): boolean {
+  return typeof window !== 'undefined' && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 }
 
-// ---- card visuals -----------------------------------------------------------
-
+/** One tech: brand glyph (accent-glowing) or a text chip when no glyph exists. */
 function TechChip({ name, accent }: { name: string; accent: string }) {
   const path = TECH_ICON_PATHS[name];
   return (
@@ -150,6 +45,7 @@ function TechChip({ name, accent }: { name: string; accent: string }) {
   );
 }
 
+/** The reserved media viewport: video > image > placeholder. */
 function MediaViewport({ project, fill, still }: { project: Project; fill?: boolean; still?: boolean }) {
   const { media, accent, name } = project;
   const [failed, setFailed] = useState(false);
@@ -209,13 +105,22 @@ function CtaRow({ project }: { project: Project }) {
   );
 }
 
-/** Card surface — no glass blur, so the shatter clones match it exactly. */
-function CardVisual({ project, onExpand, still }: { project: Project; onExpand?: () => void; still?: boolean }) {
+/** A deck card. `pos` = depth from the front (0 = front, centred). */
+function DeckCard({ project, pos, total, onExpand }: { project: Project; pos: number; total: number; onExpand: () => void }) {
   const { codename, name, tagline, story, accent } = project;
+  const front = pos === 0;
+  const style: CSSProperties = {
+    zIndex: total - pos,
+    opacity: pos > 2 ? 0 : 1 - pos * 0.22,
+    transform: `translateY(${-pos * 22}px) translateZ(${-pos * 120}px) scale(${1 - pos * 0.05})`,
+    transition: 'transform 0.6s cubic-bezier(0.22,1,0.36,1), opacity 0.6s ease, box-shadow 0.6s ease',
+    boxShadow: `0 ${30 + pos * 6}px 80px -30px ${accent}${front ? 'aa' : '55'}`,
+    pointerEvents: front ? 'auto' : 'none',
+  };
   return (
-    <div className="flex h-full w-full flex-col overflow-hidden rounded-2xl border border-white/12 p-5 sm:p-7" style={{ background: 'linear-gradient(165deg, rgba(13,16,26,0.97), rgba(6,8,13,0.98))' }}>
+    <article className="absolute inset-0 flex flex-col overflow-hidden rounded-2xl border border-white/12 p-5 sm:p-7" style={{ ...style, background: 'linear-gradient(165deg, rgba(13,16,26,0.97), rgba(6,8,13,0.98))' }} aria-hidden={!front}>
       <div className="h-[46%] min-h-0 shrink-0">
-        <MediaViewport project={project} fill still={still} />
+        <MediaViewport project={project} fill still={!front} />
       </div>
       <div className="mt-4 flex min-h-0 flex-1 flex-col">
         <p className="font-mono text-[11px] uppercase tracking-[0.3em]" style={{ color: accent }}>
@@ -228,7 +133,7 @@ function CardVisual({ project, onExpand, still }: { project: Project; onExpand?:
           <button
             type="button"
             onClick={onExpand}
-            tabIndex={still ? -1 : 0}
+            tabIndex={front ? 0 : -1}
             className="inline-flex items-center gap-1.5 rounded-full px-4 py-2 font-sans text-xs uppercase tracking-[0.16em] text-white transition-all duration-300 hover:brightness-125 focus:outline-none focus-visible:ring-2 focus-visible:ring-white/60"
             style={{ backgroundColor: `${accent}2a`, border: `1px solid ${accent}88`, boxShadow: `0 0 22px ${accent}44` }}
           >
@@ -238,167 +143,7 @@ function CardVisual({ project, onExpand, still }: { project: Project; onExpand?:
           <CtaRow project={project} />
         </div>
       </div>
-    </div>
-  );
-}
-
-function DeckCard({ project, pos, total, onExpand }: { project: Project; pos: number; total: number; onExpand: () => void }) {
-  const { accent } = project;
-  const front = pos === 0;
-  const style: CSSProperties = {
-    zIndex: total - pos,
-    opacity: pos > 2 ? 0 : 1 - pos * 0.22,
-    transform: `translateY(${-pos * 22}px) translateZ(${-pos * 120}px) scale(${1 - pos * 0.05})`,
-    transition: 'transform 0.6s cubic-bezier(0.22,1,0.36,1), opacity 0.6s ease, box-shadow 0.6s ease',
-    boxShadow: `0 ${30 + pos * 6}px 80px -30px ${accent}${front ? 'aa' : '55'}`,
-    pointerEvents: front ? 'auto' : 'none',
-  };
-  return (
-    <div className="absolute inset-0" style={style} aria-hidden={!front}>
-      <CardVisual project={project} onExpand={onExpand} still={!front} />
-    </div>
-  );
-}
-
-/** The real card sliced into the generated shards — spread out / converge back. */
-function ShatterCard({ project, rect, shards, mode }: { project: Project; rect: Rect; shards: GenShard[]; mode: 'spread' | 'converge' }) {
-  const anim = mode === 'spread' ? 'gdg-shard-spread 0.7s ease-in 0.66s both' : 'gdg-shard-converge 0.66s ease-out 0.18s both';
-  return (
-    <div className="pointer-events-none fixed z-[96]" style={{ left: rect.left, top: rect.top, width: rect.width, height: rect.height }} aria-hidden>
-      {shards.map((s, i) => (
-        <div
-          key={i}
-          className="absolute inset-0"
-          style={{ clipPath: s.clip, filter: `drop-shadow(0 0 10px ${project.accent}55)`, '--dx': s.dx, '--dy': s.dy, '--rot': s.rot, animation: anim } as CSSProperties}
-        >
-          <CardVisual project={project} still />
-        </div>
-      ))}
-    </div>
-  );
-}
-
-/** The generated crack lines, drawn (slow-forming) over the card rect or full screen. */
-function Cracks({ accent, area, cracks }: { accent: string; area: Rect | 'full'; cracks: GenCrack[] }) {
-  const box: { left: number | string; top: number | string; width: number | string; height: number | string } =
-    area === 'full' ? { left: 0, top: 0, width: '100vw', height: '100vh' } : area;
-  return (
-    <svg aria-hidden className="pointer-events-none fixed z-[97] overflow-visible" viewBox="0 0 100 100" preserveAspectRatio="none" style={{ left: box.left, top: box.top, width: box.width, height: box.height }}>
-      <g style={{ filter: `drop-shadow(0 0 3px ${accent}) drop-shadow(0 0 9px ${accent}aa)` }}>
-        {cracks.map((c, i) => (
-          <path
-            key={i}
-            d={c.d}
-            fill="none"
-            stroke={accent}
-            strokeWidth={1.4}
-            strokeLinecap="round"
-            vectorEffect="non-scaling-stroke"
-            strokeDasharray={c.len}
-            strokeDashoffset={c.len}
-            style={{ '--len': c.len, animation: `gdg-crack-draw ${c.dur}s ease-out ${c.delay}s both` } as CSSProperties}
-          />
-        ))}
-      </g>
-    </svg>
-  );
-}
-
-/** Card→page shatter morph (and back). */
-function ProjectMorph({ project, rect, onClose }: { project: Project; rect: Rect; onClose: () => void }) {
-  const { codename, name, tagline, story, highlights, tech, accent } = project;
-  const [phase, setPhase] = useState<'opening' | 'open' | 'closing'>('opening');
-  const [expanded, setExpanded] = useState(false);
-  const [breaking, setBreaking] = useState(false); // close step 2: page shatters in
-  const gen = useState<Shatter>(generateShatter)[0]; // same cracks/shards for open AND close
-  const dims = useRef({ vw: typeof window !== 'undefined' ? window.innerWidth : 0, vh: typeof window !== 'undefined' ? window.innerHeight : 0 });
-
-  const closedClip = `inset(${rect.top}px ${dims.current.vw - (rect.left + rect.width)}px ${dims.current.vh - (rect.top + rect.height)}px ${rect.left}px round 16px)`;
-  const openClip = 'inset(0px 0px 0px 0px round 0px)';
-
-  useEffect(() => {
-    const t1 = window.setTimeout(() => setExpanded(true), 700); // cracks form first, THEN the card shatters open
-    const t2 = window.setTimeout(() => setPhase('open'), 1650);
-    return () => {
-      window.clearTimeout(t1);
-      window.clearTimeout(t2);
-    };
-  }, []);
-
-  const requestClose = useCallback(() => {
-    setPhase('closing'); // step 1: the same cracks re-form across the full screen
-    window.setTimeout(() => {
-      setExpanded(false); // step 2: it shatters — page recedes, pieces converge into the card
-      setBreaking(true);
-    }, 440);
-    window.setTimeout(onClose, 1240);
-  }, [onClose]);
-
-  useEffect(() => {
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') {
-        e.stopPropagation();
-        e.preventDefault();
-        requestClose();
-      }
-    };
-    window.addEventListener('keydown', onKey, true);
-    return () => window.removeEventListener('keydown', onKey, true);
-  }, [requestClose]);
-
-  const closing = phase === 'closing';
-
-  return createPortal(
-    <div role="dialog" aria-modal="true" aria-label={`${name} case study`} className="fixed inset-0 z-[95]">
-      <div className="absolute inset-0 bg-[rgba(2,3,7,0.86)] backdrop-blur-lg transition-opacity duration-[420ms]" style={{ opacity: closing && breaking ? 0 : expanded ? 1 : 0.5 }} />
-
-      <div className="absolute inset-0 overflow-y-auto px-5 py-14 sm:py-16" style={{ clipPath: expanded ? openClip : closedClip, transition: 'clip-path 0.6s cubic-bezier(0.7,0,0.2,1)' }}>
-        <div className="mx-auto w-full max-w-3xl" style={{ animation: closing ? (breaking ? 'gdg-holo-out 0.42s ease-in both' : 'none') : 'gdg-holo-in 0.6s ease-out 0.75s both' }}>
-          <MediaViewport project={project} />
-          <p className="mt-6 font-mono text-[11px] uppercase tracking-[0.32em]" style={{ color: accent }}>
-            {codename}
-          </p>
-          <h2 className="mt-2 font-serif text-[clamp(2rem,5vw,3rem)] leading-tight text-ink">{name}</h2>
-          <p className="mt-2 font-sans text-base text-white/60">{tagline}</p>
-          <p className="mt-5 font-sans text-base leading-relaxed text-white/85">{story}</p>
-          <ul className="mt-6 flex flex-wrap gap-2">
-            {tech.map((t) => (
-              <TechChip key={t} name={t} accent={accent} />
-            ))}
-          </ul>
-          <ul className="mt-6 space-y-1.5">
-            {highlights.map((h) => (
-              <li key={h} className="flex items-start gap-2 font-mono text-xs leading-relaxed text-white/70">
-                <span aria-hidden style={{ color: accent }}>
-                  ▸
-                </span>
-                {h}
-              </li>
-            ))}
-          </ul>
-          <div className="mt-7 flex flex-wrap items-center gap-2.5">
-            <CtaRow project={project} />
-          </div>
-        </div>
-      </div>
-
-      {/* the SAME random cracks form on the card (open) or across the screen (close) */}
-      {phase === 'opening' && <Cracks accent={accent} area={rect} cracks={gen.cracks} />}
-      {closing && <Cracks accent={accent} area="full" cracks={gen.cracks} />}
-
-      {/* the real card, shattered along the cracks — spreads out (open) / converges back (close) */}
-      {(phase === 'opening' || (closing && breaking)) && <ShatterCard project={project} rect={rect} shards={gen.shards} mode={closing ? 'converge' : 'spread'} />}
-
-      <button
-        type="button"
-        onClick={requestClose}
-        className="group fixed left-6 top-6 z-[98] inline-flex items-center gap-2 font-sans text-xs uppercase tracking-[0.22em] text-white/70 transition-colors duration-300 hover:text-white focus:outline-none focus-visible:text-white sm:left-8 sm:top-8"
-      >
-        <span aria-hidden className="transition-transform duration-300 group-hover:-translate-x-1">&larr;</span>
-        Back to projects
-      </button>
-    </div>,
-    document.body,
+    </article>
   );
 }
 
@@ -415,30 +160,72 @@ function NavArrow({ dir, onClick }: { dir: 'prev' | 'next'; onClick: () => void 
   );
 }
 
-export function ProjectsInterior({ onNavigate }: { onNavigate: (s: Exclude<DiveSection, null>) => void }) {
-  const [active, setActive] = useState(0);
-  const [expand, setExpand] = useState<{ project: Project; rect: Rect } | null>(null);
+/** Full-screen generated TV static that covers the screen, then fizzes out. */
+function StaticBurst({ onSwap, onEnd }: { onSwap: () => void; onEnd: () => void }) {
+  const ref = useRef<HTMLCanvasElement>(null);
+  useEffect(() => {
+    const cvs = ref.current;
+    const ctx = cvs?.getContext('2d');
+    if (!cvs || !ctx) return;
+    const W = 320;
+    const H = 180;
+    cvs.width = W;
+    cvs.height = H;
+    const img = ctx.createImageData(W, H);
+    const data = img.data;
+    let raf = 0;
+    let alive = true;
+    const draw = () => {
+      if (!alive) return;
+      for (let i = 0; i < data.length; i += 4) {
+        const v = (Math.random() * 255) | 0;
+        data[i] = v;
+        data[i + 1] = v;
+        data[i + 2] = v;
+        data[i + 3] = 255;
+      }
+      ctx.putImageData(img, 0, 0);
+      raf = requestAnimationFrame(draw);
+    };
+    draw();
+    const tSwap = window.setTimeout(onSwap, 480); // swap the view while fully covered
+    const tEnd = window.setTimeout(onEnd, 1150);
+    return () => {
+      alive = false;
+      cancelAnimationFrame(raf);
+      window.clearTimeout(tSwap);
+      window.clearTimeout(tEnd);
+    };
+  }, [onSwap, onEnd]);
+
+  return createPortal(
+    <div className="fixed inset-0 z-[100] overflow-hidden bg-black" style={{ animation: 'gdg-static-burst 1.15s ease-in-out forwards' }} aria-hidden>
+      <canvas ref={ref} className="h-full w-full [image-rendering:pixelated]" style={{ filter: 'contrast(1.15) brightness(1.05)' }} />
+      <div className="pointer-events-none absolute inset-0" style={{ background: 'repeating-linear-gradient(0deg, rgba(0,0,0,0.3) 0px, rgba(0,0,0,0.3) 1px, transparent 1px, transparent 3px)' }} />
+      <div className="pointer-events-none absolute inset-x-0 h-[16%] opacity-30" style={{ background: 'linear-gradient(rgba(255,255,255,0) 0%, rgba(255,255,255,0.55) 50%, rgba(255,255,255,0) 100%)', animation: 'gdg-static-roll 0.65s linear infinite' }} />
+      <div className="pointer-events-none absolute inset-0" style={{ background: 'radial-gradient(120% 120% at 50% 50%, transparent 52%, rgba(0,0,0,0.65) 100%)' }} />
+    </div>,
+    document.body,
+  );
+}
+
+/** The deck (card stack) view. */
+function DeckView({
+  active,
+  setActive,
+  onExpand,
+  onNavigate,
+  deckRef,
+}: {
+  active: number;
+  setActive: (i: number) => void;
+  onExpand: (p: Project) => void;
+  onNavigate: (s: Exclude<DiveSection, null>) => void;
+  deckRef: React.RefObject<HTMLDivElement>;
+}) {
   const n = projects.length;
   const go = (i: number) => setActive(((i % n) + n) % n);
   const startX = useRef<number | null>(null);
-  const deckRef = useRef<HTMLDivElement>(null);
-
-  const openExpand = (project: Project) => {
-    const r = deckRef.current?.getBoundingClientRect();
-    if (r) setExpand({ project, rect: { left: r.left, top: r.top, width: r.width, height: r.height } });
-  };
-
-  useEffect(() => {
-    if (expand) return;
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'ArrowLeft') go(active - 1);
-      else if (e.key === 'ArrowRight') go(active + 1);
-    };
-    window.addEventListener('keydown', onKey);
-    return () => window.removeEventListener('keydown', onKey);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [active, expand]);
-
   const accent = projects[active]?.accent ?? '#7fdfff';
 
   return (
@@ -462,7 +249,7 @@ export function ProjectsInterior({ onNavigate }: { onNavigate: (s: Exclude<DiveS
         }}
       >
         {projects.map((p, i) => (
-          <DeckCard key={p.id} project={p} pos={(((i - active) % n) + n) % n} total={n} onExpand={() => openExpand(p)} />
+          <DeckCard key={p.id} project={p} pos={(((i - active) % n) + n) % n} total={n} onExpand={() => onExpand(p)} />
         ))}
       </div>
 
@@ -488,8 +275,116 @@ export function ProjectsInterior({ onNavigate }: { onNavigate: (s: Exclude<DiveS
         <PrimaryLink label="Back to About" direction="left" onClick={() => onNavigate('about')} />
         <PrimaryLink label="Continue to Contact" onClick={() => onNavigate('contact')} />
       </div>
-
-      {expand && <ProjectMorph project={expand.project} rect={expand.rect} onClose={() => setExpand(null)} />}
     </div>
+  );
+}
+
+/** The full case study for one project. */
+function DetailView({ project, onBack }: { project: Project; onBack: () => void }) {
+  const { codename, name, tagline, story, highlights, tech, accent } = project;
+  return (
+    <div className="w-full max-w-3xl">
+      <button
+        type="button"
+        onClick={onBack}
+        className="group inline-flex items-center gap-2 font-sans text-xs uppercase tracking-[0.22em] text-white/70 transition-colors duration-300 hover:text-white focus:outline-none focus-visible:text-white"
+      >
+        <span aria-hidden className="transition-transform duration-300 group-hover:-translate-x-1">&larr;</span>
+        Back to projects
+      </button>
+
+      <div className="mt-7">
+        <MediaViewport project={project} />
+        <p className="mt-6 font-mono text-[11px] uppercase tracking-[0.32em]" style={{ color: accent }}>
+          {codename}
+        </p>
+        <h2 className="mt-2 font-serif text-[clamp(2rem,5vw,3rem)] leading-tight text-ink">{name}</h2>
+        <p className="mt-2 font-sans text-base text-white/60">{tagline}</p>
+        <p className="mt-5 font-sans text-base leading-relaxed text-white/85">{story}</p>
+        <ul className="mt-6 flex flex-wrap gap-2">
+          {tech.map((t) => (
+            <TechChip key={t} name={t} accent={accent} />
+          ))}
+        </ul>
+        <ul className="mt-6 space-y-1.5">
+          {highlights.map((h) => (
+            <li key={h} className="flex items-start gap-2 font-mono text-xs leading-relaxed text-white/70">
+              <span aria-hidden style={{ color: accent }}>
+                ▸
+              </span>
+              {h}
+            </li>
+          ))}
+        </ul>
+        <div className="mt-7 flex flex-wrap items-center gap-2.5">
+          <CtaRow project={project} />
+        </div>
+      </div>
+    </div>
+  );
+}
+
+export function ProjectsInterior({ onNavigate }: { onNavigate: (s: Exclude<DiveSection, null>) => void }) {
+  const [active, setActive] = useState(0);
+  const [detail, setDetail] = useState<Project | null>(null);
+  const [burst, setBurst] = useState(false);
+  const busy = useRef(false);
+  const pendingSwap = useRef<() => void>(() => {});
+  const deckRef = useRef<HTMLDivElement>(null);
+
+  // Run a view swap behind a static burst (or instantly under reduced motion).
+  const withStatic = useCallback((swap: () => void) => {
+    if (busy.current) return;
+    if (reducedMotion()) {
+      swap();
+      return;
+    }
+    busy.current = true;
+    pendingSwap.current = swap;
+    setBurst(true);
+  }, []);
+
+  const onSwap = useCallback(() => pendingSwap.current(), []);
+  const onEnd = useCallback(() => {
+    setBurst(false);
+    busy.current = false;
+  }, []);
+
+  const openDetail = useCallback((p: Project) => withStatic(() => setDetail(p)), [withStatic]);
+  const backToDeck = useCallback(() => withStatic(() => setDetail(null)), [withStatic]);
+
+  // Keys: in the detail, Escape returns to the deck (capture, so Hero's Escape
+  // doesn't close the whole interior). In the deck, arrows shuffle.
+  useEffect(() => {
+    if (detail) {
+      const onKey = (e: KeyboardEvent) => {
+        if (e.key === 'Escape') {
+          e.stopPropagation();
+          e.preventDefault();
+          backToDeck();
+        }
+      };
+      window.addEventListener('keydown', onKey, true);
+      return () => window.removeEventListener('keydown', onKey, true);
+    }
+    const onKey = (e: KeyboardEvent) => {
+      if (busy.current) return;
+      if (e.key === 'ArrowLeft') setActive((a) => (a - 1 + projects.length) % projects.length);
+      else if (e.key === 'ArrowRight') setActive((a) => (a + 1) % projects.length);
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [detail, backToDeck]);
+
+  return (
+    <>
+      {detail ? (
+        <DetailView project={detail} onBack={backToDeck} />
+      ) : (
+        <DeckView active={active} setActive={setActive} onExpand={openDetail} onNavigate={onNavigate} deckRef={deckRef} />
+      )}
+
+      {burst && <StaticBurst onSwap={onSwap} onEnd={onEnd} />}
+    </>
   );
 }

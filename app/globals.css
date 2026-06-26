@@ -409,3 +409,29 @@
     transform: translateY(14px) scale(0.96);
   }
 }
+
+/* Projects "tune-in" — the whole screen fills with TV static (signal lost), the
+   view swaps underneath, then the static fizzes out and the destination tunes
+   in. Reduced-motion skips it (instant swap, no static). */
+@keyframes gdg-static-burst {
+  0% {
+    opacity: 0;
+  }
+  9% {
+    opacity: 1;
+  }
+  72% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+  }
+}
+@keyframes gdg-static-roll {
+  0% {
+    transform: translateY(-30%);
+  }
+  100% {
+    transform: translateY(130%);
+  }
+}
