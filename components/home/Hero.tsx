@@ -25,6 +25,13 @@ const AboutInterior = dynamic(
   { ssr: false },
 );
 
+// Code-split: the Projects showcase (panels + per-project media) loads only when
+// you dive into the quantum field — never in First Load.
+const ProjectsInterior = dynamic(
+  () => import('@/components/home/ProjectsInterior').then((m) => m.ProjectsInterior),
+  { ssr: false },
+);
+
 /** Pick a random About header, never the same one twice in a row. */
 let lastHeaderIdx = -1;
 function pickAboutHeader(): string {
@@ -321,24 +328,6 @@ function Interior({
     );
   }
 
-  // Projects
-  return (
-    <div className="max-w-3xl text-center [text-shadow:0_2px_30px_rgba(0,0,0,0.85)]">
-      <p className="font-mono text-[11px] uppercase tracking-[0.32em] text-white/55">
-        02 · Projects
-      </p>
-      <h2 className="mt-5 font-serif text-[clamp(2rem,5vw,3.5rem)] leading-[1.05] tracking-tight text-ink">
-        Down at the quantum level.
-      </h2>
-      <p className="mx-auto mt-6 max-w-xl font-sans text-base leading-relaxed text-white/75 sm:text-lg">
-        You&rsquo;ve fallen past the core into the quantum field &mdash; the
-        smallest scale, where everything is built from first principles. The
-        case studies are materialising here.
-      </p>
-      <div className="mt-10 flex items-center justify-center gap-10">
-        <PrimaryLink label="Back to About" direction="left" onClick={() => onNavigate('about')} />
-        <PrimaryLink label="Continue to Contact" onClick={() => onNavigate('contact')} />
-      </div>
-    </div>
-  );
+  // Projects — the quantum-field showcase.
+  return <ProjectsInterior onNavigate={onNavigate} />;
 }

@@ -1,195 +1,119 @@
 /**
- * Projects showcase data — the single source of truth for the three terminal
- * cards and their full-screen case studies (see components/sections/projects/).
+ * Projects showcase — the single source of truth for the cinematic Projects
+ * interior (components/home/ProjectsInterior.tsx) and the crawlable SEO copy
+ * (components/home/SeoContent.tsx). Update content here; the UI reads the array.
  *
- * Everything here is PLACEHOLDER content scaffolded for the build. Swap the
- * copy, tags, URLs and snippets for the real projects when ready — the UI reads
- * entirely from this array, so no component edits are needed to update content.
+ * MEDIA (every project has a viewport reserved for it):
+ *   Drop a file into /public/projects and point `media` at it. Video wins over
+ *   image; a poster shows before the video loads. A missing file degrades to a
+ *   tasteful gradient placeholder (the panel never shows a broken <img>/<video>).
+ *   Examples for id "helix":
+ *     media: { image: '/projects/helix.jpg' }
+ *     media: { video: '/projects/helix.mp4', poster: '/projects/helix.jpg' }
  *
- * MEDIA (optional, auto-upgrading): drop files into `public/projects/` and the
- * case study uses them automatically; until then a graceful gradient/poster
- * placeholder stands in (nothing renders a broken <video>/<img>). Expected
- * paths per project, e.g. for id "neural-engine":
- *   public/projects/neural-engine.webm     → media.video
- *   public/projects/neural-engine-poster.jpg → media.poster
- *   public/projects/neural-engine-01.jpg ... → media.gallery[]
+ * LINKS: `live` / `source` / `play` render as CTA buttons. A private project
+ *   (`private: true`) shows no external links — story only.
  */
 
-/** Shared monospace "live AI compilation" script the cards loop while idle. */
-export const TYPING_SCRIPT: readonly string[] = [
-  '[SYSTEM] Initializing LLM context... OK',
-  '[AGENT] Querying local repository: /projects/neural-engine',
-  '[PROMPT] /synthesize_case_study --depth=full --generate-ui',
-  '[STATUS] Injecting structural parameters into canvas...',
-];
-
-export interface ProjectBrief {
-  /** JSON-log style lines describing what the project set out to do. */
-  goals: string[];
-  /** JSON-log style lines describing the technical architecture. */
-  architecture: string[];
-}
-
 export interface ProjectMedia {
-  /** Looping product video (mp4/webm) under /public/projects. Optional. */
+  /** Screenshot / still under /public/projects (e.g. '/projects/helix.jpg'). */
+  image?: string;
+  /** Looping clip (mp4/webm) under /public/projects. Takes priority over image. */
   video?: string;
-  /** Poster frame shown before/without the video. Optional. */
+  /** Poster frame shown before/without the video. */
   poster?: string;
-  /** Gallery still frames under /public/projects. Optional. */
-  gallery?: string[];
 }
 
-export interface ProjectSnippet {
-  /** Language label shown in the terminal chrome (e.g. "ts", "py"). */
-  lang: string;
-  /** The code block rendered in the read-only log terminal. */
-  code: string;
+export interface ProjectLinks {
+  /** "Live" — the deployed site. */
+  live?: string;
+  /** "Source" — the public repo. */
+  source?: string;
+  /** "Play" — an in-app demo route (e.g. '/arcade'). */
+  play?: string;
 }
 
 export interface Project {
-  /** Stable id; also the media filename stem under /public/projects. */
+  /** Stable id; also the suggested media filename stem under /public/projects. */
   id: string;
-  /** Human-readable project name shown on the card + case study. */
+  /** Human-readable name (serif heading on the panel). */
   name: string;
-  /** Machine codename, e.g. "NEURAL-ENGINE". */
+  /** Machine codename shown in the mono eyebrow (e.g. "HELIX"). */
   codename: string;
   /** One-line positioning statement. */
   tagline: string;
-  /** ML / tech micro-tags (PyTorch, WebGL, …). */
-  tags: string[];
-  /** Baseline latency (ms) the fake live dashboard jitters around. */
-  latencyMs: number;
-  brief: ProjectBrief;
-  media: ProjectMedia;
-  snippet: ProjectSnippet;
-  /** External "launch live demo" target. */
-  liveUrl: string;
-  /** External "inspect source" target. */
-  sourceUrl: string;
+  /** 2-3 sentence story: problem → what I built → result. */
+  story: string;
+  /** Short "spec sheet" facts (mono), the impressive bullet points. */
+  highlights: string[];
+  /** Tech names; matched to brand glyphs in lib/tech-icons.ts (text chip if none). */
+  tech: string[];
+  /** The reserved media viewport content (image / video / poster). Optional. */
+  media?: ProjectMedia;
+  /** CTA links. Omitted entirely for a private build. */
+  links?: ProjectLinks;
+  /** Accent colour (hex) for the panel's glow + tech glyphs. */
+  accent: string;
+  /** Private build — render the story + stack but no external links. */
+  private?: boolean;
 }
 
-// TODO: replace all placeholder content below with the real projects.
 export const projects: Project[] = [
   {
-    id: 'neural-engine',
-    name: 'Neural Engine',
-    codename: 'NEURAL-ENGINE',
-    tagline: 'Realtime inference orchestration for on-device language models.',
-    tags: ['PyTorch', 'WebGL', 'ONNX', 'Rust'],
-    latencyMs: 42,
-    brief: {
-      goals: [
-        '"objective": "sub-50ms local inference with zero cloud round-trips"',
-        '"surface": "an interface that feels like thinking out loud"',
-        '"constraint": "runs fully offline on consumer hardware"',
-      ],
-      architecture: [
-        '"runtime": "quantized transformer compiled to WASM + WebGPU"',
-        '"pipeline": "tokenizer → scheduler → kv-cache → streaming decode"',
-        '"frontend": "Next.js shell, GSAP motion, zero layout shift"',
-      ],
-    },
-    media: {
-      video: '/projects/neural-engine.webm',
-      poster: '/projects/neural-engine-poster.jpg',
-      gallery: [
-        '/projects/neural-engine-01.jpg',
-        '/projects/neural-engine-02.jpg',
-        '/projects/neural-engine-03.jpg',
-      ],
-    },
-    snippet: {
-      lang: 'ts',
-      code: `const engine = await NeuralEngine.boot({
-  model: "local/quantized-7b",
-  backend: "webgpu",
-  cache: "kv-stream",
-});
-
-for await (const token of engine.stream(prompt)) {
-  ui.render(token); // ~42ms first-token, fully offline
-}`,
-    },
-    liveUrl: '#',
-    sourceUrl: '#',
+    id: 'helix',
+    name: 'Helix',
+    codename: 'HELIX',
+    tagline: 'A local-first AI assistant that wakes to your voice and remembers.',
+    story:
+      'My flagship build: a personal AI assistant that runs entirely on my own laptop. It wakes on a spoken word, thinks with Claude, replies in a calm British voice, and runs a team of six background agents. Its defining feature is an intelligent memory that decides what is worth remembering, forgets gracefully over time, and renders everything it knows as a live 3D neural brain you can fly through.',
+    highlights: [
+      'Runs fully local on a 4 GB-VRAM laptop',
+      'Intelligent 3-layer memory + live 3D brain',
+      '243 passing tests · security-first, secrets never on disk',
+    ],
+    tech: ['Python', 'FastAPI', 'Claude', 'Tauri', 'React', 'TypeScript', 'Three.js'],
+    // media: { video: '/projects/helix.mp4', poster: '/projects/helix.jpg' },
+    accent: '#7fdfff',
+    private: true,
   },
   {
-    id: 'signal-mesh',
-    name: 'Signal Mesh',
-    codename: 'SIGNAL-MESH',
-    tagline: 'A self-healing data fabric for distributed agent swarms.',
-    tags: ['TypeScript', 'WebRTC', 'CRDT', 'Edge'],
-    latencyMs: 18,
-    brief: {
-      goals: [
-        '"objective": "coordinate N agents with no central broker"',
-        '"property": "converges to consistent state under partition"',
-        '"target": "graceful degradation, never a hard failure"',
-      ],
-      architecture: [
-        '"transport": "peer WebRTC datachannels over a gossip overlay"',
-        '"state": "delta-CRDTs with causal ordering"',
-        '"observability": "live mesh topology + latency heatmap"',
-      ],
+    id: 'gdg-quantum',
+    name: 'GDG Quantum',
+    codename: 'GDG-QUANTUM',
+    tagline: 'The cinematic WebGL site you are flying through right now.',
+    story:
+      'This site. A single-page experience built around a live 3D orb you navigate by diving into it, with a full WebGL world and a hidden browser game one click away. The hard part was making it cinematic AND fast AND accessible AND working on phones, all at once, while keeping the homepage under 100 kB.',
+    highlights: [
+      'Under 100 kB First Load on every device',
+      'WebGL world + a whole game, async-isolated',
+      'Nonce-CSP, WCAG AA, SEO-hardened',
+    ],
+    tech: ['Next.js', 'TypeScript', 'Three.js', 'GSAP', 'Tailwind CSS', 'Prisma', 'PostgreSQL'],
+    // media: { image: '/projects/gdg-quantum.jpg' },
+    links: {
+      live: 'https://gdgquantum.com',
+      source: 'https://github.com/GDGuzman11/GDGQuantumWeb',
     },
-    media: {
-      video: '/projects/signal-mesh.webm',
-      poster: '/projects/signal-mesh-poster.jpg',
-      gallery: [
-        '/projects/signal-mesh-01.jpg',
-        '/projects/signal-mesh-02.jpg',
-      ],
-    },
-    snippet: {
-      lang: 'ts',
-      code: `const mesh = SignalMesh.join(roomId);
-
-mesh.on("merge", (delta) => state.apply(delta));
-
-state.mutate(draft => {
-  draft.cursor = pos; // replicates to every peer, conflict-free
-});`,
-    },
-    liveUrl: '#',
-    sourceUrl: '#',
+    accent: '#6ea8ff',
   },
   {
-    id: 'aperture-vision',
-    name: 'Aperture Vision',
-    codename: 'APERTURE-VISION',
-    tagline: 'Generative spatial UI driven by realtime scene understanding.',
-    tags: ['Python', 'WebGPU', 'Diffusion', 'GLSL'],
-    latencyMs: 31,
-    brief: {
-      goals: [
-        '"objective": "compose interfaces from a live camera feed"',
-        '"experience": "layout that reacts to depth + attention"',
-        '"bar": "60fps with generative passes in the loop"',
-      ],
-      architecture: [
-        '"perception": "segmentation + depth estimation on-device"',
-        '"synthesis": "guided diffusion into a GLSL composite layer"',
-        '"controller": "GSAP timeline bound to scene salience"',
-      ],
+    id: 'starshell',
+    name: 'Starshell',
+    codename: 'STARSHELL',
+    tagline: "A '93-pixel first-person shooter built in the browser, no game engine.",
+    story:
+      'A retro FPS I wrote from scratch on Three.js: the renderer, the physics, the hitscan combat, and a squad-coordinated alien AI that flanks, climbs, and zeroes in on you. There are zero asset files. Every texture and sound is generated by code at runtime. It is a full 20-level campaign that runs on a phone.',
+    highlights: [
+      'No game engine, zero asset files',
+      'Squad AI: line-of-sight, flanking, climbing',
+      '20-level campaign · ~288 kB, runs on mobile',
+    ],
+    tech: ['Three.js', 'TypeScript', 'Tailwind CSS', 'Web Audio'],
+    // media: { video: '/projects/starshell.mp4', poster: '/projects/starshell.jpg' },
+    links: {
+      play: '/arcade',
+      source: 'https://github.com/GDGuzman11/Starshell',
     },
-    media: {
-      video: '/projects/aperture-vision.webm',
-      poster: '/projects/aperture-vision-poster.jpg',
-      gallery: [
-        '/projects/aperture-vision-01.jpg',
-        '/projects/aperture-vision-02.jpg',
-        '/projects/aperture-vision-03.jpg',
-      ],
-    },
-    snippet: {
-      lang: 'py',
-      code: `scene = perceive(frame)        # depth + segments, on-device
-layout = compose(scene.salience)
-canvas = diffuse(layout, steps=4)  # guided, 4-step
-
-render(canvas)  # ~31ms/frame, 60fps target held`,
-    },
-    liveUrl: '#',
-    sourceUrl: '#',
+    accent: '#ffd27a',
   },
 ];

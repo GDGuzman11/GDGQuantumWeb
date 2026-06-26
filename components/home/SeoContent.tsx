@@ -1,5 +1,6 @@
 import { about, profile } from '@/lib/profile';
 import { TECH_STACK } from '@/lib/tech-stack';
+import { projects } from '@/lib/projects';
 
 /**
  * Crawlable, server-rendered copy of the site's section content.
@@ -28,10 +29,16 @@ export function SeoContent() {
       <p>{about.closing}</p>
 
       <h2>Projects</h2>
-      <p>
-        Selected work, including Helix (a local-first AI assistant) and this
-        cinematic WebGL site. Fly into the orb to explore the case studies.
-      </p>
+      <p>Selected work by {profile.name}. Fly into the orb to explore the case studies.</p>
+      <ul>
+        {projects.map((p) => (
+          <li key={p.id}>
+            <strong>{p.name}</strong> — {p.tagline} {p.story}{' '}
+            {p.links?.live ? <a href={p.links.live}>Live</a> : null}
+            {p.links?.source ? <a href={p.links.source}>Source</a> : null}
+          </li>
+        ))}
+      </ul>
 
       <h2>Contact</h2>
       <p>
