@@ -83,9 +83,9 @@ export const projects: Project[] = [
       '243 passing tests · secrets never on disk',
     ],
     tech: ['Python', 'FastAPI', 'Claude', 'Tauri', 'React', 'TypeScript', 'Three.js'],
-    media: { image: '/projects/helix.jpg' },
+    media: { video: '/projects/helix.mp4' },
     gallery: [
-      { kind: 'image', src: '/projects/helix-orb.jpg', caption: 'The Helix orb — its identity + voice state.' },
+      { kind: 'video', src: '/projects/helix.mp4', caption: 'Helix replying — with more attitude than I asked for.' },
       { kind: 'image', src: '/projects/helix-brain.jpg', caption: 'The 3D memory brain you can fly through.' },
       { kind: 'image', src: '/projects/helix-agents.jpg', caption: 'Six background agents, live status + tasks.' },
     ],
