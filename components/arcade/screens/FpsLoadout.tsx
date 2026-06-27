@@ -1,7 +1,8 @@
 'use client';
 
 import { useState } from 'react';
-import { PRIMARIES, SIDEARMS, THROWABLES, type GunDef, type ThrowKind } from '../fps/weapons';
+import { PRIMARIES, SIDEARMS, THROWABLES, gunById, type GunDef, type ThrowKind } from '../fps/weapons';
+import { GunPreview } from './GunPreview';
 
 const THROW_SUB: Record<ThrowKind, string> = {
   frag: 'AoE damage',
@@ -18,7 +19,8 @@ const THROW_SUB: Record<ThrowKind, string> = {
   plasma: 'huge burst',
 };
 
-/** Pre-deploy loadout: 2 primaries + 1 sidearm + 1 throwable, from the pool. */
+/** Pre-deploy loadout: 2 primaries + 1 sidearm + 1 throwable, from the pool.
+ *  A shared 3D preview shows whichever gun you last tapped (default PRIMARY 1). */
 export function FpsLoadout({
   onDeploy,
   onBack,
@@ -30,6 +32,13 @@ export function FpsLoadout({
   const [p2, setP2] = useState('rail');
   const [sa, setSa] = useState('sidearm');
   const [th, setTh] = useState('frag');
+  const [focus, setFocus] = useState('ar'); // gun shown in the preview
+
+  const pick = (set: (id: string) => void) => (id: string) => {
+    set(id);
+    setFocus(id);
+  };
+  const fg = gunById(focus);
 
   return (
     <div className="absolute inset-0 z-40 flex flex-col bg-black/85 px-3 py-3 sm:px-5">
@@ -40,10 +49,21 @@ export function FpsLoadout({
         </button>
       </div>
 
+      {/* shared 3D preview of the focused gun */}
+      <div className="relative mt-2 h-32 shrink-0 overflow-hidden rounded-md border border-white/10 bg-gradient-to-b from-white/[0.06] to-transparent sm:h-44">
+        <GunPreview gunId={focus} />
+        <div className="pointer-events-none absolute bottom-1 left-2">
+          <p className="font-pixel text-[9px] text-white sm:text-[12px]">{fg.name}</p>
+          <p className="font-pixel text-[6px] uppercase text-white/45 sm:text-[8px]">
+            {fg.family} · DMG {fg.dmg} · MAG {fg.mag}
+          </p>
+        </div>
+      </div>
+
       <div className="mt-2 flex-1 space-y-3 overflow-y-auto pr-1">
-        <Picker label="PRIMARY 1" items={PRIMARIES} value={p1} onPick={setP1} />
-        <Picker label="PRIMARY 2" items={PRIMARIES} value={p2} onPick={setP2} />
-        <Picker label="SIDEARM" items={SIDEARMS} value={sa} onPick={setSa} />
+        <Picker label="PRIMARY 1" items={PRIMARIES} value={p1} focus={focus} onPick={pick(setP1)} />
+        <Picker label="PRIMARY 2" items={PRIMARIES} value={p2} focus={focus} onPick={pick(setP2)} />
+        <Picker label="SIDEARM" items={SIDEARMS} value={sa} focus={focus} onPick={pick(setSa)} />
         <div>
           <p className="font-pixel text-[7px] text-white/45 sm:text-[8px]">THROWABLE</p>
           <div className="mt-1 flex flex-wrap gap-1.5">
@@ -65,25 +85,25 @@ export function FpsLoadout({
   );
 }
 
-function Picker({ label, items, value, onPick }: { label: string; items: GunDef[]; value: string; onPick: (id: string) => void }) {
+function Picker({ label, items, value, focus, onPick }: { label: string; items: GunDef[]; value: string; focus: string; onPick: (id: string) => void }) {
   return (
     <div>
       <p className="font-pixel text-[7px] text-white/45 sm:text-[8px]">{label}</p>
       <div className="mt-1 flex flex-wrap gap-1.5">
         {items.map((g) => (
-          <Chip key={g.id} label={g.name} sub={`${g.family} · ${g.dmg}`} on={value === g.id} color="#7fdfff" onClick={() => onPick(g.id)} />
+          <Chip key={g.id} label={g.name} sub={`${g.family} · ${g.dmg}`} on={value === g.id} ring={focus === g.id} color="#7fdfff" onClick={() => onPick(g.id)} />
         ))}
       </div>
     </div>
   );
 }
 
-function Chip({ label, sub, on, color, onClick }: { label: string; sub: string; on: boolean; color: string; onClick: () => void }) {
+function Chip({ label, sub, on, ring, color, onClick }: { label: string; sub: string; on: boolean; ring?: boolean; color: string; onClick: () => void }) {
   return (
     <button
       type="button"
       onClick={onClick}
-      className={`flex flex-col items-start rounded border px-2 py-1 text-left transition-colors ${on ? 'bg-white/10' : 'border-white/10 bg-white/[0.02] opacity-70 hover:opacity-100'}`}
+      className={`flex flex-col items-start rounded border px-2 py-1 text-left transition-colors ${on ? 'bg-white/10' : 'border-white/10 bg-white/[0.02] opacity-70 hover:opacity-100'} ${ring && !on ? 'ring-1 ring-white/30' : ''}`}
       style={on ? { borderColor: color } : undefined}
     >
       <span className="font-pixel text-[7px] leading-tight text-white sm:text-[8px]">{label}</span>
