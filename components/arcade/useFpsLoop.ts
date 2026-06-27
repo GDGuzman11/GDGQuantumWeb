@@ -133,6 +133,8 @@ export function useFpsLoop(
     let composer: ReturnType<typeof makeComposer> | null = null;
     // 3D first-person viewmodel (the selected gun), drawn over the world frame.
     let viewmodel: Viewmodel | null = null;
+    // The weapon id whose sustained-fire loop (Ripper / Lance Beam) is playing.
+    let activeLoop: string | null = null;
 
     let world: World | null = null;
     let builtFor: Level3D | null = null;
@@ -394,7 +396,7 @@ export function useFpsLoop(
               mesh.position.set(eye[0], eye[1], eye[2]);
               world.scene.add(mesh);
               grenades.push({ x: eye[0], y: eye[1], z: eye[2], vx: fx * sp, vy: fy * sp + 4.5, vz: fz * sp, fuse: g.throwable.fuse, mesh });
-              sfx.swap();
+              sfx.playThrowable(g.throwable.id, 'throw');
             }
           }
 
@@ -413,7 +415,7 @@ export function useFpsLoop(
             if (g.reloading <= 0 && g.mags[g.active] < gun.mag && g.reserves[g.active] > 0) {
               g.reloading = gun.reload;
               viewmodel?.reload(gun.reload);
-              sfx.reload();
+              sfx.playReload(gun.id);
             }
           }
           g.fireCd -= dt;
@@ -437,12 +439,26 @@ export function useFpsLoop(
           const wantShot = gun.auto ? fireInput : fireInput && !prevFire.current;
           prevFire.current = fireInput;
 
+          // Sustained-fire audio (Ripper / Lance Beam): ONE loop while held with
+          // ammo, instead of a per-shot sound. Handles start/stop + weapon switches.
+          const wantLoop = sfx.isLoopWeapon(gun.id) && fireInput && g.mags[g.active] > 0 && g.reloading <= 0;
+          if (wantLoop) {
+            if (activeLoop !== gun.id) {
+              if (activeLoop) sfx.playWeaponLoopStop(activeLoop);
+              sfx.playWeaponLoopStart(gun.id);
+              activeLoop = gun.id;
+            }
+          } else if (activeLoop) {
+            sfx.playWeaponLoopStop(activeLoop);
+            activeLoop = null;
+          }
+
           if (wantShot && g.fireCd <= 0 && g.reloading <= 0 && g.mags[g.active] > 0) {
             g.fireCd = gun.rate;
             g.mags[g.active]--;
             snap.fireAt = now;
             viewmodel?.fire();
-            sfx.gun(gun.id, gun.family);
+            if (!sfx.isLoopWeapon(gun.id)) sfx.playWeaponFire(gun.id, gun.family);
             const wallD = rayWallDist(eye, dir, g.level, RANGE, grid ?? undefined);
             let hitT = wallD;
             let hit: Enemy | null = null;
@@ -489,7 +505,7 @@ export function useFpsLoop(
               g.squad.t = now;
               if (anyHit) {
                 snap.hitAt = now;
-                sfx.enemyHit();
+                sfx.playImpact(gun.id, 'enemy');
               }
             } else if (hit) {
               hit.health -= gun.dmg;
@@ -501,13 +517,13 @@ export function useFpsLoop(
               g.squad.lastKnown = { x: p.x, z: p.z };
               g.squad.t = now;
               snap.hitAt = now;
-              sfx.enemyHit();
+              sfx.playImpact(gun.id, 'enemy');
               if (hit.health <= 0) g.kills++;
             }
           } else if (wantShot && g.mags[g.active] <= 0 && g.reloading <= 0 && g.reserves[g.active] > 0) {
             g.reloading = gun.reload;
             viewmodel?.reload(gun.reload);
-            sfx.reload();
+            sfx.playReload(gun.id);
           }
 
           // Grenade sim + detonation
@@ -530,6 +546,7 @@ export function useFpsLoop(
               const cx = gr.x;
               const cy = gr.y;
               const cz = gr.z;
+              sfx.playThrowable(t.id, 'blast'); // per-throwable detonation (all 12)
               const blastAt = (bx: number, by: number, bz: number, dmg: number, radius: number): boolean => {
                 let any = false;
                 for (const e of g.enemies) {
@@ -573,7 +590,6 @@ export function useFpsLoop(
               if (t.blast.dmg > 0 && t.blast.radius > 0) {
                 anyHit = blastAt(cx, cy, cz, t.blast.dmg, t.blast.radius) || anyHit;
                 spawnFlash(cx, cy, cz, t.blast.radius, t.color);
-                sfx.explosion();
               }
               // Cluster: a spread of smaller secondary blasts.
               if (t.cluster) {
@@ -614,7 +630,6 @@ export function useFpsLoop(
                   const tz = cz - p.z;
                   const tl = Math.hypot(tx, tz) || 1;
                   if (tl < s.radius && (tx / tl) * fx + (tz / tl) * fz > 0.2) snap.flashAt = now;
-                  sfx.flash();
                 }
               }
               // Lingering zones.
@@ -748,6 +763,11 @@ export function useFpsLoop(
 
           if (g.enemies.every((e) => e.health <= 0)) g.status = 'won';
         }
+        // Kill any sustained loop if we left the playing state (win/lose/pause).
+        if (activeLoop && g.status !== 'playing') {
+          sfx.playWeaponLoopStop(activeLoop);
+          activeLoop = null;
+        }
 
         // Sprites
         for (let i = 0; i < sprites.length; i++) {
@@ -866,6 +886,7 @@ export function useFpsLoop(
       document.removeEventListener('wheel', onWheel);
       if (document.pointerLockElement === canvas) document.exitPointerLock?.();
       disposeExtras();
+      if (activeLoop) sfx.playWeaponLoopStop(activeLoop);
       world?.dispose();
       ballGeo.dispose();
       viewmodel?.dispose();
