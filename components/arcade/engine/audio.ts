@@ -623,20 +623,10 @@ class Sfx {
     this.ensure();
     this.noise(0.6, 0.16, 800);
   }
-  flash(): void {
-    this.ensure();
-    this.noise(0.3, 0.34, 5000);
-    this.tone('sine', 2000, 600, 0.25, 0.12);
-  }
   hurt(): void {
     this.ensure();
     this.noise(0.16, 0.26, 900);
     this.tone('sawtooth', 200, 70, 0.18, 0.12);
-  }
-  reload(): void {
-    this.ensure();
-    this.tone('square', 220, 220, 0.04, 0.07);
-    window.setTimeout(() => this.tone('square', 300, 300, 0.05, 0.07), 180);
   }
   swap(): void {
     this.ensure();

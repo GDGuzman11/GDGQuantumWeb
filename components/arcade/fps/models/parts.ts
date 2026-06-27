@@ -84,6 +84,12 @@ export function capsuleZ(r: number, len: number, mat: THREE.Material, x = 0, y =
   m.position.set(x, y, z);
   return m;
 }
+/** Capsule along Y (upright rounded bodies — grenades, orbs). */
+export function capsuleY(r: number, len: number, mat: THREE.Material, x = 0, y = 0, z = 0): THREE.Mesh {
+  const m = new THREE.Mesh(new THREE.CapsuleGeometry(r, len, 5, 14), mat);
+  m.position.set(x, y, z);
+  return m;
+}
 
 // ── composite details ─────────────────────────────────────────────────────────
 /** Stack of cooling fins (thin plates) along Z. Returns a Group. */

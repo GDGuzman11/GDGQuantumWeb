@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { GUNS, PRIMARIES, SECONDARIES, SIDEARMS, THROWABLES, gunById, type GunDef, type ThrowKind } from '../fps/weapons';
+import { GUNS, PRIMARIES, SECONDARIES, SIDEARMS, THROWABLES, type GunDef, type ThrowKind } from '../fps/weapons';
 import { GunPreview } from './GunPreview';
 
 // Normalization bounds for the stat bars (computed once over the whole arsenal).
@@ -44,7 +44,8 @@ export function FpsLoadout({
     set(id);
     setFocus(id);
   };
-  const fg = gunById(focus);
+  const fg = GUNS.find((g) => g.id === focus);
+  const ft = !fg ? THROWABLES.find((t) => t.id === focus) : undefined;
 
   return (
     <div className="absolute inset-0 z-40 flex flex-col bg-black/85 px-3 py-2 sm:px-5 sm:py-3">
@@ -62,14 +63,24 @@ export function FpsLoadout({
           <div className="relative min-h-0 flex-1 overflow-hidden rounded-md border border-white/10 bg-gradient-to-b from-white/[0.06] to-transparent">
             <GunPreview gunId={focus} />
             <div className="pointer-events-none absolute bottom-1 left-2">
-              <p className="font-pixel text-[9px] text-white sm:text-[12px]">{fg.name}</p>
-              <p className="font-pixel text-[6px] uppercase text-white/45 sm:text-[8px]">{fg.family}</p>
+              <p className="font-pixel text-[9px] text-white sm:text-[12px]">{fg?.name ?? ft?.name}</p>
+              <p className="font-pixel text-[6px] uppercase text-white/45 sm:text-[8px]">{fg ? fg.family : ft ? THROW_SUB[ft.kind] : ''}</p>
             </div>
           </div>
           <div className="mt-1.5 shrink-0 space-y-1">
-            <StatBar label="POWER" pct={Math.sqrt(fg.dmg / DMG_MAX)} value={`${fg.dmg}`} color="#ff5d6e" />
-            <StatBar label="MAG" pct={fg.mag / MAG_MAX} value={`${fg.mag}`} color="#7fdfff" />
-            <StatBar label="RELOAD" pct={RELOAD_MIN / fg.reload} value={`${fg.reload}s`} color="#aef5c8" />
+            {fg && (
+              <>
+                <StatBar label="POWER" pct={Math.sqrt(fg.dmg / DMG_MAX)} value={`${fg.dmg}`} color="#ff5d6e" />
+                <StatBar label="MAG" pct={fg.mag / MAG_MAX} value={`${fg.mag}`} color="#7fdfff" />
+                <StatBar label="RELOAD" pct={RELOAD_MIN / fg.reload} value={`${fg.reload}s`} color="#aef5c8" />
+              </>
+            )}
+            {ft && (
+              <div className="flex items-center justify-between font-pixel text-[7px] text-white/55 sm:text-[8px]">
+                <span>CARRY ×{ft.count}</span>
+                <span>{ft.blast.dmg > 0 ? `BLAST ${ft.blast.dmg}` : 'UTILITY'}</span>
+              </div>
+            )}
           </div>
         </div>
 
@@ -82,7 +93,7 @@ export function FpsLoadout({
             <p className="font-pixel text-[7px] text-white/45 sm:text-[8px]">THROWABLE</p>
             <div className="mt-1 flex flex-wrap gap-1.5">
               {THROWABLES.map((t) => (
-                <Chip key={t.id} label={`${t.name} ×${t.count}`} sub={THROW_SUB[t.kind]} on={th === t.id} color="#ffae3a" onClick={() => setTh(t.id)} />
+                <Chip key={t.id} label={`${t.name} ×${t.count}`} sub={THROW_SUB[t.kind]} on={th === t.id} ring={focus === t.id} color="#ffae3a" onClick={() => { setTh(t.id); setFocus(t.id); }} />
               ))}
             </div>
           </div>

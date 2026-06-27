@@ -9,7 +9,7 @@
  */
 import { useEffect, useRef } from 'react';
 import * as THREE from 'three';
-import { accentOf, buildGun, disposeModel } from '../fps/models';
+import { accentOf, buildModel, disposeModel } from '../fps/models';
 
 export function GunPreview({ gunId }: { gunId: string }) {
   const mountRef = useRef<HTMLDivElement>(null);
@@ -100,7 +100,7 @@ export function GunPreview({ gunId }: { gunId: string }) {
       pivot.remove(modelRef.current);
       disposeModel(modelRef.current);
     }
-    const m = buildGun(gunId, 'desktop');
+    const m = buildModel(gunId, 'desktop');
 
     // Centre the model at the pivot origin so it spins in place, then frame it.
     const bbox = new THREE.Box3().setFromObject(m);
