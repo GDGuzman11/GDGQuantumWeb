@@ -380,9 +380,14 @@ export function makeArena3D(enemyCount: number, seed: number): Level3D {
   // will place these properly per archetype.
   const plX = -size * 0.18;
   const plZ = size * 0.12;
-  berm(boxes, plX, plZ, 8, 8, 2.5); // raised plateau block
-  ramp(ramps, plX, plZ - 6, 6, 5, 0, 2.5, '+z'); // ramp up its −z face (overlaps the edge)
-  placed.push({ x: plX, z: plZ, rad: 16 });
+  const plH = 2.5;
+  berm(boxes, plX, plZ, 8, 6, plH); // raised plateau (8 wide × 6 deep, top at plH)
+  // RULE (also for the Phase-5 generator): a ramp that leads up to a platform must
+  // LAND on it — its high edge sits EXACTLY at the platform's near edge (plZ-3) at
+  // the platform's top height, and matches the platform width — so you walk
+  // straight onto the deck with no step/gap at the seam.
+  ramp(ramps, plX, plZ - 6, 8, 6, 0, plH, '+z'); // high edge = plZ-3 = plateau −z edge, full width
+  placed.push({ x: plX, z: plZ - 3, rad: 18 });
   const trX = size * 0.18;
   const trZ = -size * 0.12;
   trench(boxes, ramps, trX, trZ, 10, 10, 2.5, '-z'); // sunken area + over-the-berm entry ramps

@@ -9,6 +9,7 @@
 import { segBlocked, segHitsSphere, type Vec3 } from './combat';
 import type { Ladder, Level3D } from './level3d';
 import type { SpatialGrid } from './level/grid';
+import { type NavGraph, nearestNode, pathTo } from './level/nav';
 import { EYE, groundHeightAt, type Player3 } from './physics';
 
 export type Difficulty = 'normal' | 'hard' | 'nightmare';
@@ -42,6 +43,12 @@ export interface Enemy {
   // Vertical / climbing.
   onDeck: boolean; // standing on an elevated floor (don't fall)
   perch: { x: number; z: number; y: number } | null; // sniper tower target
+  // Nav (Phase 4): cached A* route (remaining waypoint node ids), repath cooldown,
+  // and the goal the route was planned for (repath when it moves). All optional so
+  // existing constructors and the no-graph fallback are untouched.
+  path?: number[];
+  repath?: number;
+  navGoal?: { x: number; z: number };
 }
 
 /** The four boss aliens (levels 5/10/15/20). Bigger, faster, smarter; each has
@@ -256,6 +263,58 @@ function climbToward(e: Enemy, lvl: Level3D, targetY: number, speed: number, dt:
   e.onDeck = e.y > 0.5;
   return true;
 }
+/** How close (horizontally) a bot must get to a waypoint before popping it. */
+const WAYPOINT_REACH = 2.4;
+/** Inside this range a bot abandons the nav route and uses its tuned close-range
+ *  standoff/orbit steering directly (preserves the existing combat feel). */
+const NAV_NEAR = 14;
+
+/** Long-range path follow. Returns:
+ *   - `'climb'`  the next waypoint is a vertical link and `climbToward` already
+ *                moved the bot this frame (caller should just fire + continue);
+ *   - `{wx,wz}`  a heading toward the next ground waypoint (caller calls moveEnemy);
+ *   - `null`     no graph, no route, or the route is exhausted → caller falls back
+ *                to its existing direct/standoff steering for the final approach.
+ *  Repaths are throttled (cooldown + only when the goal drifts) so A* is cheap. */
+function navFollow(
+  e: Enemy,
+  graph: NavGraph,
+  lvl: Level3D,
+  gx: number,
+  gz: number,
+  gy: number,
+  climbSpeed: number,
+  dt: number,
+  grid?: SpatialGrid,
+): 'climb' | { wx: number; wz: number } | null {
+  e.repath = (e.repath ?? 0) - dt;
+  const goalMoved = e.navGoal ? Math.hypot(gx - e.navGoal.x, gz - e.navGoal.z) > 6 : true;
+  if (e.repath <= 0 || !e.path || e.path.length === 0 || goalMoved) {
+    const start = nearestNode(graph, e.x, e.z, e.y);
+    const goal = nearestNode(graph, gx, gz, gy);
+    e.path = pathTo(graph, start, goal);
+    e.navGoal = { x: gx, z: gz };
+    e.repath = 0.45 + Math.random() * 0.35;
+  }
+  const path = e.path;
+  if (!path || path.length === 0) return null;
+  // Pop waypoints we've effectively reached (horizontal proximity).
+  while (path.length > 0) {
+    const w = graph.nodes[path[0]];
+    if (Math.hypot(w.x - e.x, w.z - e.z) < WAYPOINT_REACH) path.shift();
+    else break;
+  }
+  if (path.length === 0) return null; // arrived at the route end → close-range logic
+  const wp = graph.nodes[path[0]];
+  // A waypoint well above or below us is a ladder/ramp/zip link → use the climb
+  // system (it walks to the nearest ground ladder and rides it / drops down).
+  if (wp.y - e.y > 1.2 || (e.onDeck && e.y - wp.y > 1.2)) {
+    climbToward(e, lvl, wp.y, climbSpeed, dt, grid);
+    return 'climb';
+  }
+  return { wx: wp.x - e.x, wz: wp.z - e.z };
+}
+
 /** A sniper's perch = the deck just past the top of the nearest ground ladder. */
 function assignPerch(lvl: Level3D, x: number, z: number): { x: number; z: number; y: number } | null {
   const gl = nearestGroundLadder(lvl, x, z);
@@ -342,6 +401,7 @@ export function updateEnemies(
   squad: Squad,
   smokes: Smoke[],
   grid?: SpatialGrid,
+  nav?: NavGraph,
 ): { damage: number; tracers: EnemyTracer[]; seen: boolean } {
   const P = PARAMS[diff];
   const peye: Vec3 = [player.x, player.y + EYE, player.z];
@@ -465,6 +525,23 @@ export function updateEnemies(
     if (tgt) {
       e.state = 'alert';
       const boosted = e.alarm > 0;
+      // LONG-RANGE NAV: when the target is far, route the battlefield via the nav
+      // graph (around structures, up ladders, across ramps, out of trenches) and
+      // hand off to the close-range standoff/orbit logic below once within reach.
+      const distTgt = Math.hypot(tgt.x - e.x, tgt.z - e.z);
+      if (nav && distTgt > NAV_NEAR) {
+        const tgtY = player.y > e.y + 2 ? player.y : 0;
+        const nf = navFollow(e, nav, lvl, tgt.x, tgt.z, tgtY, P.speed * role.speedMul * slow, dt, grid);
+        if (nf === 'climb') {
+          fireAt(e, sees[i]);
+          continue;
+        }
+        if (nf) {
+          moveEnemy(e, lvl, nf.wx, nf.wz, P.speed * role.speedMul * (boosted ? 1.15 : 1) * slow, dt, R, grid);
+          fireAt(e, sees[i]);
+          continue;
+        }
+      }
       // Climb after an elevated player, or drop back down for a grounded one.
       let wantY = e.y;
       if (player.y > e.y + 2) wantY = player.y;
@@ -516,7 +593,20 @@ export function updateEnemies(
     } else if (e.onDeck) {
       climbToward(e, lvl, 0, P.speed * 0.5, dt, grid); // no target: come down off the deck
     } else {
-      moveEnemy(e, lvl, Math.sin(now / 1500 + e.wander), Math.cos(now / 1700 + e.wander * 2), P.speed * 0.35 * slow, dt, R, grid);
+      // HUNT — no sighting, no shared intel. Instead of idle-wander (which leaves
+      // big maps empty), advance toward the player's general area along the nav
+      // graph at a patrol pace — still NO fire (no line of sight). A per-bot offset
+      // makes the squad SWEEP toward you rather than laser-lock your exact tile.
+      const ox = Math.cos(e.wander * 1.7) * 11;
+      const oz = Math.sin(e.wander * 1.7) * 11;
+      const nf = nav ? navFollow(e, nav, lvl, player.x + ox, player.z + oz, 0, P.speed * 0.5 * slow, dt, grid) : null;
+      if (nf === 'climb') {
+        // climb system already moved the bot toward the route's vertical link
+      } else if (nf) {
+        moveEnemy(e, lvl, nf.wx, nf.wz, P.speed * 0.5 * slow, dt, R, grid);
+      } else {
+        moveEnemy(e, lvl, Math.sin(now / 1500 + e.wander), Math.cos(now / 1700 + e.wander * 2), P.speed * 0.35 * slow, dt, R, grid);
+      }
     }
   }
   return { damage, tracers, seen };

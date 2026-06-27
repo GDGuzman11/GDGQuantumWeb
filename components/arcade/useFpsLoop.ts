@@ -13,6 +13,7 @@ import { sfx } from './engine/audio';
 import { makeComposer } from './fps/postfx';
 import type { RenderTier } from './fps/materials';
 import { SpatialGrid } from './fps/level/grid';
+import { buildNavGraph, type NavGraph } from './fps/level/nav';
 
 const RW = 480;
 const RH = 270;
@@ -135,6 +136,9 @@ export function useFpsLoop(
     // Spatial grid over the current level's boxes — narrows collision/LoS queries
     // to local candidates. Rebuilt with the world; identical results, fewer tests.
     let grid: SpatialGrid | null = null;
+    // Nav graph for enemy long-range pathing — built once per level alongside the
+    // grid, threaded into updateEnemies. Absent → bots use the old direct steering.
+    let nav: NavGraph | null = null;
     let sprites: THREE.Sprite[] = [];
     let barBg: THREE.Sprite[] = [];
     let barFill: THREE.Sprite[] = [];
@@ -191,6 +195,8 @@ export function useFpsLoop(
       world = buildWorld(g.level, tier);
       // (Re)build the spatial grid for this level's boxes.
       grid = SpatialGrid.build(g.level.boxes);
+      // (Re)build the enemy nav graph for this level (grid-accelerated).
+      nav = buildNavGraph(g.level, grid);
       // Build the composer once; afterwards just repoint the RenderPass at the
       // new scene (do NOT recreate the renderer or the whole composer).
       if (!composer) {
@@ -713,7 +719,7 @@ export function useFpsLoop(
           }
 
           // Enemies
-          const res = updateEnemies(g.enemies, p, g.level, g.difficulty, pvx, pvz, dt, now, g.squad, smokes, grid ?? undefined);
+          const res = updateEnemies(g.enemies, p, g.level, g.difficulty, pvx, pvz, dt, now, g.squad, smokes, grid ?? undefined, nav ?? undefined);
           for (const tr of res.tracers) addTracer(tr.from, [p.x, p.y + EYE - 0.1, p.z], tr.color);
           if (res.damage > 0) {
             p.health = Math.max(0, p.health - res.damage);
