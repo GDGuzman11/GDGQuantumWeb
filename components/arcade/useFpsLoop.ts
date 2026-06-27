@@ -89,6 +89,7 @@ export function useFpsLoop(
   const sens = useRef(1); // look-sensitivity multiplier (user-adjustable)
   const reloadReq = useRef(false);
   const throwReq = useRef(false);
+  const jumpReq = useRef(false);
   const prevFire = useRef(false);
   const switchReq = useRef<number | 'next' | 'prev' | null>(null);
 
@@ -110,6 +111,12 @@ export function useFpsLoop(
   }, []);
   const throwGrenade = useCallback(() => {
     throwReq.current = true;
+  }, []);
+  const jump = useCallback(() => {
+    jumpReq.current = true;
+  }, []);
+  const reload = useCallback(() => {
+    reloadReq.current = true;
   }, []);
 
   useEffect(() => {
@@ -373,13 +380,46 @@ export function useFpsLoop(
         }
         const p = g.player;
         const ls = LOOK_SENS * sens.current;
+        // Touch AIM ASSIST — a subtle slowdown + magnetism when a target is near the
+        // reticle, and only while actively aiming (never drifts when idle).
+        let assist: { ex: number; ey: number; ez: number; el: number; dot: number } | null = null;
+        if (isTouch && g.status === 'playing') {
+          const cpa = Math.cos(p.pitch);
+          const afx = -cpa * Math.sin(p.yaw);
+          const afy = Math.sin(p.pitch);
+          const afz = -cpa * Math.cos(p.yaw);
+          const aeye: Vec3 = [p.x, p.y + EYE, p.z];
+          let bestDot = 0.95;
+          for (const e of g.enemies) {
+            if (e.health <= 0) continue;
+            const ex = e.x - p.x;
+            const ey = e.y + 1.1 - (p.y + EYE);
+            const ez = e.z - p.z;
+            const el = Math.hypot(ex, ey, ez) || 1;
+            const dot = (ex / el) * afx + (ey / el) * afy + (ez / el) * afz;
+            if (dot > bestDot && !segBlocked(aeye, [e.x, e.y + 1.1, e.z], g.level, grid ?? undefined)) {
+              bestDot = dot;
+              assist = { ex, ey, ez, el, dot };
+            }
+          }
+        }
+        const hadLook = lookDX.current !== 0 || lookDY.current !== 0;
+        const aimSlow = assist ? 0.62 : 1; // ease the turn near a target
         if (lookDX.current !== 0) {
-          p.yaw -= lookDX.current * ls;
+          p.yaw -= lookDX.current * ls * aimSlow;
           lookDX.current = 0;
         }
         if (lookDY.current !== 0) {
-          p.pitch = Math.max(-MAX_PITCH, Math.min(MAX_PITCH, p.pitch - lookDY.current * ls));
+          p.pitch = Math.max(-MAX_PITCH, Math.min(MAX_PITCH, p.pitch - lookDY.current * ls * aimSlow));
           lookDY.current = 0;
+        }
+        if (assist && hadLook) {
+          const pull = 0.05 * Math.min(1, (assist.dot - 0.95) / 0.05); // gentle, stronger nearer centre
+          let dYaw = Math.atan2(-assist.ex, -assist.ez) - p.yaw;
+          dYaw = Math.atan2(Math.sin(dYaw), Math.cos(dYaw));
+          p.yaw += dYaw * pull;
+          const tPitch = Math.asin(Math.max(-1, Math.min(1, assist.ey / assist.el)));
+          p.pitch = Math.max(-MAX_PITCH, Math.min(MAX_PITCH, p.pitch + (tPitch - p.pitch) * pull * 0.7));
         }
         let fwd = touchMove.current.fwd;
         let strafe = touchMove.current.strafe;
@@ -414,7 +454,9 @@ export function useFpsLoop(
             camera.updateProjectionMatrix();
           }
 
-          stepPlayer(p, g.level, { fwd, strafe, jump: keys.current.has(' ') }, dt, grid ?? undefined);
+          const jumpNow = keys.current.has(' ') || jumpReq.current;
+          jumpReq.current = false;
+          stepPlayer(p, g.level, { fwd, strafe, jump: jumpNow }, dt, grid ?? undefined);
           const pvx = (p.x - prevPos.x) / Math.max(dt, 0.001);
           const pvz = (p.z - prevPos.z) / Math.max(dt, 0.001);
           prevPos.x = p.x;
@@ -979,5 +1021,5 @@ export function useFpsLoop(
     };
   }, [canvasRef, gameRef, active, onSnapshot]);
 
-  return { setMoveAxis, addLook, cycleWeapon, cycleZoom, setSensitivity, throwGrenade };
+  return { setMoveAxis, addLook, cycleWeapon, cycleZoom, setSensitivity, throwGrenade, jump, reload };
 }

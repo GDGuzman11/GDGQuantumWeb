@@ -67,7 +67,7 @@ export function FpsGame() {
 
   const portraitPaused = isTouch && portrait; // landscape-only on phones
   const onSnapshot = useCallback((s: FpsSnapshot) => setSnap(s), []);
-  const { setMoveAxis, addLook, cycleWeapon, cycleZoom, setSensitivity, throwGrenade } = useFpsLoop(canvasRef, gameRef, mode === 'play' && !portraitPaused, onSnapshot);
+  const { setMoveAxis, addLook, cycleWeapon, cycleZoom, setSensitivity, throwGrenade, jump, reload } = useFpsLoop(canvasRef, gameRef, mode === 'play' && !portraitPaused, onSnapshot);
 
   useEffect(() => {
     setIsTouch('ontouchstart' in window);
@@ -304,15 +304,24 @@ export function FpsGame() {
             {isTouch && (
               <>
                 <FpsControls onMove={(s, f) => setMoveAxis(s, f)} onLook={(dx, dy) => addLook(dx, dy)} />
-                <button type="button" onClick={() => cycleWeapon(1)} className="pointer-events-auto absolute right-3 top-[26%] z-40 rounded-md border border-white/20 bg-black/40 px-3 py-2 font-pixel text-[8px] text-white/80">
-                  WPN ▸
-                </button>
-                <button type="button" onClick={() => cycleZoom()} className="pointer-events-auto absolute right-3 top-[42%] z-40 rounded-md border border-[#7fdfff]/40 bg-[#7fdfff]/10 px-3 py-2 font-pixel text-[8px] text-[#7fdfff]">
-                  ZOOM
-                </button>
-                <button type="button" onClick={() => throwGrenade()} className="pointer-events-auto absolute right-3 top-[58%] z-40 rounded-md border border-[#ffae3a]/40 bg-[#ffae3a]/10 px-3 py-2 font-pixel text-[8px] text-[#ffae3a]">
-                  THROW
-                </button>
+                {/* Big action buttons, bottom-right, clear of the look/aim region. */}
+                <div className="pointer-events-none absolute bottom-4 right-3 z-40 flex flex-col items-end gap-2">
+                  <div className="flex gap-2">
+                    <TouchBtn onTap={reload} label="RELOAD" color="#7fdfff" />
+                    <TouchBtn onTap={() => cycleWeapon(1)} label="WPN ▸" color="#ffffff" />
+                  </div>
+                  <div className="flex gap-2">
+                    <TouchBtn onTap={() => cycleZoom()} label="ZOOM" color="#7fdfff" />
+                    <TouchBtn onTap={() => throwGrenade()} label="NADE" color="#ffae3a" />
+                  </div>
+                  <button
+                    type="button"
+                    onPointerDown={jump}
+                    className="pointer-events-auto flex h-12 w-[148px] items-center justify-center rounded-2xl border border-[#aef5c8]/40 bg-[#aef5c8]/10 font-pixel text-[9px] text-[#aef5c8] backdrop-blur-sm active:bg-[#aef5c8]/25"
+                  >
+                    JUMP
+                  </button>
+                </div>
               </>
             )}
             {!isTouch && (
@@ -433,5 +442,19 @@ export function FpsGame() {
 
       <OrientationGate show={fullBleed && portrait} />
     </div>
+  );
+}
+
+/** A large glass action button for touch (fires on press, not click). */
+function TouchBtn({ onTap, label, color }: { onTap: () => void; label: string; color: string }) {
+  return (
+    <button
+      type="button"
+      onPointerDown={onTap}
+      className="pointer-events-auto flex h-16 w-16 items-center justify-center rounded-2xl border bg-black/40 font-pixel text-[8px] backdrop-blur-sm active:brightness-150"
+      style={{ borderColor: `${color}66`, color }}
+    >
+      {label}
+    </button>
   );
 }
