@@ -5,17 +5,39 @@
  */
 import * as THREE from 'three';
 import type { RenderTier } from '../../materials';
-import { buildTrooper } from './trooper';
+import { type EnemyClass, ROLE_TO_CLASS } from '../types';
+import {
+  buildBerserker,
+  buildBreacher,
+  buildCommander,
+  buildElite,
+  buildEngineer,
+  buildMarksman,
+  buildRifleman,
+  buildScout,
+  buildSuppressor,
+  buildTank,
+} from './classes';
 
 type Builder = (tier: RenderTier) => THREE.Group;
 
-const ENEMY_BUILDERS: Record<string, Builder> = {
-  // Phase 2: rifleman / scout / breacher / marksman / suppressor / engineer /
-  // tank / elite / commander / berserker. Until then everything is the trooper.
+const ENEMY_BUILDERS: Record<EnemyClass, Builder> = {
+  rifleman: buildRifleman,
+  scout: buildScout,
+  breacher: buildBreacher,
+  marksman: buildMarksman,
+  suppressor: buildSuppressor,
+  engineer: buildEngineer,
+  tank: buildTank,
+  elite: buildElite,
+  commander: buildCommander,
+  berserker: buildBerserker,
 };
 
-export function buildEnemyModel(cls: string, tier: RenderTier): THREE.Group {
-  return (ENEMY_BUILDERS[cls] ?? buildTrooper)(tier);
+/** Build by class id OR by current AI role (resolved through ROLE_TO_CLASS). */
+export function buildEnemyModel(key: string, tier: RenderTier): THREE.Group {
+  const cls = (key in ENEMY_BUILDERS ? key : (ROLE_TO_CLASS[key] ?? 'rifleman')) as EnemyClass;
+  return ENEMY_BUILDERS[cls](tier);
 }
 
 export function disposeEnemyModel(obj: THREE.Object3D): void {
