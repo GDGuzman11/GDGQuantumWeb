@@ -47,7 +47,7 @@ export function FpsLoadout({
   const fg = gunById(focus);
 
   return (
-    <div className="absolute inset-0 z-40 flex flex-col bg-black/85 px-3 py-3 sm:px-5">
+    <div className="absolute inset-0 z-40 flex flex-col bg-black/85 px-3 py-2 sm:px-5 sm:py-3">
       <div className="flex items-center justify-between">
         <p className="font-pixel text-[10px] text-[#7fdfff] sm:text-[13px]">LOADOUT</p>
         <button type="button" onClick={onBack} className="font-pixel text-[8px] text-white/45 hover:text-white sm:text-[9px]">
@@ -55,32 +55,36 @@ export function FpsLoadout({
         </button>
       </div>
 
-      {/* shared 3D preview of the focused gun */}
-      <div className="relative mt-2 h-64 shrink-0 overflow-hidden rounded-md border border-white/10 bg-gradient-to-b from-white/[0.06] to-transparent sm:h-[22rem]">
-        <GunPreview gunId={focus} />
-        <div className="pointer-events-none absolute bottom-1 left-2">
-          <p className="font-pixel text-[9px] text-white sm:text-[12px]">{fg.name}</p>
-          <p className="font-pixel text-[6px] uppercase text-white/45 sm:text-[8px]">{fg.family}</p>
+      {/* two columns: big preview on the left, full selection list on the right */}
+      <div className="mt-2 flex min-h-0 flex-1 gap-3">
+        {/* left: large 3D preview (fills the height) + stat bars */}
+        <div className="flex w-[42%] shrink-0 flex-col sm:w-[44%]">
+          <div className="relative min-h-0 flex-1 overflow-hidden rounded-md border border-white/10 bg-gradient-to-b from-white/[0.06] to-transparent">
+            <GunPreview gunId={focus} />
+            <div className="pointer-events-none absolute bottom-1 left-2">
+              <p className="font-pixel text-[9px] text-white sm:text-[12px]">{fg.name}</p>
+              <p className="font-pixel text-[6px] uppercase text-white/45 sm:text-[8px]">{fg.family}</p>
+            </div>
+          </div>
+          <div className="mt-1.5 shrink-0 space-y-1">
+            <StatBar label="POWER" pct={Math.sqrt(fg.dmg / DMG_MAX)} value={`${fg.dmg}`} color="#ff5d6e" />
+            <StatBar label="MAG" pct={fg.mag / MAG_MAX} value={`${fg.mag}`} color="#7fdfff" />
+            <StatBar label="RELOAD" pct={RELOAD_MIN / fg.reload} value={`${fg.reload}s`} color="#aef5c8" />
+          </div>
         </div>
-      </div>
 
-      {/* stat bars (bar + number) for the focused gun */}
-      <div className="mt-1.5 shrink-0 space-y-1">
-        <StatBar label="POWER" pct={Math.sqrt(fg.dmg / DMG_MAX)} value={`${fg.dmg}`} color="#ff5d6e" />
-        <StatBar label="MAG" pct={fg.mag / MAG_MAX} value={`${fg.mag}`} color="#7fdfff" />
-        <StatBar label="RELOAD" pct={RELOAD_MIN / fg.reload} value={`${fg.reload}s`} color="#aef5c8" />
-      </div>
-
-      <div className="mt-2 flex-1 space-y-3 overflow-y-auto pr-1">
-        <Picker label="PRIMARY 1" items={PRIMARIES} value={p1} focus={focus} onPick={pick(setP1)} />
-        <Picker label="PRIMARY 2" items={PRIMARIES} value={p2} focus={focus} onPick={pick(setP2)} />
-        <Picker label="SIDEARM" items={SIDEARMS} value={sa} focus={focus} onPick={pick(setSa)} />
-        <div>
-          <p className="font-pixel text-[7px] text-white/45 sm:text-[8px]">THROWABLE</p>
-          <div className="mt-1 flex flex-wrap gap-1.5">
-            {THROWABLES.map((t) => (
-              <Chip key={t.id} label={`${t.name} ×${t.count}`} sub={THROW_SUB[t.kind]} on={th === t.id} color="#ffae3a" onClick={() => setTh(t.id)} />
-            ))}
+        {/* right: the full selection list (own full-height space → no squish) */}
+        <div className="flex min-h-0 flex-1 flex-col gap-2.5 overflow-y-auto pr-1">
+          <Picker label="PRIMARY 1" items={PRIMARIES} value={p1} focus={focus} onPick={pick(setP1)} />
+          <Picker label="PRIMARY 2" items={PRIMARIES} value={p2} focus={focus} onPick={pick(setP2)} />
+          <Picker label="SIDEARM" items={SIDEARMS} value={sa} focus={focus} onPick={pick(setSa)} />
+          <div>
+            <p className="font-pixel text-[7px] text-white/45 sm:text-[8px]">THROWABLE</p>
+            <div className="mt-1 flex flex-wrap gap-1.5">
+              {THROWABLES.map((t) => (
+                <Chip key={t.id} label={`${t.name} ×${t.count}`} sub={THROW_SUB[t.kind]} on={th === t.id} color="#ffae3a" onClick={() => setTh(t.id)} />
+              ))}
+            </div>
           </div>
         </div>
       </div>
