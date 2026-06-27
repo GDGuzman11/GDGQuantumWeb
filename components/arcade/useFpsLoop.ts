@@ -9,7 +9,7 @@ import { updateEnemies, BOSSES, type Difficulty, type Enemy, type Squad, type Sm
 import { rayWallDist, raySphere, segBlocked, type Vec3 } from './fps/combat';
 import { bossTex } from './fps/textures';
 import { buildEnemyModel, disposeEnemyModel } from './fps/enemies/models';
-import { poseEnemy } from './fps/enemies/animator';
+import { poseDeath, poseEnemy } from './fps/enemies/animator';
 import type { GunDef, ThrowDef } from './fps/weapons';
 import { sfx } from './engine/audio';
 import { makeComposer } from './fps/postfx';
@@ -777,11 +777,36 @@ export function useFpsLoop(
           const e = g.enemies[i];
           const s = sprites[i];
           const alive = e.health > 0;
-          s.visible = alive;
           const showBar = alive && !e.boss && now < e.barUntil; // bosses use the top bar
           barBg[i].visible = showBar;
           barFill[i].visible = showBar;
-          if (!alive) continue;
+          if (!alive) {
+            // Death: bosses just vanish; 3D enemies topple over then disappear.
+            if (e.boss) {
+              s.visible = false;
+              continue;
+            }
+            if (s.userData.deadT === undefined) sfx.enemyDie();
+            const ddt = (s.userData.deadT = ((s.userData.deadT as number) ?? 0) + dt);
+            if (ddt >= 1.4) {
+              s.visible = false;
+              continue;
+            }
+            s.visible = true;
+            s.position.set(e.x, e.y, e.z);
+            poseDeath(s, ddt);
+            // A Tank dies catastrophically: a reactor flash + boom.
+            if (e.cls === 'tank' && !s.userData.died && world) {
+              s.userData.died = true;
+              const fm = new THREE.Mesh(ballGeo, new THREE.MeshBasicMaterial({ color: 0xff7a2a, transparent: true }));
+              fm.position.set(e.x, e.y + 1, e.z);
+              world.scene.add(fm);
+              flashes.push({ mesh: fm, born: now, r: 4 });
+              sfx.explosion();
+            }
+            continue;
+          }
+          s.visible = true;
           const pe = prevEnemyXZ[i] ?? { x: e.x, z: e.z };
           const moveSpeed = Math.hypot(e.x - pe.x, e.z - pe.z) / Math.max(dt, 0.001);
           prevEnemyXZ[i] = { x: e.x, z: e.z };
@@ -797,10 +822,12 @@ export function useFpsLoop(
             // 3D model: stand on the ground, face the player, animate, flash on hit.
             s.position.set(e.x, e.y, e.z);
             s.rotation.y = Math.atan2(p.x - e.x, p.z - e.z); // forward +Z → faces player
-            poseEnemy(s, moving, e.state === 'alert' || e.muzzle > 0, e.step, e.hitFlash, now);
+            poseEnemy(s, e.cls, moving, e.state === 'alert' || e.muzzle > 0, e.step, e.hitFlash, now);
             const hf = e.hitFlash > 0 ? Math.min(1, e.hitFlash / 0.12) : 0;
+            // Tank "armor breakaway": glows hotter as it breaks down (exposed reactor).
+            const dmg = e.cls === 'tank' ? (1 - e.health / e.maxHealth) * 0.6 : 0;
             const mats = s.userData.bodyMats as THREE.Material[] | undefined;
-            if (mats) for (const m of mats) (m as THREE.MeshStandardMaterial).emissive.setRGB(hf * 0.7, hf * 0.04, hf * 0.04);
+            if (mats) for (const m of mats) (m as THREE.MeshStandardMaterial).emissive.setRGB(Math.max(hf * 0.7, dmg), Math.max(hf * 0.04, dmg * 0.4), hf * 0.04);
           }
 
           if (showBar) {

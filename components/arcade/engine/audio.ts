@@ -600,6 +600,12 @@ class Sfx {
         this.explosion();
     }
   }
+  /** Alien death — a short descending squelch + noise puff. */
+  enemyDie(): void {
+    this.ensure();
+    this.tone('sawtooth', 380, 90, 0.22, 0.12);
+    this.noise(0.18, 0.13, 1200);
+  }
   enemyHit(): void {
     this.ensure();
     this.tone('square', 900, 1200, 0.05, 0.08);

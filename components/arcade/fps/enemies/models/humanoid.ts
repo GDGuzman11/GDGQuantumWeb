@@ -191,5 +191,6 @@ export function buildHumanoid(o: HumanoidOpts): THREE.Group {
   const parts: EnemyParts = { legL, legR, torso, head, armL, armR, weapon };
   root.userData.parts = parts;
   root.userData.bodyMats = bodyMats;
+  root.userData.hipY = hipY; // base torso height (the animator offsets bob from here)
   return root;
 }
