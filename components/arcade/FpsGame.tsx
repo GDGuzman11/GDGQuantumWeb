@@ -11,7 +11,7 @@ import { FpsCustomize } from './screens/FpsCustomize';
 import { useFpsLoop, type FpsGameState, type FpsSnapshot } from './useFpsLoop';
 import { makeArena3D } from './fps/level3d';
 import { makePlayer3 } from './fps/physics';
-import { spawnEnemies, spawnBosses, type BossKind, type Difficulty } from './fps/enemy';
+import { spawnEnemies, spawnBosses, makeHuntMemory, type BossKind, type Difficulty, type HuntMemory } from './fps/enemy';
 import { gunById, throwById } from './fps/weapons';
 import { applyUpgrades, basicUpg, freshUpg, costFor, MAX_LEVEL, type Upg, type UpgradeKey } from './fps/customize';
 
@@ -46,6 +46,9 @@ export function FpsGame() {
   const wrapRef = useRef<HTMLDivElement>(null);
   const gameRef = useRef<FpsGameState | null>(null);
   const resolvedRef = useRef(false); // guards one-shot win/lose handling per level
+  // Squad learning, persisted across a run's levels (reset on a new campaign) so
+  // later fights hunt the player smarter. The SAME object feeds every level's squad.
+  const huntMemRef = useRef<HuntMemory | null>(null);
   const [mode, setMode] = useState<Mode>('menu');
   const [diff, setDiff] = useState<Difficulty>('normal');
   const [enemies, setEnemies] = useState(2);
@@ -164,7 +167,7 @@ export function FpsGame() {
         status: 'playing',
         kills: 0,
         regenT: 0,
-        squad: { lastKnown: null, t: 0 },
+        squad: { lastKnown: null, t: 0, mem: (huntMemRef.current ??= makeHuntMemory()) },
         maxHp,
       };
       setSnap(null);
@@ -178,6 +181,7 @@ export function FpsGame() {
       // Every loadout gun starts with the free basic enhancement.
       const ups: Record<string, Upg> = {};
       for (const id of [lo.p1, lo.p2, lo.sa]) ups[id] = basicUpg();
+      huntMemRef.current = makeHuntMemory(); // fresh learning each new campaign
       setRun({ level: 1, gold: 0, maxHp: 100, upgrades: ups });
       startLevel(1, lo, 100, ups);
     },

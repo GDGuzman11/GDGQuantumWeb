@@ -7,9 +7,9 @@
  * up. Difficulty scales reaction, accuracy, speed, damage, and view range.
  */
 import { segBlocked, segHitsSphere, type Vec3 } from './combat';
-import type { Ladder, Level3D } from './level3d';
+import type { Box, Ladder, Level3D } from './level3d';
 import type { SpatialGrid } from './level/grid';
-import { type NavGraph, nearestNode, pathTo } from './level/nav';
+import { type NavGraph, type NavNode, nearestNode, pathTo } from './level/nav';
 import { EYE, groundHeightAt, type Player3 } from './physics';
 
 export type Difficulty = 'normal' | 'hard' | 'nightmare';
@@ -42,7 +42,8 @@ export interface Enemy {
   burnDps: number;
   // Vertical / climbing.
   onDeck: boolean; // standing on an elevated floor (don't fall)
-  perch: { x: number; z: number; y: number } | null; // sniper tower target
+  perch: { x: number; z: number; y: number } | null; // sniper tower target / chosen vantage
+  perchT?: number; // sniper: cooldown before re-picking a better vantage
   // Nav (Phase 4): cached A* route (remaining waypoint node ids), repath cooldown,
   // and the goal the route was planned for (repath when it moves). All optional so
   // existing constructors and the no-graph fallback are untouched.
@@ -83,10 +84,41 @@ const SNIPER_W = { rate: 1.7, dmg: 30, accMod: 1.7, color: 0x9af0ff };
 /** Only the sniper gets a long acquisition range; regulars must be close. */
 const SNIPER_VIEW = 68;
 const TANK_HP_MUL = 3;
-/** Shared squad awareness — one bot's sighting cues the whole group. */
+/** Coarse learning grid resolution (HGRID × HGRID cells over the arena). */
+const HGRID = 6;
+/** What the squad LEARNS about the player, persisted across fights in a run so
+ *  later levels hunt smarter: where the player likes to be (heat), how they
+ *  engage (aggression + preferred range), and how many bots they've dropped
+ *  (losses → tighter coordination + more cover use). */
+export interface HuntMemory {
+  heat: Float32Array; // player-presence accumulation per cell (decays slowly)
+  aggression: number; // 0 (camps) … 1 (rushes), EMA of player speed
+  preferRange: number; // running avg distance the player fights at
+  losses: number; // bots downed across the run
+}
+export function makeHuntMemory(): HuntMemory {
+  return { heat: new Float32Array(HGRID * HGRID), aggression: 0.5, preferRange: 16, losses: 0 };
+}
+function heatCell(x: number, z: number, size: number): number {
+  const gx = Math.min(HGRID - 1, Math.max(0, Math.floor(((x + size / 2) / size) * HGRID)));
+  const gz = Math.min(HGRID - 1, Math.max(0, Math.floor(((z + size / 2) / size) * HGRID)));
+  return gz * HGRID + gx;
+}
+function cellCenter(idx: number, size: number): { x: number; z: number } {
+  const gx = idx % HGRID;
+  const gz = Math.floor(idx / HGRID);
+  return { x: -size / 2 + (gx + 0.5) * (size / HGRID), z: -size / 2 + (gz + 0.5) * (size / HGRID) };
+}
+
+/** Shared squad awareness — one bot's sighting cues the whole group, plus the
+ *  coordinated hunt plan (learned focus + per-frame book-keeping). */
 export interface Squad {
   lastKnown: { x: number; z: number } | null;
   t: number;
+  mem?: HuntMemory; // persistent learning (same object across a run's levels)
+  hot?: { x: number; z: number } | null; // learned favourite ground (hottest cell)
+  planT?: number; // re-plan / heat-decay cooldown
+  lastAlive?: number; // alive bot count last frame (to detect losses)
 }
 
 /** Active smoke cloud — blocks the aliens' line of sight. */
@@ -322,6 +354,78 @@ function assignPerch(lvl: Level3D, x: number, z: number): { x: number; z: number
   return { x: gl.x + gl.exX * 1.4, z: gl.z + gl.exZ * 1.4, y: gl.y1 - 0.5 };
 }
 
+/** Push AWAY from any wall within `range` (probed on the 4 cardinals). Added to a
+ *  bot's heading while it's SHOOTING so it doesn't pin itself against geometry and
+ *  keeps a clean line of fire. */
+function wallRepulse(e: Enemy, lvl: Level3D, grid: SpatialGrid | undefined, range = 1.3): [number, number] {
+  let px = 0;
+  let pz = 0;
+  if (blocked(lvl, e.x + range, e.z, R, grid)) px -= 1;
+  if (blocked(lvl, e.x - range, e.z, R, grid)) px += 1;
+  if (blocked(lvl, e.x, e.z + range, R, grid)) pz -= 1;
+  if (blocked(lvl, e.x, e.z - range, R, grid)) pz += 1;
+  return [px, pz];
+}
+
+/** Heading toward the nearest cover that breaks line of sight from (fromX,fromZ):
+ *  the far side of the closest body-height box. Used when a bot is hit but can't
+ *  see the shooter — it RUNS FOR COVER instead of standing in the open. */
+function seekCoverDir(e: Enemy, lvl: Level3D, grid: SpatialGrid | undefined, fromX: number, fromZ: number): [number, number] | null {
+  const boxes = grid ? grid.queryAABB(e.x - 12, e.z - 12, e.x + 12, e.z + 12) : lvl.boxes;
+  let best: Box | null = null;
+  let bd = Infinity;
+  for (let i = 0; i < boxes.length; i++) {
+    const b = boxes[i];
+    if (b.y + b.sy / 2 < 1.7 || b.y - b.sy / 2 > 1.5) continue; // must block a standing bot
+    const d = Math.hypot(b.x - e.x, b.z - e.z);
+    if (d < bd) {
+      bd = d;
+      best = b;
+    }
+  }
+  if (!best) return null;
+  let dx = best.x - fromX;
+  let dz = best.z - fromZ;
+  const dl = Math.hypot(dx, dz) || 1;
+  dx /= dl;
+  dz /= dl;
+  const cx = best.x + dx * (Math.max(best.sx, best.sz) / 2 + 0.8); // far side of the box
+  const cz = best.z + dz * (Math.max(best.sx, best.sz) / 2 + 0.8);
+  return [cx - e.x, cz - e.z];
+}
+
+/** The best vantage node to shoot the focus from: elevated, with a CLEAR line to
+ *  the focus, around the player's preferred engagement range. Drives the sniper's
+ *  "always relocate to the best possible shot" behaviour. Throttled by the caller. */
+function bestVantage(
+  nav: NavGraph,
+  lvl: Level3D,
+  grid: SpatialGrid | undefined,
+  ex: number,
+  ez: number,
+  fx: number,
+  fz: number,
+  want: number,
+): { x: number; y: number; z: number } | null {
+  let best: NavNode | null = null;
+  let bs = -Infinity;
+  const target = Math.min(40, Math.max(16, want * 1.3));
+  const foc: Vec3 = [fx, EYE, fz];
+  for (let i = 0; i < nav.nodes.length; i++) {
+    const n = nav.nodes[i];
+    const dF = Math.hypot(n.x - fx, n.z - fz);
+    if (dF < 10 || dF > 60) continue;
+    if (segBlocked([n.x, n.y + EYE_H, n.z], foc, lvl, grid)) continue; // no shot from here
+    const dB = Math.hypot(n.x - ex, n.z - ez);
+    const score = n.y * 3 - dB * 0.12 - Math.abs(dF - target) * 0.08; // high, near, ~range out
+    if (score > bs) {
+      bs = score;
+      best = n;
+    }
+  }
+  return best ? { x: best.x, y: best.y, z: best.z } : null;
+}
+
 export function spawnEnemies(lvl: Level3D, count: number, rand: () => number): Enemy[] {
   const out: Enemy[] = [];
   const half = lvl.size / 2;
@@ -421,6 +525,7 @@ export function updateEnemies(
     for (const sm of smokes) if (segHitsSphere(eeye, peye, [sm.x, sm.y, sm.z], sm.r)) return false;
     return true;
   });
+  const mem = squad.mem;
   for (let i = 0; i < enemies.length; i++) {
     if (sees[i]) {
       seen = true;
@@ -428,9 +533,45 @@ export function updateEnemies(
       enemies[i].lastSeen = { x: player.x, z: player.z };
       squad.lastKnown = { x: player.x, z: player.z };
       squad.t = now;
+      if (mem) {
+        // Learn the range the player chooses to fight at (informs vantage choice).
+        const d = Math.hypot(player.x - enemies[i].x, player.z - enemies[i].z);
+        mem.preferRange += (d - mem.preferRange) * 0.04;
+      }
     }
   }
   const haveIntel = squad.lastKnown != null && now - squad.t < 5000; // lose track sooner
+
+  // LEARNING: build a heatmap of where the player spends time (their favourite
+  // ground), model how aggressively they play, and count bots lost — all persisted
+  // across the run so later fights hunt smarter. The hottest cell becomes the
+  // squad's search focus when they have no live intel.
+  if (mem) {
+    mem.heat[heatCell(player.x, player.z, lvl.size)] += dt;
+    mem.aggression += (Math.min(1, pspeed / 6) - mem.aggression) * 0.02;
+    const aliveNow = enemies.reduce((a, e) => a + (e.health > 0 && !e.boss ? 1 : 0), 0);
+    if (squad.lastAlive != null && aliveNow < squad.lastAlive) mem.losses += squad.lastAlive - aliveNow;
+    squad.lastAlive = aliveNow;
+    squad.planT = (squad.planT ?? 0) - dt;
+    if (squad.planT <= 0) {
+      let hi = 0;
+      for (let k = 0; k < mem.heat.length; k++) {
+        mem.heat[k] *= 0.9; // forget slowly so it tracks recent play
+        if (mem.heat[k] > mem.heat[hi]) hi = k;
+      }
+      squad.hot = mem.heat[hi] > 0.5 ? cellCenter(hi, lvl.size) : null;
+      squad.planT = 1.5;
+    }
+  }
+  // Coordination strength grows as the squad takes losses (they learn to gang up).
+  const coord = mem ? Math.min(1, mem.losses / 6) : 0;
+  // Per-frame: each living non-boss bot's ordinal among its squad, so the hunt can
+  // fan them out around the focus from evenly-spread bearings (a real pincer).
+  const slot: number[] = new Array(enemies.length).fill(0);
+  let aliveCount = 0;
+  for (let i = 0; i < enemies.length; i++) {
+    if (enemies[i].health > 0 && !enemies[i].boss) slot[i] = aliveCount++;
+  }
 
   // Shared fire routine: line-of-sight gated, sniper swaps long gun for a rifle
   // up close, accuracy falls off with range and with the player's speed.
@@ -508,17 +649,40 @@ export function updateEnemies(
     const role = ROLE[e.role];
     const tgt = e.state === 'alert' && e.lastSeen ? e.lastSeen : haveIntel ? squad.lastKnown : null;
 
-    // SNIPER: first instinct is to climb the nearest tower and perch, then shoot
-    // from elevation. Shared squad intel still feeds its target.
-    if (e.role === 'sniper' && e.perch) {
-      const reached = e.onDeck && Math.abs(e.y - e.perch.y) < 0.7 && Math.hypot(e.x - e.perch.x, e.z - e.perch.z) < 2.6;
-      if (!reached) {
-        const busy = climbToward(e, lvl, e.perch.y, P.speed * role.speedMul * slow, dt, grid);
-        if (!busy && e.onDeck) moveEnemy(e, lvl, e.perch.x - e.x, e.perch.z - e.z, P.speed * 0.7 * slow, dt, R, grid);
+    // SNIPER: relocate to the best VANTAGE on the player's area and shoot from it.
+    // Re-picks a better perch periodically (elevated + a clear line to the focus)
+    // so it's always moving toward the best possible shot; routes there via the
+    // nav graph and eases off walls while holding. Falls back to its spawn perch
+    // when there's no nav graph.
+    if (e.role === 'sniper') {
+      const focusS = tgt ?? squad.hot ?? { x: player.x, z: player.z };
+      e.perchT = (e.perchT ?? 0) - dt;
+      if (nav && !sees[i] && (e.perchT <= 0 || !e.perch)) {
+        const v = bestVantage(nav, lvl, grid, e.x, e.z, focusS.x, focusS.z, mem?.preferRange ?? 18);
+        if (v) e.perch = v;
+        e.perchT = 1.4 + Math.random() * 1.2;
       }
-      if (tgt) e.state = 'alert';
+      const v = e.perch;
+      if (v) {
+        const reached = Math.abs(e.y - v.y) < 0.8 && Math.hypot(e.x - v.x, e.z - v.z) < 2.6;
+        if (!reached) {
+          if (nav && Math.hypot(v.x - e.x, v.z - e.z) > NAV_NEAR) {
+            const nf = navFollow(e, nav, lvl, v.x, v.z, v.y, P.speed * role.speedMul * slow, dt, grid);
+            if (nf !== 'climb' && nf) moveEnemy(e, lvl, nf.wx, nf.wz, P.speed * role.speedMul * slow, dt, R, grid);
+          } else {
+            const busy = climbToward(e, lvl, v.y, P.speed * role.speedMul * slow, dt, grid);
+            if (!busy) moveEnemy(e, lvl, v.x - e.x, v.z - e.z, P.speed * 0.8 * slow, dt, R, grid);
+          }
+        } else if (sees[i]) {
+          const [rx, rz] = wallRepulse(e, lvl, grid); // hold the shot, but don't hug the wall
+          if (rx || rz) moveEnemy(e, lvl, rx, rz, P.speed * 0.5 * slow, dt, R, grid);
+        }
+      } else if (nav) {
+        const nf = navFollow(e, nav, lvl, focusS.x, focusS.z, 0, P.speed * role.speedMul * slow, dt, grid);
+        if (nf !== 'climb' && nf) moveEnemy(e, lvl, nf.wx, nf.wz, P.speed * role.speedMul * slow, dt, R, grid);
+      }
+      e.state = sees[i] || haveIntel ? 'alert' : 'idle';
       fireAt(e, sees[i]);
-      if (!sees[i] && !haveIntel) e.state = 'idle';
       continue;
     }
 
@@ -582,6 +746,20 @@ export function updateEnemies(
           wz += (dz / d) * 0.5;
         }
       }
+      // WALL DISCIPLINE: while shooting, ease off any wall so the firing lane stays
+      // clean; if hit but currently blind, BREAK FOR COVER rather than stand exposed.
+      if (sees[i]) {
+        const [rx, rz] = wallRepulse(e, lvl, grid);
+        wx += rx * 0.8;
+        wz += rz * 0.8;
+      } else if (e.alarm > 0) {
+        const cv = seekCoverDir(e, lvl, grid, tgt.x, tgt.z);
+        if (cv) {
+          const cl = Math.hypot(cv[0], cv[1]) || 1;
+          wx = cv[0] / cl;
+          wz = cv[1] / cl;
+        }
+      }
       moveEnemy(e, lvl, wx, wz, P.speed * role.speedMul * (boosted ? 1.25 : 1) * slow, dt, R, grid);
       fireAt(e, sees[i]);
       // Give up only when there's no personal sight, no shared intel, and the
@@ -593,19 +771,25 @@ export function updateEnemies(
     } else if (e.onDeck) {
       climbToward(e, lvl, 0, P.speed * 0.5, dt, grid); // no target: come down off the deck
     } else {
-      // HUNT — no sighting, no shared intel. Instead of idle-wander (which leaves
-      // big maps empty), advance toward the player's general area along the nav
-      // graph at a patrol pace — still NO fire (no line of sight). A per-bot offset
-      // makes the squad SWEEP toward you rather than laser-lock your exact tile.
-      const ox = Math.cos(e.wander * 1.7) * 11;
-      const oz = Math.sin(e.wander * 1.7) * 11;
-      const nf = nav ? navFollow(e, nav, lvl, player.x + ox, player.z + oz, 0, P.speed * 0.5 * slow, dt, grid) : null;
+      // COORDINATED HUNT — no sighting, no live intel. The squad searches with a
+      // PLAN: head for the player's learned favourite ground (heat) and FAN OUT by
+      // slot so they sweep in from spread bearings (a pincer). The tank drives to
+      // the centre to harass; the others surround, tighter the more bots the player
+      // has dropped (learned). Still NO fire — no line of sight.
+      const focus = squad.hot ?? { x: player.x, z: player.z };
+      const N = Math.max(1, aliveCount);
+      const bearing = (slot[i] / N) * Math.PI * 2 + now / 9000;
+      const ring = e.role === 'tank' ? 0 : 10 - coord * 4 + (slot[i] % 3) * 4;
+      const gx2 = focus.x + Math.cos(bearing) * ring;
+      const gz2 = focus.z + Math.sin(bearing) * ring;
+      const hsp = (e.role === 'tank' ? 0.62 : 0.5) * P.speed * slow;
+      const nf = nav ? navFollow(e, nav, lvl, gx2, gz2, 0, hsp, dt, grid) : null;
       if (nf === 'climb') {
-        // climb system already moved the bot toward the route's vertical link
+        // climb system moved the bot toward a vertical link on the route
       } else if (nf) {
-        moveEnemy(e, lvl, nf.wx, nf.wz, P.speed * 0.5 * slow, dt, R, grid);
+        moveEnemy(e, lvl, nf.wx, nf.wz, hsp, dt, R, grid);
       } else {
-        moveEnemy(e, lvl, Math.sin(now / 1500 + e.wander), Math.cos(now / 1700 + e.wander * 2), P.speed * 0.35 * slow, dt, R, grid);
+        moveEnemy(e, lvl, gx2 - e.x, gz2 - e.z, hsp, dt, R, grid);
       }
     }
   }
