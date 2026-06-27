@@ -239,8 +239,8 @@ export function useFpsLoop(
           world!.scene.add(s);
           return s;
         }
-        // Regular enemies are 3D models (Phase 1: generic trooper for every role).
-        const m = buildEnemyModel(e.role, tier);
+        // Regular enemies are 3D models, one per doctrine class.
+        const m = buildEnemyModel(e.cls, tier);
         world!.scene.add(m);
         return m;
       });

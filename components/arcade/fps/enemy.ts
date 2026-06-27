@@ -11,6 +11,7 @@ import type { Box, Ladder, Level3D } from './level3d';
 import type { SpatialGrid } from './level/grid';
 import { type NavGraph, type NavNode, nearestNode, pathTo } from './level/nav';
 import { EYE, groundHeightAt, type Player3 } from './physics';
+import type { EnemyClass } from './enemies/types';
 
 export type Difficulty = 'normal' | 'hard' | 'nightmare';
 
@@ -28,7 +29,7 @@ export interface Enemy {
   step: number; // accumulated gait distance (drives the run animation)
   alarm: number; // seconds of "under fire" evasive behaviour after being shot
   weapon: WeaponKind;
-  role: Role;
+  cls: EnemyClass;
   side: 1 | -1; // which way this bot flanks/orbits
   barUntil: number; // show a health bar until this timestamp (set on hit)
   boss: BossKind | null;
@@ -77,13 +78,8 @@ export const BOSSES: Record<BossKind, BossDef> = {
 };
 
 export type WeaponKind = 'rifle' | 'mg' | 'laser';
-/** Squad combat roles — so a group doesn't all blindly rush. */
-export type Role = 'tank' | 'sniper' | 'assault' | 'flanker' | 'suppressor' | 'skirmisher';
-/** The sniper's long-range weapon (it swaps to a rifle if you close in). */
+/** The marksman's long-range weapon (it swaps to a rifle if you close in). */
 const SNIPER_W = { rate: 1.7, dmg: 30, accMod: 1.7, color: 0x9af0ff };
-/** Only the sniper gets a long acquisition range; regulars must be close. */
-const SNIPER_VIEW = 68;
-const TANK_HP_MUL = 3;
 /** Coarse learning grid resolution (HGRID × HGRID cells over the arena). */
 const HGRID = 6;
 /** What the squad LEARNS about the player, persisted across fights in a run so
@@ -139,29 +135,44 @@ const WEAPONS: Record<WeaponKind, { rate: number; dmg: number; accMod: number; c
 };
 const WEAPON_KEYS: WeaponKind[] = ['rifle', 'mg', 'laser'];
 
-// Standoff range, flank angle (rad), orbit strafe, speed per role.
-const ROLE: Record<Role, { range: number; angle: number; strafe: number; speedMul: number }> = {
-  tank: { range: 5, angle: 0.0, strafe: 0.25, speedMul: 0.7 }, // soaks damage, pushes in
-  sniper: { range: 28, angle: 0.12, strafe: 0.2, speedMul: 0.85 }, // holds far, accurate
-  assault: { range: 6, angle: 0.0, strafe: 0.5, speedMul: 1.05 },
-  flanker: { range: 8, angle: 1.2, strafe: 0.7, speedMul: 1.0 },
-  suppressor: { range: 17, angle: 0.25, strafe: 0.3, speedMul: 0.8 },
-  skirmisher: { range: 11, angle: 0.7, strafe: 1.0, speedMul: 1.1 },
+// Per-class combat params: standoff range, flank angle (rad), orbit strafe, speed
+// multiplier, HP multiplier (× ENEMY_HP), and acquisition-range multiplier (×
+// difficulty view). This is what gives each of the 10 classes distinct movement.
+interface ClassDef {
+  range: number;
+  angle: number;
+  strafe: number;
+  speedMul: number;
+  hp: number;
+  viewMul: number;
+}
+const CLASS: Record<EnemyClass, ClassDef> = {
+  rifleman: { range: 7, angle: 0.0, strafe: 0.5, speedMul: 1.0, hp: 1.0, viewMul: 1.0 }, // core, uses cover
+  scout: { range: 12, angle: 1.3, strafe: 1.0, speedMul: 1.35, hp: 0.7, viewMul: 1.2 }, // fast, circles, retreats
+  breacher: { range: 4, angle: 0.1, strafe: 0.4, speedMul: 1.05, hp: 2.2, viewMul: 0.95 }, // rushes close
+  marksman: { range: 30, angle: 0.12, strafe: 0.2, speedMul: 0.85, hp: 0.9, viewMul: 2.2 }, // perches, long range
+  suppressor: { range: 18, angle: 0.25, strafe: 0.25, speedMul: 0.75, hp: 1.8, viewMul: 1.0 }, // pins, holds
+  engineer: { range: 22, angle: 0.3, strafe: 0.3, speedMul: 0.9, hp: 1.2, viewMul: 0.9 }, // hangs back (support)
+  tank: { range: 6, angle: 0.0, strafe: 0.2, speedMul: 0.6, hp: 3.0, viewMul: 1.0 }, // slow, heavy push
+  elite: { range: 9, angle: 1.1, strafe: 0.7, speedMul: 1.1, hp: 1.5, viewMul: 1.15 }, // fast flank
+  commander: { range: 20, angle: 0.2, strafe: 0.3, speedMul: 0.85, hp: 2.0, viewMul: 1.1 }, // stays back, calm
+  berserker: { range: 2.5, angle: 0.0, strafe: 0.3, speedMul: 1.3, hp: 1.6, viewMul: 1.0 }, // charges to melee
 };
-/** A deliberate squad composition by index: a pusher, pincer flankers on
- *  OPPOSITE sides, a suppressor that holds, and a skirmisher. */
-function squadRole(i: number, count: number): { role: Role; side: 1 | -1 } {
-  if (count === 1) return { role: 'assault', side: 1 };
-  // With a group there's always a TANK (front-line, soaks damage) and a SNIPER
-  // (holds far, accurate), then flankers / suppressor.
-  const comp: { role: Role; side: 1 | -1 }[] = [
-    { role: 'tank', side: 1 },
-    { role: 'sniper', side: -1 },
-    { role: 'flanker', side: 1 },
-    { role: 'flanker', side: -1 },
-    { role: 'suppressor', side: 1 },
-  ];
-  return comp[i] ?? { role: 'skirmisher', side: i % 2 === 0 ? 1 : -1 };
+
+/** Battlefield-doctrine squad templates (signature units FIRST so even a small
+ *  squad still includes them). The campaign level selects the doctrine. */
+const DOCTRINES: EnemyClass[][] = [
+  ['rifleman', 'rifleman', 'rifleman', 'scout', 'rifleman'], // patrol
+  ['tank', 'rifleman', 'breacher', 'rifleman', 'rifleman'], // assault team
+  ['marksman', 'marksman', 'engineer', 'rifleman', 'rifleman', 'rifleman'], // defensive position
+  ['tank', 'tank', 'suppressor', 'suppressor', 'engineer', 'suppressor', 'rifleman', 'rifleman', 'engineer', 'rifleman', 'rifleman', 'rifleman'], // heavy push
+  ['commander', 'elite', 'elite', 'marksman', 'scout', 'marksman', 'scout', 'scout'], // elite strike team
+];
+function composeSquad(count: number, level: number, rand: () => number): EnemyClass[] {
+  const d = level <= 3 ? DOCTRINES[0] : level <= 6 ? (rand() < 0.5 ? DOCTRINES[1] : DOCTRINES[2]) : level <= 12 ? DOCTRINES[3] : DOCTRINES[4];
+  const out: EnemyClass[] = [];
+  for (let i = 0; i < count; i++) out.push(d[i] ?? (rand() < 0.4 ? 'scout' : 'rifleman'));
+  return out;
 }
 
 const R = 0.45; // collision radius
@@ -426,8 +437,9 @@ function bestVantage(
   return best ? { x: best.x, y: best.y, z: best.z } : null;
 }
 
-export function spawnEnemies(lvl: Level3D, count: number, rand: () => number): Enemy[] {
+export function spawnEnemies(lvl: Level3D, count: number, level: number, rand: () => number): Enemy[] {
   const out: Enemy[] = [];
+  const classes = composeSquad(count, level, rand); // doctrine composition
   const half = lvl.size / 2;
   const a = lvl.enemySpawn; // far end, opposite the player
   const R = Math.max(6, lvl.size * 0.16);
@@ -439,22 +451,12 @@ export function spawnEnemies(lvl: Level3D, count: number, rand: () => number): E
     const z = a.z + Math.sin(ang) * rad;
     if (Math.abs(x) > half - 3 || Math.abs(z) > half - 3) continue;
     if (blocked(lvl, x, z)) continue;
-    const sr = squadRole(out.length, count);
-    const hp = sr.role === 'tank' ? ENEMY_HP * TANK_HP_MUL : ENEMY_HP;
-    const perch = sr.role === 'sniper' ? assignPerch(lvl, x, z) : null;
-    out.push({ x, y: 0, z, health: hp, maxHealth: hp, state: 'idle', lastSeen: null, fireCd: rand() * 0.6, hitFlash: 0, wander: rand() * 6, step: 0, alarm: 0, weapon: WEAPON_KEYS[Math.floor(rand() * WEAPON_KEYS.length)], role: sr.role, side: sr.side, barUntil: 0, boss: null, track: 0, muzzle: 0, stunT: 0, slowT: 0, blindT: 0, burnT: 0, burnDps: 0, onDeck: false, perch });
-  }
-  // GUARANTEE the tank is the squad's bullet-sponge: the tank-role bot is forced to
-  // the highest max-HP in the group, so the "tanked-out" enemy and the bot wearing
-  // the tank role are always the SAME enemy — they can never diverge (e.g. if per-
-  // bot HP scaling is added later). With more than two enemies this keeps the front-
-  // line harasser as the beefiest unit, not a flanker/suppressor.
-  const beefiestNonTank = out.reduce((m, e) => (e.role === 'tank' ? m : Math.max(m, e.maxHealth)), 0);
-  for (const e of out) {
-    if (e.role === 'tank' && e.maxHealth <= beefiestNonTank) {
-      e.maxHealth = beefiestNonTank * TANK_HP_MUL;
-      e.health = e.maxHealth;
-    }
+    const cls = classes[out.length];
+    const hp = ENEMY_HP * CLASS[cls].hp;
+    const perch = cls === 'marksman' ? assignPerch(lvl, x, z) : null;
+    const weapon: WeaponKind = cls === 'suppressor' ? 'mg' : cls === 'marksman' ? 'rifle' : WEAPON_KEYS[Math.floor(rand() * WEAPON_KEYS.length)];
+    const side: 1 | -1 = out.length % 2 === 0 ? 1 : -1;
+    out.push({ x, y: 0, z, health: hp, maxHealth: hp, state: 'idle', lastSeen: null, fireCd: rand() * 0.6, hitFlash: 0, wander: rand() * 6, step: 0, alarm: 0, weapon, cls, side, barUntil: 0, boss: null, track: 0, muzzle: 0, stunT: 0, slowT: 0, blindT: 0, burnT: 0, burnDps: 0, onDeck: false, perch });
   }
   return out;
 }
@@ -479,7 +481,7 @@ export function spawnBosses(lvl: Level3D, kinds: BossKind[], rand: () => number)
       step: 0,
       alarm: 0,
       weapon: 'rifle' as WeaponKind,
-      role: 'assault' as Role,
+      cls: 'tank' as EnemyClass,
       side: (rand() < 0.5 ? 1 : -1) as 1 | -1,
       barUntil: 0,
       boss: k,
@@ -531,7 +533,7 @@ export function updateEnemies(
     if (e.health <= 0) return false;
     if (e.blindT > 0) return false; // flashbanged: can't acquire the player
     const dist = Math.hypot(player.x - e.x, player.z - e.z);
-    if (dist >= (e.boss ? 220 : e.role === 'sniper' ? SNIPER_VIEW : P.view)) return false;
+    if (dist >= (e.boss ? 220 : P.view * CLASS[e.cls].viewMul)) return false;
     const eeye: Vec3 = [e.x, e.y + EYE_H, e.z];
     if (segBlocked(eeye, peye, lvl, grid)) return false;
     for (const sm of smokes) if (segHitsSphere(eeye, peye, [sm.x, sm.y, sm.z], sm.r)) return false;
@@ -589,15 +591,25 @@ export function updateEnemies(
   // up close, accuracy falls off with range and with the player's speed.
   const fireAt = (e: Enemy, canSee: boolean): void => {
     e.fireCd -= dt;
-    if (!canSee || e.fireCd > 0) return;
+    if (e.fireCd > 0) return;
     const dist = Math.hypot(player.x - e.x, player.z - e.z);
-    const W = e.role === 'sniper' ? (dist > 12 ? SNIPER_W : WEAPONS.rifle) : WEAPONS[e.weapon];
+    // BERSERKER: melee claws — strikes only point-blank, no LoS needed (it charges).
+    if (e.cls === 'berserker') {
+      if (dist > 3.5) return;
+      e.fireCd = 0.6;
+      e.muzzle = 0.12;
+      tracers.push({ from: [e.x, e.y + 1, e.z], to: peye, color: 0xff3344 });
+      damage += 16;
+      return;
+    }
+    if (!canSee) return;
+    const W = e.cls === 'marksman' ? (dist > 12 ? SNIPER_W : WEAPONS.rifle) : WEAPONS[e.weapon];
     e.fireCd = W.rate;
     e.muzzle = 0.12; // show the firing pose + muzzle flash briefly
     tracers.push({ from: [e.x, e.y + EYE_H, e.z], to: peye, color: W.color });
     const evade = Math.min(0.7, pspeed * 0.14);
-    // Accuracy falls off steeply with range (the sniper is the exception far out).
-    const distFactor = e.role === 'sniper' && dist > 12 ? 1 : Math.max(0.1, 1 - Math.max(0, dist - 6) / 26);
+    // Accuracy falls off steeply with range (the marksman is the exception far out).
+    const distFactor = e.cls === 'marksman' && dist > 12 ? 1 : Math.max(0.1, 1 - Math.max(0, dist - 6) / 26);
     // Zero-in: the longer they've held LoS on you, the better their aim. Peeking
     // is safe; lingering in the open gets punished.
     const trackRamp = 0.45 + 0.55 * Math.min(1, e.track / 1.4);
@@ -658,7 +670,7 @@ export function updateEnemies(
 
     if (e.stunT > 0) continue; // EMP/concussion: frozen, no move or fire
     const slow = e.slowT > 0 ? 0.45 : 1; // cryo slow
-    const role = ROLE[e.role];
+    const role = CLASS[e.cls];
     const tgt = e.state === 'alert' && e.lastSeen ? e.lastSeen : haveIntel ? squad.lastKnown : null;
 
     // SNIPER: relocate to the best VANTAGE on the player's area and shoot from it.
@@ -666,7 +678,7 @@ export function updateEnemies(
     // so it's always moving toward the best possible shot; routes there via the
     // nav graph and eases off walls while holding. Falls back to its spawn perch
     // when there's no nav graph.
-    if (e.role === 'sniper') {
+    if (e.cls === 'marksman') {
       const focusS = tgt ?? squad.hot ?? { x: player.x, z: player.z };
       e.perchT = (e.perchT ?? 0) - dt;
       if (nav && !sees[i] && (e.perchT <= 0 || !e.perch)) {
@@ -791,10 +803,10 @@ export function updateEnemies(
       const focus = squad.hot ?? { x: player.x, z: player.z };
       const N = Math.max(1, aliveCount);
       const bearing = (slot[i] / N) * Math.PI * 2 + now / 9000;
-      const ring = e.role === 'tank' ? 0 : 10 - coord * 4 + (slot[i] % 3) * 4;
+      const ring = e.cls === 'tank' ? 0 : 10 - coord * 4 + (slot[i] % 3) * 4;
       const gx2 = focus.x + Math.cos(bearing) * ring;
       const gz2 = focus.z + Math.sin(bearing) * ring;
-      const hsp = (e.role === 'tank' ? 0.62 : 0.5) * P.speed * slow;
+      const hsp = (e.cls === 'tank' ? 0.62 : 0.5) * P.speed * slow;
       const nf = nav ? navFollow(e, nav, lvl, gx2, gz2, 0, hsp, dt, grid) : null;
       if (nf === 'climb') {
         // climb system moved the bot toward a vertical link on the route
