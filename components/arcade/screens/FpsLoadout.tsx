@@ -1,8 +1,14 @@
 'use client';
 
 import { useState } from 'react';
-import { PRIMARIES, SIDEARMS, THROWABLES, gunById, type GunDef, type ThrowKind } from '../fps/weapons';
+import { GUNS, PRIMARIES, SIDEARMS, THROWABLES, gunById, type GunDef, type ThrowKind } from '../fps/weapons';
 import { GunPreview } from './GunPreview';
+
+// Normalization bounds for the stat bars (computed once over the whole arsenal).
+const DMG_MAX = Math.max(...GUNS.map((g) => g.dmg));
+const MAG_MAX = Math.max(...GUNS.map((g) => g.mag));
+const RELOAD_MIN = Math.min(...GUNS.map((g) => g.reload));
+const clamp01 = (x: number) => Math.max(0, Math.min(1, x));
 
 const THROW_SUB: Record<ThrowKind, string> = {
   frag: 'AoE damage',
@@ -54,10 +60,15 @@ export function FpsLoadout({
         <GunPreview gunId={focus} />
         <div className="pointer-events-none absolute bottom-1 left-2">
           <p className="font-pixel text-[9px] text-white sm:text-[12px]">{fg.name}</p>
-          <p className="font-pixel text-[6px] uppercase text-white/45 sm:text-[8px]">
-            {fg.family} · DMG {fg.dmg} · MAG {fg.mag}
-          </p>
+          <p className="font-pixel text-[6px] uppercase text-white/45 sm:text-[8px]">{fg.family}</p>
         </div>
+      </div>
+
+      {/* stat bars (bar + number) for the focused gun */}
+      <div className="mt-1.5 shrink-0 space-y-1">
+        <StatBar label="POWER" pct={Math.sqrt(fg.dmg / DMG_MAX)} value={`${fg.dmg}`} color="#ff5d6e" />
+        <StatBar label="MAG" pct={fg.mag / MAG_MAX} value={`${fg.mag}`} color="#7fdfff" />
+        <StatBar label="RELOAD" pct={RELOAD_MIN / fg.reload} value={`${fg.reload}s`} color="#aef5c8" />
       </div>
 
       <div className="mt-2 flex-1 space-y-3 overflow-y-auto pr-1">
@@ -81,6 +92,18 @@ export function FpsLoadout({
       >
         Deploy ▸
       </button>
+    </div>
+  );
+}
+
+function StatBar({ label, pct, value, color }: { label: string; pct: number; value: string; color: string }) {
+  return (
+    <div className="flex items-center gap-2">
+      <span className="w-12 shrink-0 font-pixel text-[6px] uppercase text-white/45 sm:text-[7px]">{label}</span>
+      <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-white/10">
+        <div className="h-full rounded-full transition-[width] duration-300" style={{ width: `${Math.round(clamp01(pct) * 100)}%`, backgroundColor: color }} />
+      </div>
+      <span className="w-9 shrink-0 text-right font-pixel text-[7px] text-white sm:text-[8px]">{value}</span>
     </div>
   );
 }
