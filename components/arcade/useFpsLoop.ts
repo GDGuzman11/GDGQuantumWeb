@@ -135,6 +135,27 @@ export function useFpsLoop(
     let composer: ReturnType<typeof makeComposer> | null = null;
     // 3D first-person viewmodel (the selected gun), drawn over the world frame.
     let viewmodel: Viewmodel | null = null;
+    // DYNAMIC render resolution — the internal buffer matches the canvas aspect (so
+    // a full-screen game never stretches) at a perf-scaled retro resolution (NEAREST
+    // filter retained). renderScale flexes with measured FPS to hold a stable frame.
+    let renderScale = tier === 'mobile' ? 0.8 : 1.0;
+    let fpsFrames = 0;
+    let fpsTimer = 0;
+    const BASE_H = 270;
+    const MIN_H = 150;
+    const MAX_H = 430;
+    const resize = () => {
+      const cw = canvas.clientWidth || RW;
+      const ch = canvas.clientHeight || RH;
+      const aspect = cw / ch || RW / RH;
+      const h = Math.max(MIN_H, Math.min(MAX_H, Math.round(BASE_H * renderScale)));
+      const w = Math.round(h * aspect);
+      renderer.setSize(w, h, false);
+      composer?.composer.setSize(w, h);
+      camera.aspect = aspect;
+      camera.updateProjectionMatrix();
+      viewmodel?.resize(aspect);
+    };
     // The weapon id whose sustained-fire loop (Ripper / Lance Beam) is playing.
     let activeLoop: string | null = null;
 
@@ -218,6 +239,7 @@ export function useFpsLoop(
       // Build the viewmodel once; (re)load the active gun for this level.
       if (!viewmodel) viewmodel = new Viewmodel(tier, RW / RH);
       viewmodel.setGun(g.guns[g.active].id);
+      resize(); // size the new composer/viewmodel to the live canvas
       const mk = (canvas2: HTMLCanvasElement) => {
         const t = new THREE.CanvasTexture(canvas2);
         t.magFilter = THREE.NearestFilter;
@@ -317,6 +339,16 @@ export function useFpsLoop(
     document.addEventListener('mousedown', onMouseDown);
     document.addEventListener('mouseup', onMouseUp);
     document.addEventListener('wheel', onWheel, { passive: true });
+
+    // Keep the render buffer + camera matched to the live canvas size (dynamic
+    // viewport, address-bar collapse, orientation change, safe-area shifts).
+    const ro = new ResizeObserver(() => resize());
+    ro.observe(canvas);
+    const onViewport = () => resize();
+    window.addEventListener('orientationchange', onViewport);
+    window.addEventListener('resize', onViewport);
+    window.visualViewport?.addEventListener('resize', onViewport);
+    resize();
 
     let raf = 0;
     let prev = performance.now();
@@ -859,6 +891,20 @@ export function useFpsLoop(
           if (viewmodel && !(g.guns[g.active].scoped && zoomLevel.current > 0)) viewmodel.render(renderer);
         }
 
+        // Dynamic resolution: nudge the internal buffer to hold ~55-60 fps.
+        fpsFrames++;
+        fpsTimer += dt;
+        if (fpsTimer >= 1) {
+          const fps = fpsFrames / fpsTimer;
+          fpsFrames = 0;
+          fpsTimer = 0;
+          const prevScale = renderScale;
+          const cap = tier === 'mobile' ? 1.0 : 1.5;
+          if (fps < 48) renderScale = Math.max(0.55, renderScale - 0.12);
+          else if (fps > 58 && renderScale < cap) renderScale = Math.min(cap, renderScale + 0.06);
+          if (renderScale !== prevScale) resize();
+        }
+
         if (now - lastSnap > 70) {
           lastSnap = now;
           const gun = g.guns[g.active];
@@ -912,6 +958,10 @@ export function useFpsLoop(
       document.removeEventListener('wheel', onWheel);
       if (document.pointerLockElement === canvas) document.exitPointerLock?.();
       disposeExtras();
+      ro.disconnect();
+      window.removeEventListener('orientationchange', onViewport);
+      window.removeEventListener('resize', onViewport);
+      window.visualViewport?.removeEventListener('resize', onViewport);
       if (activeLoop) sfx.playWeaponLoopStop(activeLoop);
       world?.dispose();
       ballGeo.dispose();

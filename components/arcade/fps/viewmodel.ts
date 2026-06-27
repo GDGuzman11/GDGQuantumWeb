@@ -161,6 +161,11 @@ export class Viewmodel {
     renderer.autoClear = prevAuto;
   }
 
+  resize(aspect: number): void {
+    this.camera.aspect = aspect;
+    this.camera.updateProjectionMatrix();
+  }
+
   dispose(): void {
     if (this.model) disposeModel(this.model);
     this.flash.geometry.dispose();

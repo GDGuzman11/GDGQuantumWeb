@@ -231,31 +231,50 @@ export function FpsGame() {
     if (dead && document.pointerLockElement) document.exitPointerLock?.();
   }, [dead]);
 
+  const fullBleed = isTouch; // phones go edge-to-edge; desktop keeps the CRT cabinet
   return (
     <div
       ref={wrapRef}
-      className={`flex w-full flex-col items-center gap-4 bg-black ${pseudoFs ? 'fixed inset-0 z-[999] justify-center overflow-auto p-2' : ''}`}
-      style={pseudoFs ? { paddingTop: 'env(safe-area-inset-top)', paddingBottom: 'env(safe-area-inset-bottom)' } : undefined}
+      className={
+        fullBleed
+          ? 'fixed inset-0 z-[60] overflow-hidden bg-black'
+          : `flex w-full flex-col items-center gap-4 bg-black ${pseudoFs ? 'fixed inset-0 z-[999] justify-center overflow-auto p-2' : ''}`
+      }
+      style={
+        fullBleed
+          ? { height: '100dvh', paddingTop: 'env(safe-area-inset-top)', paddingBottom: 'env(safe-area-inset-bottom)', paddingLeft: 'env(safe-area-inset-left)', paddingRight: 'env(safe-area-inset-right)' }
+          : pseudoFs
+            ? { paddingTop: 'env(safe-area-inset-top)', paddingBottom: 'env(safe-area-inset-bottom)' }
+            : undefined
+      }
     >
-      <div className="flex w-full max-w-5xl items-center justify-between px-1">
-        <h1 className="font-pixel text-[11px] text-[#7fdfff] sm:text-[13px]">STARSHELL</h1>
-        <div className="flex items-center gap-3">
-          <button
-            type="button"
-            onClick={toggleFullscreen}
-            className="min-h-[32px] font-pixel text-[8px] text-white/50 transition-colors hover:text-white sm:text-[9px]"
-            aria-label={fsActive ? 'Exit fullscreen' : 'Enter fullscreen'}
-          >
-            {fsActive ? 'EXIT FULLSCREEN' : 'FULLSCREEN'}
-          </button>
-          <Link href="/" className="font-pixel text-[8px] text-white/50 transition-colors hover:text-white sm:text-[9px]">
+      {!fullBleed && (
+        <div className="flex w-full max-w-5xl items-center justify-between px-1">
+          <h1 className="font-pixel text-[11px] text-[#7fdfff] sm:text-[13px]">STARSHELL</h1>
+          <div className="flex items-center gap-3">
+            <button
+              type="button"
+              onClick={toggleFullscreen}
+              className="min-h-[32px] font-pixel text-[8px] text-white/50 transition-colors hover:text-white sm:text-[9px]"
+              aria-label={fsActive ? 'Exit fullscreen' : 'Enter fullscreen'}
+            >
+              {fsActive ? 'EXIT FULLSCREEN' : 'FULLSCREEN'}
+            </button>
+            <Link href="/" className="font-pixel text-[8px] text-white/50 transition-colors hover:text-white sm:text-[9px]">
+              ◂ EXIT
+            </Link>
+          </div>
+        </div>
+      )}
+
+      <CRTFrame fullBleed={fullBleed}>
+        <canvas ref={canvasRef} className="absolute inset-0 h-full w-full touch-none [image-rendering:pixelated]" />
+
+        {fullBleed && mode === 'menu' && (
+          <Link href="/" className="absolute left-3 top-3 z-[60] font-pixel text-[8px] text-white/60 transition-colors hover:text-white">
             ◂ EXIT
           </Link>
-        </div>
-      </div>
-
-      <CRTFrame>
-        <canvas ref={canvasRef} className="absolute inset-0 h-full w-full touch-none [image-rendering:pixelated]" />
+        )}
 
         {mode === 'play' && snap && snap.status === 'playing' && (
           <>
