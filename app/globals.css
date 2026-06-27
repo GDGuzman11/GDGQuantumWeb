@@ -435,3 +435,18 @@
     transform: translateY(130%);
   }
 }
+/* Rotate-your-phone hint (the /arcade portrait gate). Reduced-motion guard above
+   collapses the duration so it just sits at the landscape pose. */
+@keyframes gdg-rotate-phone {
+  0%,
+  18% {
+    transform: rotate(0deg);
+  }
+  50%,
+  82% {
+    transform: rotate(-90deg);
+  }
+  100% {
+    transform: rotate(0deg);
+  }
+}

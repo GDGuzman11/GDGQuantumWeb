@@ -350,6 +350,13 @@ export function useFpsLoop(
     window.visualViewport?.addEventListener('resize', onViewport);
     resize();
 
+    // Resume audio after a tab switch / phone-call interruption (mobile browsers
+    // suspend the AudioContext; this re-arms it once we're visible again).
+    const onVisible = () => {
+      if (!document.hidden) sfx.ensure();
+    };
+    document.addEventListener('visibilitychange', onVisible);
+
     let raf = 0;
     let prev = performance.now();
     let disposed = false;
@@ -962,6 +969,7 @@ export function useFpsLoop(
       window.removeEventListener('orientationchange', onViewport);
       window.removeEventListener('resize', onViewport);
       window.visualViewport?.removeEventListener('resize', onViewport);
+      document.removeEventListener('visibilitychange', onVisible);
       if (activeLoop) sfx.playWeaponLoopStop(activeLoop);
       world?.dispose();
       ballGeo.dispose();

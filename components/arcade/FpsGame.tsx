@@ -6,6 +6,7 @@ import { CRTFrame } from './ui/CRTFrame';
 import { FpsControls } from './ui/FpsControls';
 import { FpsHud } from './ui/FpsHud';
 import { FpsLoadout } from './screens/FpsLoadout';
+import { OrientationGate } from './mobile/OrientationGate';
 import { FpsShop } from './screens/FpsShop';
 import { FpsCustomize } from './screens/FpsCustomize';
 import { useFpsLoop, type FpsGameState, type FpsSnapshot } from './useFpsLoop';
@@ -53,6 +54,7 @@ export function FpsGame() {
   const [diff, setDiff] = useState<Difficulty>('normal');
   const [enemies, setEnemies] = useState(2);
   const [isTouch, setIsTouch] = useState(false);
+  const [portrait, setPortrait] = useState(false);
   const [snap, setSnap] = useState<FpsSnapshot | null>(null);
   const [lastLoadout, setLastLoadout] = useState<Loadout>({ p1: 'ar', p2: 'rail', sa: 'sidearm', th: 'frag' });
   const [run, setRun] = useState<{ level: number; gold: number; maxHp: number; upgrades: Record<string, Upg> }>({ level: 1, gold: 0, maxHp: 100, upgrades: {} });
@@ -63,8 +65,9 @@ export function FpsGame() {
   const [pseudoFs, setPseudoFs] = useState(false); // CSS fallback (iOS Safari)
   const fsActive = fullscreen || pseudoFs;
 
+  const portraitPaused = isTouch && portrait; // landscape-only on phones
   const onSnapshot = useCallback((s: FpsSnapshot) => setSnap(s), []);
-  const { setMoveAxis, addLook, cycleWeapon, cycleZoom, setSensitivity, throwGrenade } = useFpsLoop(canvasRef, gameRef, mode === 'play', onSnapshot);
+  const { setMoveAxis, addLook, cycleWeapon, cycleZoom, setSensitivity, throwGrenade } = useFpsLoop(canvasRef, gameRef, mode === 'play' && !portraitPaused, onSnapshot);
 
   useEffect(() => {
     setIsTouch('ontouchstart' in window);
@@ -75,6 +78,19 @@ export function FpsGame() {
     } catch {
       /* ignore */
     }
+  }, []);
+
+  // Track portrait/landscape (phones only) to gate the landscape-only game.
+  useEffect(() => {
+    const mq = window.matchMedia('(orientation: portrait)');
+    const update = () => setPortrait(mq.matches);
+    update();
+    mq.addEventListener('change', update);
+    window.addEventListener('resize', update);
+    return () => {
+      mq.removeEventListener('change', update);
+      window.removeEventListener('resize', update);
+    };
   }, []);
 
   // Keep the loop's look multiplier + the saved value in sync with the slider.
@@ -345,7 +361,7 @@ export function FpsGame() {
               className="mt-2 h-1.5 w-56 cursor-pointer appearance-none rounded-full bg-white/15 accent-[#7fdfff]"
             />
 
-            <button type="button" onClick={() => { setLoadoutReturn('campaign'); setMode('loadout'); }} className="mt-6 min-h-[44px] rounded-md border border-[#aef5c8]/40 bg-[#aef5c8]/10 px-8 font-pixel text-[11px] uppercase text-[#aef5c8] transition-colors hover:bg-[#aef5c8]/20 focus:outline-none focus-visible:ring-2 focus-visible:ring-[#aef5c8] sm:text-[13px]">
+            <button type="button" onClick={() => { if (fullBleed && !fsActive) toggleFullscreen(); setLoadoutReturn('campaign'); setMode('loadout'); }} className="mt-6 min-h-[44px] rounded-md border border-[#aef5c8]/40 bg-[#aef5c8]/10 px-8 font-pixel text-[11px] uppercase text-[#aef5c8] transition-colors hover:bg-[#aef5c8]/20 focus:outline-none focus-visible:ring-2 focus-visible:ring-[#aef5c8] sm:text-[13px]">
               Loadout ▸
             </button>
             <p className="mt-5 max-w-xs text-center font-pixel text-[6px] leading-relaxed text-white/35 sm:text-[8px]">
@@ -414,6 +430,8 @@ export function FpsGame() {
           </div>
         )}
       </CRTFrame>
+
+      <OrientationGate show={fullBleed && portrait} />
     </div>
   );
 }
