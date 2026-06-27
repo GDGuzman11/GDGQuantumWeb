@@ -2,6 +2,10 @@
 
 import type { FpsSnapshot } from '../useFpsLoop';
 
+// The gun is now a real 3D viewmodel (fps/viewmodel.ts). Flip to true to restore
+// the old flat 2D CSS gun + screen-centre muzzle flash.
+const SHOW_2D_GUN = false;
+
 /** Combat HUD: crosshair / scope, hitmarker, muzzle flash, hurt vignette,
  *  health, the active weapon + ammo, weapon slots, and a gun view-model. */
 export function FpsHud({ snap }: { snap: FpsSnapshot }) {
@@ -66,8 +70,8 @@ export function FpsHud({ snap }: { snap: FpsSnapshot }) {
         </div>
       )}
 
-      {/* muzzle flash + gun view-model (hidden while scoped) */}
-      {!scoped && (
+      {/* muzzle flash + gun view-model (hidden while scoped) — superseded by the 3D viewmodel */}
+      {SHOW_2D_GUN && !scoped && (
         <div className="absolute bottom-0 left-1/2 -translate-x-1/2">
           {flash && (
             <div aria-hidden className="absolute -top-5 left-1/2 h-6 w-6 -translate-x-1/2 rounded-full" style={{ background: 'radial-gradient(circle, #fff6c8 0%, #ffae3a 50%, transparent 70%)' }} />

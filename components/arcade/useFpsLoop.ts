@@ -11,6 +11,7 @@ import { enemyTex, bossTex } from './fps/textures';
 import type { GunDef, ThrowDef } from './fps/weapons';
 import { sfx } from './engine/audio';
 import { makeComposer } from './fps/postfx';
+import { Viewmodel } from './fps/viewmodel';
 import type { RenderTier } from './fps/materials';
 import { SpatialGrid } from './fps/level/grid';
 import { buildNavGraph, type NavGraph } from './fps/level/nav';
@@ -130,6 +131,8 @@ export function useFpsLoop(
     // first world exists; sized to the 480×270 buffer. The RenderPass's scene is
     // repointed when the world is rebuilt (camera object is stable).
     let composer: ReturnType<typeof makeComposer> | null = null;
+    // 3D first-person viewmodel (the selected gun), drawn over the world frame.
+    let viewmodel: Viewmodel | null = null;
 
     let world: World | null = null;
     let builtFor: Level3D | null = null;
@@ -204,6 +207,9 @@ export function useFpsLoop(
       } else {
         composer.renderPass.mainScene = world.scene;
       }
+      // Build the viewmodel once; (re)load the active gun for this level.
+      if (!viewmodel) viewmodel = new Viewmodel(tier, RW / RH);
+      viewmodel.setGun(g.guns[g.active].id);
       const mk = (canvas2: HTMLCanvasElement) => {
         const t = new THREE.CanvasTexture(canvas2);
         t.magFilter = THREE.NearestFilter;
@@ -347,6 +353,7 @@ export function useFpsLoop(
             g.reloading = 0;
             g.fireCd = 0.22;
             zoomLevel.current = 0; // swapping weapons drops you back to the hip
+            viewmodel?.setGun(g.guns[g.active].id);
             sfx.swap();
           }
           const gun = g.guns[g.active];
@@ -405,6 +412,7 @@ export function useFpsLoop(
             reloadReq.current = false;
             if (g.reloading <= 0 && g.mags[g.active] < gun.mag && g.reserves[g.active] > 0) {
               g.reloading = gun.reload;
+              viewmodel?.reload(gun.reload);
               sfx.reload();
             }
           }
@@ -433,6 +441,7 @@ export function useFpsLoop(
             g.fireCd = gun.rate;
             g.mags[g.active]--;
             snap.fireAt = now;
+            viewmodel?.fire();
             sfx.gun(gun.id, gun.family);
             const wallD = rayWallDist(eye, dir, g.level, RANGE, grid ?? undefined);
             let hitT = wallD;
@@ -497,6 +506,7 @@ export function useFpsLoop(
             }
           } else if (wantShot && g.mags[g.active] <= 0 && g.reloading <= 0 && g.reserves[g.active] > 0) {
             g.reloading = gun.reload;
+            viewmodel?.reload(gun.reload);
             sfx.reload();
           }
 
@@ -732,6 +742,10 @@ export function useFpsLoop(
             g.regenT += dt;
             if (g.regenT > 2) p.health = Math.min(g.maxHp, p.health + 24 * dt);
           }
+          // Drive the 3D viewmodel (bob from movement; recoil/flash/reload poses
+          // were triggered by the fire/reload hooks above). Drawn after the world.
+          viewmodel?.update(dt, Math.hypot(pvx, pvz), g.reloading);
+
           if (g.enemies.every((e) => e.health <= 0)) g.status = 'won';
         }
 
@@ -794,6 +808,9 @@ export function useFpsLoop(
         if (world) {
           if (composer) composer.composer.render(dt);
           else renderer.render(world.scene, camera);
+          // 3D viewmodel overlay — pixelated (same buffer), depth-cleared so it
+          // never clips world geometry. Hidden under the sniper scope overlay.
+          if (viewmodel && !(g.guns[g.active].scoped && zoomLevel.current > 0)) viewmodel.render(renderer);
         }
 
         if (now - lastSnap > 70) {
@@ -851,6 +868,7 @@ export function useFpsLoop(
       disposeExtras();
       world?.dispose();
       ballGeo.dispose();
+      viewmodel?.dispose();
       composer?.composer.dispose();
       renderer.dispose();
     };
