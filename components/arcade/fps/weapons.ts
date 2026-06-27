@@ -54,7 +54,14 @@ export function gunById(id: string): GunDef {
   return GUNS.find((g) => g.id === id) ?? GUNS[0];
 }
 
-export const PRIMARIES = GUNS.filter((g) => g.family !== 'pistol');
+// Loadout pools by FIRE ROLE (disjoint, so the primary/secondary lists never
+// repeat a gun): PRIMARY = sustained-fire weapons (assault rifles, machine guns,
+// rapid energy); SECONDARY = slow, high-damage-per-shot weapons (snipers, rail
+// guns, launchers); SIDEARM = pistols.
+const PRIMARY_FAMILIES: Family[] = ['rifle', 'mg', 'laser'];
+const SECONDARY_FAMILIES: Family[] = ['sniper', 'launcher'];
+export const PRIMARIES = GUNS.filter((g) => PRIMARY_FAMILIES.includes(g.family));
+export const SECONDARIES = GUNS.filter((g) => SECONDARY_FAMILIES.includes(g.family));
 export const SIDEARMS = GUNS.filter((g) => g.family === 'pistol');
 
 /** Throwables — one occupies the loadout's throwable slot.

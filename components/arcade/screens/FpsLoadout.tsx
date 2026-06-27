@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { GUNS, PRIMARIES, SIDEARMS, THROWABLES, gunById, type GunDef, type ThrowKind } from '../fps/weapons';
+import { GUNS, PRIMARIES, SECONDARIES, SIDEARMS, THROWABLES, gunById, type GunDef, type ThrowKind } from '../fps/weapons';
 import { GunPreview } from './GunPreview';
 
 // Normalization bounds for the stat bars (computed once over the whole arsenal).
@@ -75,8 +75,8 @@ export function FpsLoadout({
 
         {/* right: the full selection list (own full-height space → no squish) */}
         <div className="flex min-h-0 flex-1 flex-col gap-2.5 overflow-y-auto pr-1">
-          <Picker label="PRIMARY 1" items={PRIMARIES} value={p1} focus={focus} onPick={pick(setP1)} />
-          <Picker label="PRIMARY 2" items={PRIMARIES} value={p2} focus={focus} onPick={pick(setP2)} />
+          <Picker label="PRIMARY" items={PRIMARIES} value={p1} focus={focus} onPick={pick(setP1)} />
+          <Picker label="SECONDARY" items={SECONDARIES} value={p2} focus={focus} onPick={pick(setP2)} />
           <Picker label="SIDEARM" items={SIDEARMS} value={sa} focus={focus} onPick={pick(setSa)} />
           <div>
             <p className="font-pixel text-[7px] text-white/45 sm:text-[8px]">THROWABLE</p>
