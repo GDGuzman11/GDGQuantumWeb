@@ -87,6 +87,8 @@ export function useFpsLoop(
   const fireHeld = useRef(false);
   const zoomLevel = useRef(0); // 0 = hip, 1 = zoom, 2 = deep zoom (right-click cycles)
   const sens = useRef(1); // look-sensitivity multiplier (user-adjustable)
+  const aimAssistOn = useRef(true); // touch aim assist (settings)
+  const invertY = useRef(false); // invert look pitch (settings)
   const reloadReq = useRef(false);
   const throwReq = useRef(false);
   const jumpReq = useRef(false);
@@ -108,6 +110,12 @@ export function useFpsLoop(
   }, []);
   const setSensitivity = useCallback((v: number) => {
     sens.current = v;
+  }, []);
+  const setAimAssist = useCallback((v: boolean) => {
+    aimAssistOn.current = v;
+  }, []);
+  const setInvertY = useCallback((v: boolean) => {
+    invertY.current = v;
   }, []);
   const throwGrenade = useCallback(() => {
     throwReq.current = true;
@@ -383,7 +391,7 @@ export function useFpsLoop(
         // Touch AIM ASSIST — a subtle slowdown + magnetism when a target is near the
         // reticle, and only while actively aiming (never drifts when idle).
         let assist: { ex: number; ey: number; ez: number; el: number; dot: number } | null = null;
-        if (isTouch && g.status === 'playing') {
+        if (isTouch && aimAssistOn.current && g.status === 'playing') {
           const cpa = Math.cos(p.pitch);
           const afx = -cpa * Math.sin(p.yaw);
           const afy = Math.sin(p.pitch);
@@ -410,7 +418,8 @@ export function useFpsLoop(
           lookDX.current = 0;
         }
         if (lookDY.current !== 0) {
-          p.pitch = Math.max(-MAX_PITCH, Math.min(MAX_PITCH, p.pitch - lookDY.current * ls * aimSlow));
+          const iy = invertY.current ? -1 : 1;
+          p.pitch = Math.max(-MAX_PITCH, Math.min(MAX_PITCH, p.pitch - lookDY.current * ls * aimSlow * iy));
           lookDY.current = 0;
         }
         if (assist && hadLook) {
@@ -1021,5 +1030,5 @@ export function useFpsLoop(
     };
   }, [canvasRef, gameRef, active, onSnapshot]);
 
-  return { setMoveAxis, addLook, cycleWeapon, cycleZoom, setSensitivity, throwGrenade, jump, reload };
+  return { setMoveAxis, addLook, cycleWeapon, cycleZoom, setSensitivity, setAimAssist, setInvertY, throwGrenade, jump, reload };
 }

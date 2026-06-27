@@ -12,9 +12,13 @@ import { useRef, useState } from 'react';
 export function FpsControls({
   onMove,
   onLook,
+  leftHanded = false,
+  opacity = 1,
 }: {
   onMove: (strafe: number, fwd: number) => void;
   onLook: (dx: number, dy: number) => void;
+  leftHanded?: boolean;
+  opacity?: number;
 }) {
   const R = 58;
   const DEAD = 0.15;
@@ -48,9 +52,9 @@ export function FpsControls({
 
   return (
     <div className="pointer-events-none absolute inset-0 z-30 select-none">
-      {/* Right look zone */}
+      {/* Look zone (right by default, left when left-handed) */}
       <div
-        className="pointer-events-auto absolute inset-y-0 right-0 w-1/2 touch-none"
+        className={`pointer-events-auto absolute inset-y-0 ${leftHanded ? 'left-0' : 'right-0'} w-1/2 touch-none`}
         onPointerDown={(e) => {
           lookId.current = e.pointerId;
           lookLast.current = { x: e.clientX, y: e.clientY };
@@ -67,9 +71,9 @@ export function FpsControls({
         onPointerCancel={() => (lookId.current = null)}
       />
 
-      {/* Left floating-joystick zone */}
+      {/* Floating-joystick zone (left by default, right when left-handed) */}
       <div
-        className="pointer-events-auto absolute inset-y-0 left-0 w-1/2 touch-none"
+        className={`pointer-events-auto absolute inset-y-0 ${leftHanded ? 'right-0' : 'left-0'} w-1/2 touch-none`}
         onPointerDown={(e) => {
           stickId.current = e.pointerId;
           origin.current = { x: e.clientX, y: e.clientY };
@@ -90,12 +94,12 @@ export function FpsControls({
           <div
             aria-hidden
             className="pointer-events-none fixed z-[34] h-28 w-28 -translate-x-1/2 -translate-y-1/2 rounded-full border border-white/20 bg-white/[0.06]"
-            style={{ left: stick.x, top: stick.y }}
+            style={{ left: stick.x, top: stick.y, opacity }}
           />
           <div
             aria-hidden
             className="pointer-events-none fixed z-[34] h-12 w-12 -translate-x-1/2 -translate-y-1/2 rounded-full bg-[#7fdfff]/45"
-            style={{ left: stick.x + stick.tx, top: stick.y + stick.ty }}
+            style={{ left: stick.x + stick.tx, top: stick.y + stick.ty, opacity }}
           />
         </>
       )}
