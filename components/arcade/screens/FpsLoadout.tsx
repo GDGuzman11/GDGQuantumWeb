@@ -56,7 +56,7 @@ export function FpsLoadout({
       </div>
 
       {/* shared 3D preview of the focused gun */}
-      <div className="relative mt-2 h-32 shrink-0 overflow-hidden rounded-md border border-white/10 bg-gradient-to-b from-white/[0.06] to-transparent sm:h-44">
+      <div className="relative mt-2 h-64 shrink-0 overflow-hidden rounded-md border border-white/10 bg-gradient-to-b from-white/[0.06] to-transparent sm:h-[22rem]">
         <GunPreview gunId={focus} />
         <div className="pointer-events-none absolute bottom-1 left-2">
           <p className="font-pixel text-[9px] text-white sm:text-[12px]">{fg.name}</p>
