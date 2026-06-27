@@ -7,7 +7,9 @@ import { EYE, MAX_PITCH, stepPlayer, type Player3 } from './fps/physics';
 import type { Level3D } from './fps/level3d';
 import { updateEnemies, BOSSES, type Difficulty, type Enemy, type Squad, type Smoke } from './fps/enemy';
 import { rayWallDist, raySphere, segBlocked, type Vec3 } from './fps/combat';
-import { enemyTex, bossTex } from './fps/textures';
+import { bossTex } from './fps/textures';
+import { buildEnemyModel, disposeEnemyModel } from './fps/enemies/models';
+import { poseEnemy } from './fps/enemies/animator';
 import type { GunDef, ThrowDef } from './fps/weapons';
 import { sfx } from './engine/audio';
 import { makeComposer } from './fps/postfx';
@@ -144,10 +146,11 @@ export function useFpsLoop(
     // Nav graph for enemy long-range pathing — built once per level alongside the
     // grid, threaded into updateEnemies. Absent → bots use the old direct steering.
     let nav: NavGraph | null = null;
-    let sprites: THREE.Sprite[] = [];
+    // Enemy actors: a 3D model Group for regular enemies, a billboard Sprite for
+    // bosses. Indexed parallel to g.enemies.
+    let sprites: THREE.Object3D[] = [];
     let barBg: THREE.Sprite[] = [];
     let barFill: THREE.Sprite[] = [];
-    let enemyTexes: THREE.CanvasTexture[] = []; // [runA, runB, fire, crouch]
     let prevEnemyXZ: { x: number; z: number }[] = [];
     let bossTexes: THREE.CanvasTexture[] = [];
     const tracers: { line: THREE.Line; geo: THREE.BufferGeometry; until: number }[] = [];
@@ -167,15 +170,18 @@ export function useFpsLoop(
       (m.material as THREE.Material).dispose();
     };
     const disposeExtras = () => {
-      for (const s of [...sprites, ...barBg, ...barFill]) {
+      for (const s of sprites) {
+        world?.scene.remove(s);
+        if (s instanceof THREE.Sprite) (s.material as THREE.Material).dispose();
+        else disposeEnemyModel(s); // a 3D model Group
+      }
+      for (const s of [...barBg, ...barFill]) {
         world?.scene.remove(s);
         (s.material as THREE.Material).dispose();
       }
       sprites = [];
       barBg = [];
       barFill = [];
-      for (const t of enemyTexes) t.dispose();
-      enemyTexes = [];
       for (const t of bossTexes) t.dispose();
       bossTexes = [];
       for (const t of tracers) {
@@ -218,28 +224,25 @@ export function useFpsLoop(
         t.minFilter = THREE.NearestFilter;
         return t;
       };
-      enemyTexes = [0, 1, 2, 3].map((f) => mk(enemyTex(f)));
       prevEnemyXZ = g.enemies.map((e) => ({ x: e.x, z: e.z }));
       const bossCache: Partial<Record<string, THREE.CanvasTexture>> = {};
       sprites = g.enemies.map((e) => {
-        let map = enemyTexes[0];
-        let sx = 1.7;
-        let sy = 2.3;
         if (e.boss) {
           if (!bossCache[e.boss]) {
             const t = mk(bossTex(e.boss));
             bossCache[e.boss] = t;
             bossTexes.push(t);
           }
-          map = bossCache[e.boss]!;
           const bd = BOSSES[e.boss];
-          sx = 1.5 * bd.scale;
-          sy = 2.0 * bd.scale;
+          const s = new THREE.Sprite(new THREE.SpriteMaterial({ map: bossCache[e.boss]!, transparent: true }));
+          s.scale.set(1.5 * bd.scale, 2.0 * bd.scale, 1);
+          world!.scene.add(s);
+          return s;
         }
-        const s = new THREE.Sprite(new THREE.SpriteMaterial({ map, transparent: true }));
-        s.scale.set(sx, sy, 1);
-        world!.scene.add(s);
-        return s;
+        // Regular enemies are 3D models (Phase 1: generic trooper for every role).
+        const m = buildEnemyModel(e.role, tier);
+        world!.scene.add(m);
+        return m;
       });
       barBg = g.enemies.map(() => {
         const s = new THREE.Sprite(new THREE.SpriteMaterial({ color: 0x0a0a0a, transparent: true, depthWrite: false }));
@@ -769,7 +772,7 @@ export function useFpsLoop(
           activeLoop = null;
         }
 
-        // Sprites
+        // Enemy actors (3D models for regulars, billboard sprites for bosses).
         for (let i = 0; i < sprites.length; i++) {
           const e = g.enemies[i];
           const s = sprites[i];
@@ -779,34 +782,30 @@ export function useFpsLoop(
           barBg[i].visible = showBar;
           barFill[i].visible = showBar;
           if (!alive) continue;
-          // How fast is this bot actually moving (drives run vs stand pose)?
           const pe = prevEnemyXZ[i] ?? { x: e.x, z: e.z };
           const moveSpeed = Math.hypot(e.x - pe.x, e.z - pe.z) / Math.max(dt, 0.001);
           prevEnemyXZ[i] = { x: e.x, z: e.z };
-          const cy = e.boss ? BOSSES[e.boss].scale : 1.15;
           const moving = moveSpeed > 1.4;
-          // Running bots bob; firing / crouched / standing bots stay steady.
-          const bob = e.boss ? Math.abs(Math.sin(e.step * 3.0)) * 0.3 : moving ? Math.abs(Math.sin(e.step * 3.0)) * 0.14 : 0;
-          s.position.set(e.x, e.y + cy + bob, e.z);
-          const mat = s.material as THREE.SpriteMaterial;
-          if (!e.boss) {
-            // Pose from behaviour: firing → fire, moving → run cycle, alert and
-            // holding → crouch/peek, otherwise an idle stand.
-            let frame: number;
-            if (e.muzzle > 0) frame = 2;
-            else if (moving) frame = Math.floor(e.step * 2.2) % 2 === 0 ? 0 : 1;
-            else if (e.state === 'alert') frame = 3;
-            else frame = 0;
-            const want = enemyTexes[frame];
-            if (mat.map !== want) {
-              mat.map = want;
-              mat.needsUpdate = true;
-            }
+
+          if (e.boss) {
+            const cy = BOSSES[e.boss].scale;
+            const bob = Math.abs(Math.sin(e.step * 3.0)) * 0.3;
+            s.position.set(e.x, e.y + cy + bob, e.z);
+            const mat = (s as THREE.Sprite).material as THREE.SpriteMaterial;
+            mat.color.setHex(e.hitFlash > 0 ? 0xff7777 : 0xffffff);
+          } else {
+            // 3D model: stand on the ground, face the player, animate, flash on hit.
+            s.position.set(e.x, e.y, e.z);
+            s.rotation.y = Math.atan2(p.x - e.x, p.z - e.z); // forward +Z → faces player
+            poseEnemy(s, moving, e.state === 'alert' || e.muzzle > 0, e.step, e.hitFlash, now);
+            const hf = e.hitFlash > 0 ? Math.min(1, e.hitFlash / 0.12) : 0;
+            const mats = s.userData.bodyMats as THREE.Material[] | undefined;
+            if (mats) for (const m of mats) (m as THREE.MeshStandardMaterial).emissive.setRGB(hf * 0.7, hf * 0.04, hf * 0.04);
           }
-          mat.color.setHex(e.hitFlash > 0 ? 0xff7777 : 0xffffff);
+
           if (showBar) {
             const ratio = Math.max(0, e.health / e.maxHealth);
-            const by = e.y + 2.6 + bob;
+            const by = e.y + 2.6;
             barBg[i].position.set(e.x, by, e.z);
             barFill[i].position.set(e.x, by, e.z);
             barFill[i].scale.x = 1.4 * ratio;
