@@ -444,6 +444,18 @@ export function spawnEnemies(lvl: Level3D, count: number, rand: () => number): E
     const perch = sr.role === 'sniper' ? assignPerch(lvl, x, z) : null;
     out.push({ x, y: 0, z, health: hp, maxHealth: hp, state: 'idle', lastSeen: null, fireCd: rand() * 0.6, hitFlash: 0, wander: rand() * 6, step: 0, alarm: 0, weapon: WEAPON_KEYS[Math.floor(rand() * WEAPON_KEYS.length)], role: sr.role, side: sr.side, barUntil: 0, boss: null, track: 0, muzzle: 0, stunT: 0, slowT: 0, blindT: 0, burnT: 0, burnDps: 0, onDeck: false, perch });
   }
+  // GUARANTEE the tank is the squad's bullet-sponge: the tank-role bot is forced to
+  // the highest max-HP in the group, so the "tanked-out" enemy and the bot wearing
+  // the tank role are always the SAME enemy — they can never diverge (e.g. if per-
+  // bot HP scaling is added later). With more than two enemies this keeps the front-
+  // line harasser as the beefiest unit, not a flanker/suppressor.
+  const beefiestNonTank = out.reduce((m, e) => (e.role === 'tank' ? m : Math.max(m, e.maxHealth)), 0);
+  for (const e of out) {
+    if (e.role === 'tank' && e.maxHealth <= beefiestNonTank) {
+      e.maxHealth = beefiestNonTank * TANK_HP_MUL;
+      e.health = e.maxHealth;
+    }
+  }
   return out;
 }
 
