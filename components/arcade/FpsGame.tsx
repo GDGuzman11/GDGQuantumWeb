@@ -317,10 +317,7 @@ export function FpsGame() {
 
         {mode === 'play' && snap && snap.status === 'playing' && (
           <>
-            <FpsHud snap={snap} />
-            <div className="pointer-events-none absolute left-3 top-3 z-30 font-pixel text-[8px] text-[#ffd27a] sm:text-[10px]">
-              LVL {run.level}/{LEVELS} · ⛀ {run.gold}
-            </div>
+            <FpsHud snap={snap} level={run.level} gold={run.gold} isTouch={isTouch} />
             <button type="button" onClick={() => setMode('menu')} className="absolute right-3 top-3 z-50 font-pixel text-[8px] text-white/55 transition-colors hover:text-white">
               MENU
             </button>
