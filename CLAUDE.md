@@ -38,6 +38,42 @@ There are **two tracking files**:
 
 **Status** (PM keeps this current):
 ```
+═══════════════ STARSHELL — MAJOR ARCADE OVERHAULS (2026-06-27, Gabe-driven, main session) ═══════════════
+Five big `/arcade` upgrades shipped since the 2026-06-24 entry (each phase QA-green: tsc 0, lint 0, `npm run
+build` exit 0; `/` First Load held ~94 kB — the game stays code-split/isolated; `/arcade` ~322 kB). All
+auto-committed on `main` by the repo watcher; standalone Starshell repo re-synced from `components/arcade/**`.
+1) BATTLEFIELD/RENDER + AI: "retro-res + modern light" post-FX (imperative EffectComposer Bloom + grain via the
+   `postprocessing` dep) + emissive materials (`fps/postfx.ts`, `fps/materials.ts`); a SpatialGrid
+   (`fps/level/grid.ts`) for collision/LoS; raised-terrain ramps/berms/trenches + physics snap (`fps/level3d.ts`,
+   `physics.ts`); a nav graph + bounded A* enemy pathing + HUNT (`fps/level/nav.ts`); + a SQUAD AI upgrade
+   (coordinated pincer hunt, tank/sniper roles, wall discipline, cross-fight learning via a persisted HuntMemory).
+2) WEAPON VISUALS: 30 unique 3D models from PRIMITIVES ONLY, zero assets — 18 guns + 12 throwables
+   (`fps/models/**`). A crisp rotating LOADOUT PREVIEW (`screens/GunPreview.tsx`) that follows chip taps, with
+   POWER/MAG/RELOAD stat bars; an in-game 3D first-person VIEWMODEL (`fps/viewmodel.ts`) — bob/recoil/reload/
+   muzzle-flash, depth-cleared over the pixelated world (replaces the 2D CSS gun). Loadout split into disjoint
+   PRIMARY (sustained-fire) / SECONDARY (slow, high-damage) pools (no repeats). Lance Beam → held continuous beam.
+3) PROCEDURAL WEAPON AUDIO (`engine/audio.ts`): master bus (gain→DynamicsCompressor) + reusable noise; per-weapon
+   profiles + 7 family generators (ballistic/heavy/energy/electric/launcher/gravity/beam) so all 18 guns sound
+   distinct with per-shot jitter; Ripper spin-up/loop/spin-down + Lance Beam continuous-beam loops; cosmetic
+   charge swells; 12 throwable throw+detonation sounds; enemy death sound. Web Audio only, zero asset files.
+4) ENEMY DOCTRINE OVERHAUL: replaced the SINGLE flat 2D enemy sprite with 10 LOW-POLY 3D CLASSES
+   (`fps/enemies/**`: rifleman/scout/breacher/marksman/suppressor/engineer/tank/elite/commander/berserker), each
+   a distinct silhouette from a shared rigged `buildHumanoid`. Sprite→3D render swap + a transform animator
+   (per-class gait/posture, death topple, Tank damage-glow + reactor-boom death). AI migrated role→`cls` with
+   per-class `CLASS` params + DOCTRINE squad composition (patrol/assault/defensive/heavy-push/elite-strike by
+   level) + berserker melee. Bosses keep their sprites. DEFERRED/queued: Enemy P5 (perf/mobile) + the heavy
+   mechanics (Engineer repair/shields · Commander reinforcements · Tank missiles/charge · Berserker combo ·
+   Breacher shotgun).
+5) NATIVE-FEEL MOBILE OVERHAUL (`/arcade` ONLY; portfolio untouched; NO service worker — keeps the per-request
+   nonce CSP + `force-dynamic` intact): full-bleed mobile (`100dvh` + safe-area, CRT cabinet kept desktop-only) +
+   DYNAMIC RESOLUTION scaling (FPS-measured, aspect-matched, nearest band) + dynamic resize/orientation; a
+   landscape-only `OrientationGate` (portrait pause + rotate hint); fullscreen-on-PLAY; audio resume on
+   visibilitychange; a touch redesign (floating joystick + deadzone + AIM ASSIST slowdown+magnetism + big
+   jump/reload/nade/zoom buttons in `ui/FpsControls.tsx`/`FpsGame.tsx`); a SETTINGS panel (aim assist / invert-Y /
+   left-handed / joystick opacity / button size, persisted); a glass HUD restyle (wave/enemies/gold pill + glass
+   health/ammo, `ui/FpsHud.tsx`). REMAINING: P6 cinematics (loading showcase / match intro / match-end run-stats).
+   OPEN: the whole mobile overhaul is BUILT + green but NOT yet real-phone-verified by Gabe.
+═════════════════════════════════════════════════════════════════════════════════════
 ═══════════════ FRONT-END REBUILD IN PROGRESS (Gabe-driven, 2026-06-17) ═══════════════
 Gabe chose to REBUILD the front-end from scratch into a new cinematic single-page experience —
 "ENTER THE ORB." The previous nine-phase snap-deck site (preloader, GSAP Observer deck, particle

@@ -70,20 +70,30 @@ lensing, ending at a cinematic singularity where the (real, working) contact for
   - **Arena:** a low‑poly "warzone city" — **6‑floor towers** (full decks linked by a switchback of
     external ladders), an elevated **hill plateau**, open platforms, bunkers, **jump pads**, and
     **ziplines** strung between distinct rooftops. You and the aliens spawn at opposite ends.
-  - **Arsenal:** ~**18 guns** across rifle / MG / laser / sniper / pistol / **launcher** (explosive AoE)
-    families, each with its own fire feel, **unique sound**, and ADS; **right‑click zoom is a 3‑state
-    toggle**. Plus **12 throwables** (10 each): frag, smoke, molotov, cryo, EMP, flashbang, cluster,
+  - **Arsenal:** **18 guns** across rifle / MG / laser / sniper / pistol / **launcher** (explosive AoE)
+    families. Each has a **unique 3D model built from primitives** (zero assets), shown in a rotating
+    **loadout preview** with POWER / MAG / RELOAD bars and as an in‑game **first‑person viewmodel**
+    (bob / recoil / reload / muzzle‑flash), plus a fully **procedural per‑weapon sound** (distinct
+    synthesis per family + per‑shot variation; Ripper & Lance Beam are sustained loops). The loadout is
+    split into disjoint **Primary** (sustained‑fire) and **Secondary** (slow, high‑damage) pools. Plus
+    **12 throwables** (each its own 3D model): frag, smoke, molotov, cryo, EMP, flashbang, cluster,
     toxin, singularity, concussion, decoy, plasma — with burn / slow / stun / blind effects and
     lingering fire / gas / cryo / decoy zones.
-  - **Enemies:** alien‑soldier sprites with **4 state‑driven poses** (run, fire + muzzle flash, crouch);
-    **realistic perception** (short acquisition range so they don't spot you across the map — only the
-    **sniper** reaches far, and it climbs a tower to **perch**); **squad‑coordinated, adaptive AI**
-    (roles, shared intel, wall‑avoidance, climbing, and **zero‑in** aim that sharpens the longer they
-    hold line‑of‑sight on you). Every 5th level is a boss.
+  - **Enemies:** **10 low‑poly 3D doctrine classes** — Rifleman, Scout, Breacher, Marksman, Suppressor,
+    Engineer, Tank, Elite, Commander, Berserker — each a distinct silhouette / movement / weapon, built
+    from primitives. They spawn as **doctrine squads** (patrol / assault / defensive / heavy‑push /
+    elite‑strike) by level. **Squad‑coordinated, adaptive AI** (LoS‑gated perception, shared intel,
+    coordinated HUNT, per‑class behaviour, wall discipline, climbing, **zero‑in** aim, cross‑fight
+    learning). The Tank breaks down + detonates on death; the Berserker charges to melee. Every 5th
+    level is a (sprite) boss.
   - **Progression:** a **20‑level campaign** with a gold armory between levels, a pre‑deploy **loadout**
     screen, **per‑gun customization** (upgrade damage / fire‑rate / magazine / reload with stage gold),
-    a HUD **radar/minimap**, **fullscreen** (with an iOS pseudo‑fullscreen fallback) and an adjustable
-    **look‑sensitivity** slider, plus full mobile touch controls. Local best‑level in `localStorage`.
+    a HUD **radar/minimap**, and a local best‑level in `localStorage`.
+  - **Native‑feel mobile (`/arcade` only):** full‑bleed fullscreen + safe‑area, **landscape‑only** with a
+    rotate‑to‑continue gate, **dynamic render resolution** (flexes with device FPS), a **floating
+    joystick** + **aim assist** (slowdown + magnetism), big glass action buttons, a **settings** panel
+    (aim assist / invert‑Y / left‑handed / joystick opacity / button size), and a glass HUD. The portfolio
+    stays a normal responsive site (no service worker / no manifest change).
 
   Rendered at 480×270 + nearest‑filter textures, CSS‑upscaled for the retro look. The whole game bundle
   is isolated to `/arcade`, so `/`'s First Load is untouched. *(History: it began as a turn‑based
