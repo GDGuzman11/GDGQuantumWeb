@@ -84,8 +84,14 @@ lensing, ending at a cinematic singularity where the (real, working) contact for
     from primitives. They spawn as **doctrine squads** (patrol / assault / defensive / heavy‑push /
     elite‑strike) by level. **Squad‑coordinated, adaptive AI** (LoS‑gated perception, shared intel,
     coordinated HUNT, per‑class behaviour, wall discipline, climbing, **zero‑in** aim, cross‑fight
-    learning). The Tank breaks down + detonates on death; the Berserker charges to melee. Every 5th
-    level is a (sprite) boss.
+    learning). The Tank breaks down + detonates on death; the Berserker charges to melee.
+  - **Bosses (every 5th level):** three distinct **3D** boss encounters, each a coordinated command unit
+    with its own themed minions, HP phases, telegraphed attacks, and a status HUD. **Xenomorph** (ranged
+    hive predator — acid spit + puddles, a telegraphed pounce that exposes a weak‑point on a miss, a
+    broodling/spitter/stalker hive). **Warlord** (battlefield commander — suppressive fire, arcing grenade
+    volleys, a destructible Command Beacon + a shot‑blocking Shield Wall, a real doctrine legion).
+    **Kraken** (living arena — tentacle eruptions, slam waves, pull vortices, void fog, a purple abyss
+    swarm). **Level 20 = the GAUNTLET:** all three, ENHANCED, back‑to‑back with recovery windows.
   - **Progression:** a **20‑level campaign** with a gold armory between levels, a pre‑deploy **loadout**
     screen, **per‑gun customization** (upgrade damage / fire‑rate / magazine / reload with stage gold),
     a HUD **radar/minimap**, and a local best‑level in `localStorage`.
