@@ -50,6 +50,8 @@ export interface Enemy {
   onDeck: boolean; // standing on an elevated floor (don't fall)
   perch: { x: number; z: number; y: number } | null; // sniper tower target / chosen vantage
   perchT?: number; // sniper: cooldown before re-picking a better vantage
+  squadId: number; // which squad this bot belongs to (independent intel per squad)
+  healCd?: number; // healer (engineer): cooldown between heal-beam pulses
   // Nav (Phase 4): cached A* route (remaining waypoint node ids), repath cooldown,
   // and the goal the route was planned for (repath when it moves). All optional so
   // existing constructors and the no-graph fallback are untouched.
@@ -194,21 +196,12 @@ const CLASS: Record<EnemyClass, ClassDef> = {
   berserker: { range: 2.5, angle: 0.0, strafe: 0.3, speedMul: 1.3, hp: 1.6, viewMul: 1.0 }, // charges to melee
 };
 
-/** Battlefield-doctrine squad templates (signature units FIRST so even a small
- *  squad still includes them). The campaign level selects the doctrine. */
-const DOCTRINES: EnemyClass[][] = [
-  ['rifleman', 'rifleman', 'rifleman', 'scout', 'rifleman'], // patrol
-  ['tank', 'rifleman', 'breacher', 'rifleman', 'rifleman'], // assault team
-  ['marksman', 'marksman', 'engineer', 'rifleman', 'rifleman', 'rifleman'], // defensive position
-  ['tank', 'tank', 'suppressor', 'suppressor', 'engineer', 'suppressor', 'rifleman', 'rifleman', 'engineer', 'rifleman', 'rifleman', 'rifleman'], // heavy push
-  ['commander', 'elite', 'elite', 'marksman', 'scout', 'marksman', 'scout', 'scout'], // elite strike team
-];
-function composeSquad(count: number, level: number, rand: () => number): EnemyClass[] {
-  const d = level <= 3 ? DOCTRINES[0] : level <= 6 ? (rand() < 0.5 ? DOCTRINES[1] : DOCTRINES[2]) : level <= 12 ? DOCTRINES[3] : DOCTRINES[4];
-  const out: EnemyClass[] = [];
-  for (let i = 0; i < count; i++) out.push(d[i] ?? (rand() < 0.4 ? 'scout' : 'rifleman'));
-  return out;
-}
+/** Every squad is a fixed 5-man fireteam: a CAPTAIN who steadies their aim, two
+ *  SNIPERS who perch, a heavy TANK who drives forward, and a HEALER who roams and
+ *  patches up the wounded. The campaign spawns N of these identical squads. */
+export const SQUAD_ROLES: EnemyClass[] = ['commander', 'marksman', 'marksman', 'tank', 'engineer'];
+export const SQUAD_SIZE = SQUAD_ROLES.length;
+const HEAL_RATE = 55; // HP/s a healer restores to a nearby wounded ally
 
 const R = 0.45; // collision radius
 const EYE_H = 1.4;
@@ -473,26 +466,35 @@ function bestVantage(
   return best ? { x: best.x, y: best.y, z: best.z } : null;
 }
 
-export function spawnEnemies(lvl: Level3D, count: number, level: number, rand: () => number): Enemy[] {
+/** Spawn `nSquads` independent 5-man fireteams (SQUAD_ROLES each). Squad clusters
+ *  are fanned out laterally across the far side so they close in from different
+ *  bearings; members spawn tight around their squad's cluster centre. */
+export function spawnEnemies(lvl: Level3D, nSquads: number, _level: number, rand: () => number): Enemy[] {
   const out: Enemy[] = [];
-  const classes = composeSquad(count, level, rand); // doctrine composition
   const half = lvl.size / 2;
   const a = lvl.enemySpawn; // far end, opposite the player
-  const R = Math.max(6, lvl.size * 0.16);
-  let guard = 0;
-  while (out.length < count && guard++ < count * 90) {
-    const ang = rand() * Math.PI * 2;
-    const rad = rand() * R;
-    const x = a.x + Math.cos(ang) * rad;
-    const z = a.z + Math.sin(ang) * rad;
-    if (Math.abs(x) > half - 3 || Math.abs(z) > half - 3) continue;
-    if (blocked(lvl, x, z)) continue;
-    const cls = classes[out.length];
-    const hp = ENEMY_HP * CLASS[cls].hp;
-    const perch = cls === 'marksman' ? assignPerch(lvl, x, z) : null;
-    const weapon: WeaponKind = cls === 'suppressor' ? 'mg' : cls === 'marksman' ? 'rifle' : WEAPON_KEYS[Math.floor(rand() * WEAPON_KEYS.length)];
-    const side: 1 | -1 = out.length % 2 === 0 ? 1 : -1;
-    out.push({ x, y: 0, z, health: hp, maxHealth: hp, shield: hp * SHIELD_FRAC, maxShield: hp * SHIELD_FRAC, shieldRegenT: 0, state: 'idle', lastSeen: null, fireCd: rand() * 0.6, hitFlash: 0, wander: rand() * 6, step: 0, alarm: 0, weapon, cls, side, barUntil: 0, boss: null, track: 0, muzzle: 0, stunT: 0, slowT: 0, blindT: 0, burnT: 0, burnDps: 0, onDeck: false, perch });
+  for (let s = 0; s < nSquads; s++) {
+    const spread = nSquads > 1 ? s / (nSquads - 1) - 0.5 : 0; // -0.5 … 0.5
+    const cx0 = Math.max(-half + 8, Math.min(half - 8, a.x + spread * half * 0.7));
+    const cz0 = a.z;
+    for (let k = 0; k < SQUAD_ROLES.length; k++) {
+      const cls = SQUAD_ROLES[k];
+      // Find a free spot near this squad's cluster centre.
+      let x = cx0;
+      let z = cz0;
+      for (let guard = 0; guard < 40; guard++) {
+        const ang = rand() * Math.PI * 2;
+        const rad = 2 + rand() * 6;
+        x = cx0 + Math.cos(ang) * rad;
+        z = cz0 + Math.sin(ang) * rad;
+        if (Math.abs(x) <= half - 3 && Math.abs(z) <= half - 3 && !blocked(lvl, x, z)) break;
+      }
+      const hp = ENEMY_HP * CLASS[cls].hp;
+      const perch = cls === 'marksman' ? assignPerch(lvl, x, z) : null;
+      const weapon: WeaponKind = cls === 'tank' ? 'mg' : cls === 'commander' ? 'laser' : 'rifle';
+      const side: 1 | -1 = k % 2 === 0 ? 1 : -1;
+      out.push({ x, y: 0, z, health: hp, maxHealth: hp, shield: hp * SHIELD_FRAC, maxShield: hp * SHIELD_FRAC, shieldRegenT: 0, state: 'idle', lastSeen: null, fireCd: rand() * 0.6, hitFlash: 0, wander: rand() * 6, step: 0, alarm: 0, weapon, cls, side, barUntil: 0, boss: null, track: 0, muzzle: 0, stunT: 0, slowT: 0, blindT: 0, burnT: 0, burnDps: 0, onDeck: false, perch, squadId: s });
+    }
   }
   return out;
 }
@@ -535,6 +537,7 @@ export function spawnBosses(lvl: Level3D, kinds: BossKind[], rand: () => number,
       burnDps: 0,
       onDeck: false,
       perch: null,
+      squadId: 0,
     };
   });
 }
@@ -571,7 +574,7 @@ export function spawnBossMinions(lvl: Level3D, kind: BossKind, rand: () => numbe
 function makeDestructible(lvl: Level3D, kind: 'beacon' | 'shield'): Enemy {
   const a = lvl.enemySpawn;
   const hp = kind === 'beacon' ? 220 : 400;
-  return { x: a.x, y: 0, z: a.z, health: hp, maxHealth: hp, shield: 0, maxShield: 0, shieldRegenT: 0, state: 'idle', lastSeen: null, fireCd: 0, hitFlash: 0, wander: 0, step: 0, alarm: 0, weapon: 'rifle', cls: 'rifleman', side: 1, barUntil: 0, boss: null, track: 0, muzzle: 0, stunT: 0, slowT: 0, blindT: 0, burnT: 0, burnDps: 0, onDeck: false, perch: null, destructible: kind };
+  return { x: a.x, y: 0, z: a.z, health: hp, maxHealth: hp, shield: 0, maxShield: 0, shieldRegenT: 0, state: 'idle', lastSeen: null, fireCd: 0, hitFlash: 0, wander: 0, step: 0, alarm: 0, weapon: 'rifle', cls: 'rifleman', side: 1, barUntil: 0, boss: null, track: 0, muzzle: 0, stunT: 0, slowT: 0, blindT: 0, burnT: 0, burnDps: 0, onDeck: false, perch: null, destructible: kind, squadId: 0 };
 }
 
 /** Mark a reinforcement dormant (parked underground until its phase wakes it). */
@@ -598,7 +601,7 @@ function makeDoctrineEnemy(lvl: Level3D, cls: EnemyClass, idx: number, rand: () 
   const hp = ENEMY_HP * CLASS[cls].hp;
   const perch = cls === 'marksman' ? assignPerch(lvl, x, z) : null;
   const weapon: WeaponKind = cls === 'suppressor' ? 'mg' : cls === 'marksman' ? 'rifle' : WEAPON_KEYS[Math.floor(rand() * WEAPON_KEYS.length)];
-  return { x, y: 0, z, health: hp, maxHealth: hp, shield: hp * SHIELD_FRAC, maxShield: hp * SHIELD_FRAC, shieldRegenT: 0, state: 'idle', lastSeen: null, fireCd: rand() * 0.6, hitFlash: 0, wander: rand() * 6, step: 0, alarm: 0, weapon, cls, side: (idx % 2 === 0 ? 1 : -1) as 1 | -1, barUntil: 0, boss: null, track: 0, muzzle: 0, stunT: 0, slowT: 0, blindT: 0, burnT: 0, burnDps: 0, onDeck: false, perch };
+  return { x, y: 0, z, health: hp, maxHealth: hp, shield: hp * SHIELD_FRAC, maxShield: hp * SHIELD_FRAC, shieldRegenT: 0, state: 'idle', lastSeen: null, fireCd: rand() * 0.6, hitFlash: 0, wander: rand() * 6, step: 0, alarm: 0, weapon, cls, side: (idx % 2 === 0 ? 1 : -1) as 1 | -1, barUntil: 0, boss: null, track: 0, muzzle: 0, stunT: 0, slowT: 0, blindT: 0, burnT: 0, burnDps: 0, onDeck: false, perch, squadId: 0 };
 }
 
 function makeMinion(lvl: Level3D, mk: MinionKind, idx: number, rand: () => number): Enemy {
@@ -646,6 +649,7 @@ function makeMinion(lvl: Level3D, mk: MinionKind, idx: number, rand: () => numbe
     onDeck: false,
     perch: null,
     minion: mk,
+    squadId: 0,
   };
 }
 
@@ -742,6 +746,10 @@ export function updateEnemies(
     }
   }
   const haveIntel = squad.lastKnown != null && now - squad.t < 5000; // lose track sooner
+
+  // CAPTAIN: while the squad's commander lives, they steady everyone's aim (reuses
+  // the Command-Beacon buff path in fireAt). Drops off the moment the captain falls.
+  if (enemies.some((e) => e.cls === 'commander' && e.health > 0 && !e.boss)) squad.buffUntil = now + 400;
 
   // LEARNING: build a heatmap of where the player spends time (their favourite
   // ground), model how aggressively they play, and count bots lost — all persisted
@@ -1055,6 +1063,50 @@ export function updateEnemies(
     const slow = e.slowT > 0 ? 0.45 : 1; // cryo slow
     const role = CLASS[e.cls];
     const tgt = e.state === 'alert' && e.lastSeen ? e.lastSeen : haveIntel ? squad.lastKnown : null;
+
+    // HEALER (engineer): roam to the MOST-WOUNDED squadmate and mend them with a
+    // green beam (health first, then shield). Only when someone actually needs it —
+    // otherwise it falls through to normal hang-back support behaviour.
+    if (e.cls === 'engineer') {
+      let mend: Enemy | null = null;
+      let worst = 0.985; // ignore ~full-health allies
+      for (let j = 0; j < enemies.length; j++) {
+        const a = enemies[j];
+        if (j === i || a.health <= 0 || a.boss) continue;
+        const frac = a.health / a.maxHealth;
+        if (frac < worst) {
+          worst = frac;
+          mend = a;
+        }
+      }
+      if (mend) {
+        const hd = Math.hypot(mend.x - e.x, mend.z - e.z);
+        const sp = P.speed * role.speedMul * slow;
+        if (hd > 6) {
+          // Close on the wounded ally (route around structures if far).
+          if (nav && hd > NAV_NEAR) {
+            const nf = navFollow(e, nav, lvl, mend.x, mend.z, mend.y > e.y + 2 ? mend.y : 0, sp, dt, grid);
+            if (nf && nf !== 'climb') moveEnemy(e, lvl, nf.wx, nf.wz, sp, dt, R, grid);
+          } else {
+            moveEnemy(e, lvl, mend.x - e.x, mend.z - e.z, sp, dt, R, grid);
+          }
+        } else {
+          // In range: mend over time + a periodic heal-beam pulse.
+          mend.health = Math.min(mend.maxHealth, mend.health + HEAL_RATE * dt);
+          if (mend.shield < mend.maxShield) mend.shield = Math.min(mend.maxShield, mend.shield + HEAL_RATE * 0.5 * dt);
+          e.healCd = (e.healCd ?? 0) - dt;
+          if (e.healCd <= 0) {
+            e.healCd = 0.3;
+            tracers.push({ from: [e.x, e.y + 1.2, e.z], to: [mend.x, mend.y + 1.2, mend.z], color: 0x6affa0 });
+          }
+          const [rx, rz] = wallRepulse(e, lvl, grid);
+          if (rx || rz) moveEnemy(e, lvl, rx, rz, sp * 0.4, dt, R, grid);
+        }
+        e.state = sees[i] || haveIntel ? 'alert' : 'idle';
+        fireAt(e, sees[i]);
+        continue;
+      }
+    }
 
     // SNIPER: relocate to the best VANTAGE on the player's area and shoot from it.
     // Re-picks a better perch periodically (elevated + a clear line to the focus)
