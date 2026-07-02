@@ -41,4 +41,11 @@ export async function verifySessionToken(token: string | undefined | null): Prom
   }
 }
 
+/** True when a session-signing secret is available (always in dev via the fallback;
+ *  in production only when AUTH_SECRET is set). Guards against issuing/verifying
+ *  tokens with a zero-length key, which jose rejects. */
+export function authSecretConfigured(): boolean {
+  return secretStr.length > 0;
+}
+
 export const SESSION_COOKIE = 'ss_session';

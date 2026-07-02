@@ -3,6 +3,7 @@
 import { registerSchema, loginSchema, resetRequestSchema, resetSchema, type AuthFieldErrors } from '@/lib/schema';
 import { prisma } from '@/lib/db';
 import { hashPassword, verifyPassword } from '@/lib/auth/password';
+import { authSecretConfigured } from '@/lib/auth/jwt';
 import { setSession, clearSession } from '@/lib/auth/session';
 import { getSessionUser } from '@/lib/auth/user';
 import { checkAuthRateLimit, getClientInfo, hashIp, randomToken, sha256, verifyTurnstile } from '@/lib/security';
@@ -47,6 +48,10 @@ async function createToken(userId: string, type: 'verify' | 'reset', ttlMs: numb
 
 // ── register ────────────────────────────────────────────────────────────────
 export async function registerUser(raw: unknown): Promise<AuthResult> {
+  if (!authSecretConfigured()) {
+    console.error('[auth] AUTH_SECRET is not set — cannot issue sessions (register aborted before creating an account).');
+    return { ok: false, error: 'Sign-in is temporarily unavailable (server config). Please try again shortly.' };
+  }
   const { ip } = getClientInfo();
   if (!(await checkAuthRateLimit(`reg:${hashIp(ip)}`))) {
     return { ok: false, error: 'Too many attempts. Please try again in a few minutes.' };
@@ -83,6 +88,10 @@ export async function registerUser(raw: unknown): Promise<AuthResult> {
 
 // ── login ─────────────────────────────────────────────────────────────────--
 export async function loginUser(raw: unknown): Promise<AuthResult> {
+  if (!authSecretConfigured()) {
+    console.error('[auth] AUTH_SECRET is not set — cannot issue sessions.');
+    return { ok: false, error: 'Sign-in is temporarily unavailable (server config). Please try again shortly.' };
+  }
   const { ip } = getClientInfo();
   if (!(await checkAuthRateLimit(`login:${hashIp(ip)}`))) {
     return { ok: false, error: 'Too many attempts. Please try again in a few minutes.' };
