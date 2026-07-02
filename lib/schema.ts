@@ -37,3 +37,46 @@ export type ContactInput = z.infer<typeof contactSchema>;
 
 /** Field-level error bag returned to the client for inline display. */
 export type ContactFieldErrors = Partial<Record<keyof ContactInput, string>>;
+
+// ── Starshell account auth (shared client + server) ─────────────────────────
+const emailField = z
+  .string()
+  .trim()
+  .toLowerCase()
+  .min(1, 'Please enter your email.')
+  .regex(EMAIL_RE, 'Please enter a valid email address.')
+  .max(200, 'Email must be under 200 characters.');
+
+const passwordField = z
+  .string()
+  .min(8, 'Password must be at least 8 characters.')
+  .max(200, 'Password must be under 200 characters.');
+
+export const registerSchema = z.object({
+  displayName: z
+    .string()
+    .trim()
+    .min(2, 'Pick a call sign (at least 2 characters).')
+    .max(24, 'Call sign must be under 24 characters.'),
+  email: emailField,
+  password: passwordField,
+});
+export type RegisterInput = z.infer<typeof registerSchema>;
+
+export const loginSchema = z.object({
+  email: emailField,
+  password: z.string().min(1, 'Please enter your password.').max(200),
+});
+export type LoginInput = z.infer<typeof loginSchema>;
+
+export const resetRequestSchema = z.object({ email: emailField });
+export type ResetRequestInput = z.infer<typeof resetRequestSchema>;
+
+export const resetSchema = z.object({
+  token: z.string().min(1),
+  password: passwordField,
+});
+export type ResetInput = z.infer<typeof resetSchema>;
+
+/** Generic field-error bag for the auth forms. */
+export type AuthFieldErrors = Record<string, string>;

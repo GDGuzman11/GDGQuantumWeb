@@ -85,3 +85,36 @@ export async function sendContactEmails(data: ContactInput): Promise<SendResult>
 
   return { sent: !owner.error && !confirmation.error };
 }
+
+/**
+ * Starshell account emails (password reset + email verification). Degrade
+ * gracefully when Resend isn't configured: log the link and return sent:false so
+ * dev works without email (the action still succeeds). `link` is a trusted,
+ * server-built absolute URL.
+ */
+export async function sendAccountEmail(kind: 'reset' | 'verify', to: string, link: string): Promise<SendResult> {
+  const subject = kind === 'reset' ? 'Reset your Starshell password' : 'Verify your Starshell account';
+  const lead =
+    kind === 'reset'
+      ? 'We received a request to reset your Starshell password. This link expires in 30 minutes.'
+      : 'Confirm your email to secure your Starshell account. This link expires in 24 hours.';
+  const cta = kind === 'reset' ? 'Reset password' : 'Verify email';
+  if (!resend) {
+    console.warn(`[email] RESEND_API_KEY not set — ${kind} link (dev): ${link}`);
+    return { sent: false };
+  }
+  const res = await resend.emails.send({
+    from: FROM,
+    to,
+    subject,
+    html: `
+      <div style="font-family:system-ui,sans-serif;line-height:1.6;color:#0E1116">
+        <h2 style="margin:0 0 12px">STARSHELL</h2>
+        <p>${lead}</p>
+        <p style="margin:18px 0"><a href="${esc(link)}" style="background:#2563EB;color:#fff;padding:10px 18px;border-radius:8px;text-decoration:none">${cta}</a></p>
+        <p style="color:#6B7280;font-size:13px">If you didn&rsquo;t request this, you can ignore this email.</p>
+      </div>`,
+  });
+  if (res.error) console.error(`[email] ${kind} email failed:`, res.error);
+  return { sent: !res.error };
+}

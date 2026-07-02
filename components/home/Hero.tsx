@@ -240,7 +240,7 @@ export function Hero() {
           {/* The arcade — styled in the retro pixel face, 90s-arcade vibe. */}
           <button
             type="button"
-            onClick={() => router.push('/arcade')}
+            onClick={() => router.push('/play')}
             className="font-pixel text-[9px] uppercase tracking-[0.12em] text-[#7fdfff] transition-all duration-300 [text-shadow:0_0_14px_rgba(126,223,255,0.7)] hover:text-white hover:[text-shadow:0_0_22px_rgba(126,223,255,1)] focus:outline-none focus-visible:ring-2 focus-visible:ring-[#7fdfff] sm:text-[10px]"
           >
             ▸ STARSHELL

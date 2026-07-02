@@ -1,6 +1,6 @@
 import 'server-only';
 
-import { createHash } from 'node:crypto';
+import { createHash, randomBytes } from 'node:crypto';
 import { headers } from 'next/headers';
 import { Ratelimit } from '@upstash/ratelimit';
 import { Redis } from '@upstash/redis';
@@ -34,6 +34,16 @@ export function getClientInfo(): { ip: string; userAgent: string } {
  */
 export function hashIp(ip: string): string {
   return createHash('sha256').update(`${IP_HASH_SALT}:${ip}`).digest('hex');
+}
+
+/** A URL-safe random token (emailed for verify/reset). Only its SHA-256 is stored. */
+export function randomToken(): string {
+  return randomBytes(32).toString('base64url');
+}
+
+/** SHA-256 hex of a value — used to store verify/reset tokens at rest. */
+export function sha256(value: string): string {
+  return createHash('sha256').update(value).digest('hex');
 }
 
 /**
@@ -86,6 +96,35 @@ export async function checkRateLimit(key: string): Promise<boolean> {
   } catch (err) {
     console.error('[security] rate-limit check failed — failing closed:', err);
     return false; // configured but errored → deny
+  }
+}
+
+// Auth limiter — a little more headroom than the contact form (mistyped
+// passwords, etc.): ~10 attempts / 5 min per key.
+let authLimiter: Ratelimit | null = null;
+function getAuthLimiter(): Ratelimit | null {
+  if (!hasUpstash) return null;
+  if (!authLimiter) {
+    authLimiter = new Ratelimit({
+      redis: Redis.fromEnv(),
+      limiter: Ratelimit.slidingWindow(10, '5 m'),
+      prefix: 'gdg:auth',
+      analytics: false,
+    });
+  }
+  return authLimiter;
+}
+
+/** Rate-limit auth attempts (login/register/reset). Same graceful/fail-closed rules. */
+export async function checkAuthRateLimit(key: string): Promise<boolean> {
+  const rl = getAuthLimiter();
+  if (!rl) return true;
+  try {
+    const { success } = await rl.limit(key);
+    return success;
+  } catch (err) {
+    console.error('[security] auth rate-limit check failed — failing closed:', err);
+    return false;
   }
 }
 

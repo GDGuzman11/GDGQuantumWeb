@@ -1,7 +1,13 @@
 import { NextResponse, type NextRequest } from 'next/server';
+import { verifySessionToken, SESSION_COOKIE } from '@/lib/auth/jwt';
+
+// Starshell areas require an account. This is a CHEAP signature gate in the Edge;
+// the authoritative session check (user exists + sessionVersion) runs server-side.
+const PROTECTED_PREFIXES = ['/play', '/arcade'];
 
 /**
- * Per-request Content-Security-Policy with a fresh nonce (Phase 5).
+ * Per-request Content-Security-Policy with a fresh nonce (Phase 5) + the Starshell
+ * auth gate.
  *
  * Follows the official Next.js nonce pattern: generate a nonce, set it on the
  * REQUEST headers (so Next.js stamps its own inline bootstrap scripts with it)
@@ -17,7 +23,20 @@ import { NextResponse, type NextRequest } from 'next/server';
  * Static security headers (HSTS, nosniff, frame-options, etc.) live in
  * next.config.mjs.
  */
-export function middleware(request: NextRequest) {
+export async function middleware(request: NextRequest) {
+  const { pathname } = request.nextUrl;
+
+  // ── Auth gate: Starshell requires login ──────────────────────────────────
+  if (PROTECTED_PREFIXES.some((p) => pathname === p || pathname.startsWith(`${p}/`))) {
+    const session = await verifySessionToken(request.cookies.get(SESSION_COOKIE)?.value);
+    if (!session) {
+      const url = request.nextUrl.clone();
+      url.pathname = '/login';
+      url.search = `next=${encodeURIComponent(pathname)}`;
+      return NextResponse.redirect(url);
+    }
+  }
+
   const nonce = Buffer.from(crypto.randomUUID()).toString('base64');
   const isDev = process.env.NODE_ENV !== 'production';
 

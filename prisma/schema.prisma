@@ -31,3 +31,48 @@ model ContactSubmission {
 
   @@index([createdAt])
 }
+
+/// A Starshell player account. Passwords are argon2id-hashed (never plaintext).
+/// `sessionVersion` bumps on password reset / logout-all to invalidate old JWTs.
+model User {
+  id             String    @id @default(cuid())
+  email          String    @unique // stored lowercased
+  passwordHash   String
+  displayName    String
+  emailVerified  DateTime?
+  sessionVersion Int       @default(0)
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  progress PlayerProgress?
+  tokens   VerificationToken[]
+}
+
+/// Server-truth progression for a player (one row per user). The game's existing
+/// save shapes (ArsenalSave / MarineSave / loadout) are stored verbatim as JSONB;
+/// astro + bestLevel are hot scalars. Device settings stay on the device.
+model PlayerProgress {
+  id            String   @id @default(cuid())
+  userId        String   @unique
+  user          User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  arsenal       Json?
+  marine        Json?
+  loadout       Json?
+  lifetimeStats Json?
+  astro         Int      @default(0)
+  bestLevel     Int      @default(0)
+  updatedAt     DateTime @updatedAt
+}
+
+/// Single-use, hashed token for email verification + password reset.
+model VerificationToken {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  type      String // 'verify' | 'reset'
+  tokenHash String   @unique // sha256 of the raw token (raw is emailed, never stored)
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+
+  @@index([userId])
+}

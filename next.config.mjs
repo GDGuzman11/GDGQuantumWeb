@@ -22,6 +22,11 @@ const nextConfig = {
   images: {
     formats: ['image/avif', 'image/webp'],
   },
+  // argon2 ships a native .node addon — keep it external so webpack doesn't try to
+  // bundle/parse the binary (it's require()d at runtime in the Node server).
+  experimental: {
+    serverComponentsExternalPackages: ['@node-rs/argon2'],
+  },
   async headers() {
     return [{ source: '/:path*', headers: securityHeaders }];
   },
