@@ -3,7 +3,7 @@ import { verifySessionToken, SESSION_COOKIE } from '@/lib/auth/jwt';
 
 // Starshell areas require an account. This is a CHEAP signature gate in the Edge;
 // the authoritative session check (user exists + sessionVersion) runs server-side.
-const PROTECTED_PREFIXES = ['/play', '/arcade'];
+const PROTECTED_PREFIXES = ['/play', '/arcade', '/profile'];
 
 /**
  * Per-request Content-Security-Policy with a fresh nonce (Phase 5) + the Starshell

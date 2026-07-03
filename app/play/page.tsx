@@ -72,9 +72,13 @@ export default async function PlayPage() {
           </Link>
         </div>
 
-        {/* secondary tiles (coming in the next passes) */}
+        {/* secondary tiles */}
         <div className="mx-auto mt-3 grid max-w-xl grid-cols-2 gap-3 sm:grid-cols-4">
-          {['Profile', 'Armory', 'Achievements', 'Records'].map((label) => (
+          <Link href="/profile" className="rounded-lg border border-[#c8a8ff]/30 bg-[#c8a8ff]/[0.06] p-4 text-center transition-colors hover:bg-[#c8a8ff]/15">
+            <p className="text-[8px] text-[#c8a8ff]">Profile</p>
+            <p className="mt-1 text-[6px] tracking-[0.2em] text-white/40">VIEW ▸</p>
+          </Link>
+          {['Armory', 'Achievements', 'Records'].map((label) => (
             <div key={label} className="rounded-lg border border-white/10 bg-white/[0.02] p-4 text-center opacity-60">
               <p className="text-[8px] text-white/70">{label}</p>
               <p className="mt-1 text-[6px] tracking-[0.2em] text-white/30">SOON</p>
