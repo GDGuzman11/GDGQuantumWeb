@@ -25,7 +25,7 @@ export default async function PlayPage() {
   const marine = (progress?.marine ?? null) as { marineLevel?: number; division?: string | null } | null;
   const marineLevel = typeof marine?.marineLevel === 'number' ? marine.marineLevel : 1;
   const divName = marine?.division ? DIVISION_NAMES[marine.division] : null;
-  const rank = divName ? `${divName.toUpperCase()} · LVL ${marineLevel}` : `RECRUIT · LVL ${marineLevel}`;
+  const rank = divName ? `${divName.toUpperCase()} · LVL ${marineLevel}` : `MARINE · LVL ${marineLevel}`;
   const best = progress?.bestLevel ?? 0;
   const astro = progress?.astro ?? 0;
 

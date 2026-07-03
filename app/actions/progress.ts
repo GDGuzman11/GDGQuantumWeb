@@ -103,3 +103,12 @@ export async function deleteRun(id: string): Promise<{ ok: boolean }> {
   await writeRuns(user.id, readRuns(p?.runs).filter((r) => r.id !== id));
   return { ok: true };
 }
+
+/** Wipe ALL in-progress run slots (a fresh start). Permanent progression — parts,
+ *  armor, division, AstroDiamonds, best level — is untouched. */
+export async function clearRuns(): Promise<{ ok: boolean }> {
+  const user = await getSessionUser();
+  if (!user) return { ok: false };
+  await writeRuns(user.id, []);
+  return { ok: true };
+}

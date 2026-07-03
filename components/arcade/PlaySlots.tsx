@@ -9,7 +9,7 @@
 import { useRouter } from 'next/navigation';
 import { useState, useTransition } from 'react';
 import type { RunSlot } from './lib/runSlot';
-import { deleteRun } from '@/app/actions/progress';
+import { deleteRun, clearRuns } from '@/app/actions/progress';
 
 const MAX_RUNS = 5;
 
@@ -30,6 +30,7 @@ export function PlaySlots({ runs, astro }: { runs: RunSlot[]; astro: number }) {
   const [pending, startTransition] = useTransition();
   const [prompting, setPrompting] = useState(false); // "delete one to start new" mode
   const [busy, setBusy] = useState(false);
+  const [confirmErase, setConfirmErase] = useState(false); // two-step "erase all runs"
 
   const sorted = [...runs].sort((a, b) => b.updatedAt - a.updatedAt);
   const latest = sorted[0] ?? null;
@@ -46,6 +47,16 @@ export function PlaySlots({ runs, astro }: { runs: RunSlot[]; astro: number }) {
       await deleteRun(id);
       setBusy(false);
       setPrompting(false);
+      router.refresh();
+    });
+  };
+  const eraseAll = () => {
+    setBusy(true);
+    startTransition(async () => {
+      await clearRuns();
+      setBusy(false);
+      setPrompting(false);
+      setConfirmErase(false);
       router.refresh();
     });
   };
@@ -117,6 +128,29 @@ export function PlaySlots({ runs, astro }: { runs: RunSlot[]; astro: number }) {
                 </button>
               </div>
             ))}
+          </div>
+
+          {/* Erase all runs — a fresh start. Permanent progression is kept. */}
+          <div className="mt-4 flex flex-col items-center gap-2">
+            {confirmErase ? (
+              <div className="flex flex-col items-center gap-2 rounded-lg border border-[#ff5d6e]/40 bg-[#ff5d6e]/[0.06] px-4 py-3">
+                <p className="text-center text-[7px] leading-relaxed text-[#ff5d6e]/90">
+                  Erase all {runs.length} saved run{runs.length === 1 ? '' : 's'}? Your unlocks, armory, division and AstroDiamonds are kept.
+                </p>
+                <div className="flex gap-2">
+                  <button type="button" disabled={busy || pending} onClick={eraseAll} className="min-h-[32px] rounded-md border border-[#ff5d6e]/50 bg-[#ff5d6e]/15 px-4 text-[8px] uppercase text-[#ff5d6e] transition-colors hover:bg-[#ff5d6e]/25 disabled:opacity-40">
+                    Erase everything
+                  </button>
+                  <button type="button" onClick={() => setConfirmErase(false)} className="min-h-[32px] rounded-md border border-white/20 px-4 text-[8px] uppercase text-white/60 transition-colors hover:bg-white/10">
+                    Cancel
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <button type="button" onClick={() => setConfirmErase(true)} className="min-h-[32px] text-[7px] uppercase tracking-[0.2em] text-white/35 transition-colors hover:text-[#ff5d6e]">
+                ⌦ Erase run data
+              </button>
+            )}
           </div>
         </>
       )}
