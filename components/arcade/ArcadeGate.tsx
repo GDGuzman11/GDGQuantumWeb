@@ -15,6 +15,7 @@ import { FpsGame } from './FpsGame';
 import { PROGRESS_EVENT } from './lib/progressEvent';
 import { hydrateFromServer, pushProgress, flushProgress } from './lib/progressSync';
 import { getRuns, upsertRun, deleteRun } from '@/app/actions/progress';
+import { submitScore } from '@/app/actions/scores';
 import type { RunSlot } from './lib/runSlot';
 
 export function ArcadeGate() {
@@ -70,6 +71,7 @@ export function ArcadeGate() {
       initialScreen={screen}
       onRunSave={(slot) => { void upsertRun(slot); }}
       onRunEnd={(id) => { void deleteRun(id); }}
+      onScore={(s) => { void submitScore(s); }}
       onExit={() => router.push('/play')}
     />
   );

@@ -3,8 +3,10 @@ import Link from 'next/link';
 import { redirect } from 'next/navigation';
 import { getSessionUser } from '@/lib/auth/user';
 import { getProgress, getRuns } from '@/app/actions/progress';
+import { getLeaderboard } from '@/app/actions/scores';
 import { LogoutButton } from '@/components/auth/LogoutButton';
 import { PlaySlots } from '@/components/arcade/PlaySlots';
+import { LeaderboardPanel } from '@/components/arcade/Leaderboard';
 
 export const metadata: Metadata = { title: 'Pilot Console · Starshell', robots: { index: false, follow: false } };
 
@@ -22,7 +24,7 @@ export default async function PlayPage() {
   const user = await getSessionUser();
   if (!user) redirect('/login?next=/play');
 
-  const [progress, runs] = await Promise.all([getProgress(), getRuns()]);
+  const [progress, runs, leaderboard] = await Promise.all([getProgress(), getRuns(), getLeaderboard()]);
   const marine = (progress?.marine ?? null) as { marineLevel?: number; division?: string | null } | null;
   const marineLevel = typeof marine?.marineLevel === 'number' ? marine.marineLevel : 1;
   // Divisions unlock at Marine Level 5; anything set below that wasn't earned → MARINE.
@@ -60,6 +62,9 @@ export default async function PlayPage() {
 
         {/* continue / start + resumable slots belt */}
         <PlaySlots runs={runs} astro={astro} />
+
+        {/* server-wide daily leaderboard */}
+        <LeaderboardPanel initial={leaderboard} />
 
         {/* secondary tiles */}
         <div className="mx-auto mt-3 grid max-w-xl grid-cols-2 gap-3 sm:grid-cols-4">

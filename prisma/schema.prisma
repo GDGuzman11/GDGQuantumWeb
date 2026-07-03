@@ -46,6 +46,30 @@ model User {
 
   progress PlayerProgress?
   tokens   VerificationToken[]
+  scores   RunScore[]
+}
+
+/// One finished-run score for the server-wide leaderboard. Raw stats are stored
+/// alongside the computed score so the scoring formula can be re-tuned later
+/// WITHOUT a migration (the board can recompute from these columns). `displayName`
+/// is snapshotted at submit time so the board renders without a user join.
+model RunScore {
+  id          String   @id @default(cuid())
+  userId      String
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  displayName String
+  score       Int
+  level       Int
+  kills       Int
+  headshots   Int
+  accuracy    Int // 0..100
+  difficulty  String
+  won         Boolean  @default(false)
+  createdAt   DateTime @default(now())
+
+  @@index([score])
+  @@index([createdAt])
+  @@index([userId])
 }
 
 /// Server-truth progression for a player (one row per user). The game's existing
