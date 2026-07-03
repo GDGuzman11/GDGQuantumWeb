@@ -7,7 +7,7 @@ import { authSecretConfigured } from '@/lib/auth/jwt';
 import { setSession, clearSession } from '@/lib/auth/session';
 import { getSessionUser } from '@/lib/auth/user';
 import { checkAuthRateLimit, getClientInfo, hashIp, randomToken, sha256, verifyTurnstile } from '@/lib/security';
-import { sendAccountEmail } from '@/lib/email';
+import { sendAccountEmail, sendSignupNotification } from '@/lib/email';
 import { siteUrl } from '@/lib/site-url';
 
 /**
@@ -78,6 +78,12 @@ export async function registerUser(raw: unknown): Promise<AuthResult> {
       await sendAccountEmail('verify', email, `${siteUrl}/verify/${token}`);
     } catch (err) {
       console.error('[auth] verify email failed (registration still succeeded):', err);
+    }
+    // Non-blocking owner alert — a new player signed up (name + email).
+    try {
+      await sendSignupNotification(displayName, email);
+    } catch (err) {
+      console.error('[auth] signup notification failed (registration still succeeded):', err);
     }
     return { ok: true };
   } catch (err) {

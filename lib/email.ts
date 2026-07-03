@@ -87,6 +87,36 @@ export async function sendContactEmails(data: ContactInput): Promise<SendResult>
 }
 
 /**
+ * Owner alert: a new Starshell account was created. Fire-and-forget from the
+ * register action — never blocks or fails registration. Sends to CONTACT_OWNER_EMAIL
+ * (the same inbox the contact form notifies). Degrades to a no-op/log when Resend
+ * or the owner address isn't configured.
+ */
+export async function sendSignupNotification(displayName: string, email: string): Promise<SendResult> {
+  if (!resend || !OWNER) {
+    console.warn('[email] signup notification skipped — RESEND_API_KEY or CONTACT_OWNER_EMAIL not set.');
+    return { sent: false };
+  }
+  const name = esc(displayName);
+  const addr = esc(email);
+  const res = await resend.emails.send({
+    from: FROM,
+    to: OWNER,
+    subject: `New Starshell player: ${stripHeaderChars(displayName)}`,
+    html: `
+      <div style="font-family:system-ui,sans-serif;line-height:1.6;color:#0E1116">
+        <h2 style="margin:0 0 12px">New Starshell sign-up</h2>
+        <p>Someone just created a Starshell account.</p>
+        <p><strong>Name:</strong> ${name}</p>
+        <p><strong>Email:</strong> ${addr}</p>
+        <p style="color:#6B7280">Signed up ${esc(new Date().toISOString())}</p>
+      </div>`,
+  });
+  if (res.error) console.error('[email] signup notification failed:', res.error);
+  return { sent: !res.error };
+}
+
+/**
  * Starshell account emails (password reset + email verification). Degrade
  * gracefully when Resend isn't configured: log the link and return sent:false so
  * dev works without email (the action still succeeds). `link` is a trusted,
