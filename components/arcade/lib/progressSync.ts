@@ -29,11 +29,24 @@ function ownedCount(v: unknown): number {
   return o && Array.isArray(o.owned) ? o.owned.length : 0;
 }
 
+const GRADUATE_LEVEL = 5; // Combat Divisions unlock at Marine Level 5 (graduation)
+
+/** Divisions are earned only at the Level-5 graduation. Strip any division set below
+ *  that (early free-selection builds could assign one) so no account is stuck in a
+ *  division it never earned — everyone below Level 5 is a MARINE. */
+function normalizeMarine(marine: unknown): unknown {
+  if (!marine || typeof marine !== 'object') return marine;
+  const m = marine as { marineLevel?: unknown; division?: unknown };
+  const level = typeof m.marineLevel === 'number' ? m.marineLevel : 1;
+  if (m.division && level < GRADUATE_LEVEL) return { ...m, division: null };
+  return marine;
+}
+
 /** Read the account-relevant localStorage keys into a server snapshot. */
 export function snapshotLocal(): ProgressSnapshot {
   return {
     arsenal: (readJson(K.arsenal) ?? {}) as ProgressSnapshot['arsenal'],
-    marine: (readJson(K.marine) ?? {}) as ProgressSnapshot['marine'],
+    marine: (normalizeMarine(readJson(K.marine)) ?? {}) as ProgressSnapshot['marine'],
     loadout: (readJson(K.loadout) ?? null) as ProgressSnapshot['loadout'],
     astro: Number(localStorage.getItem(K.astro) || 0) || 0,
     bestLevel: Number(localStorage.getItem(K.best) || 0) || 0,
@@ -43,7 +56,7 @@ export function snapshotLocal(): ProgressSnapshot {
 function applyServerToLocal(d: ProgressData): void {
   try {
     if (d.arsenal != null) localStorage.setItem(K.arsenal, JSON.stringify(d.arsenal));
-    if (d.marine != null) localStorage.setItem(K.marine, JSON.stringify(d.marine));
+    if (d.marine != null) localStorage.setItem(K.marine, JSON.stringify(normalizeMarine(d.marine)));
     if (d.loadout != null) localStorage.setItem(K.loadout, JSON.stringify(d.loadout));
     localStorage.setItem(K.astro, String(d.astro ?? 0));
     localStorage.setItem(K.best, String(d.bestLevel ?? 0));

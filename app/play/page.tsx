@@ -24,7 +24,9 @@ export default async function PlayPage() {
   const [progress, runs] = await Promise.all([getProgress(), getRuns()]);
   const marine = (progress?.marine ?? null) as { marineLevel?: number; division?: string | null } | null;
   const marineLevel = typeof marine?.marineLevel === 'number' ? marine.marineLevel : 1;
-  const divName = marine?.division ? DIVISION_NAMES[marine.division] : null;
+  // Divisions unlock at Marine Level 5; anything set below that wasn't earned → MARINE.
+  const earnedDivision = marineLevel >= 5 ? marine?.division : null;
+  const divName = earnedDivision ? DIVISION_NAMES[earnedDivision] : null;
   const rank = divName ? `${divName.toUpperCase()} · LVL ${marineLevel}` : `MARINE · LVL ${marineLevel}`;
   const best = progress?.bestLevel ?? 0;
   const astro = progress?.astro ?? 0;
