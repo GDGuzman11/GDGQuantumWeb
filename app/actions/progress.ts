@@ -112,3 +112,21 @@ export async function clearRuns(): Promise<{ ok: boolean }> {
   await writeRuns(user.id, []);
   return { ok: true };
 }
+
+/** CLEAN WIPE — erase EVERYTHING for this account: arsenal, marine/armor, division,
+ *  loadout, run slots, AstroDiamonds, best level. Back to a brand-new player. */
+export async function wipeProgress(): Promise<{ ok: boolean }> {
+  const user = await getSessionUser();
+  if (!user) return { ok: false };
+  try {
+    await prisma.playerProgress.upsert({
+      where: { userId: user.id },
+      update: { arsenal: Prisma.JsonNull, marine: Prisma.JsonNull, loadout: Prisma.JsonNull, lifetimeStats: Prisma.JsonNull, runs: Prisma.JsonNull, astro: 0, bestLevel: 0 },
+      create: { userId: user.id, astro: 0, bestLevel: 0 },
+    });
+    return { ok: true };
+  } catch (err) {
+    console.error('[progress] wipe failed:', err);
+    return { ok: false };
+  }
+}

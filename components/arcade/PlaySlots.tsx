@@ -9,7 +9,7 @@
 import { useRouter } from 'next/navigation';
 import { useState, useTransition } from 'react';
 import type { RunSlot } from './lib/runSlot';
-import { deleteRun, clearRuns } from '@/app/actions/progress';
+import { deleteRun, clearRuns, wipeProgress } from '@/app/actions/progress';
 
 const MAX_RUNS = 5;
 
@@ -31,6 +31,7 @@ export function PlaySlots({ runs, astro }: { runs: RunSlot[]; astro: number }) {
   const [prompting, setPrompting] = useState(false); // "delete one to start new" mode
   const [busy, setBusy] = useState(false);
   const [confirmErase, setConfirmErase] = useState(false); // two-step "erase all runs"
+  const [confirmWipe, setConfirmWipe] = useState(false); // two-step "clean wipe (everything)"
 
   const sorted = [...runs].sort((a, b) => b.updatedAt - a.updatedAt);
   const latest = sorted[0] ?? null;
@@ -57,6 +58,22 @@ export function PlaySlots({ runs, astro }: { runs: RunSlot[]; astro: number }) {
       setBusy(false);
       setPrompting(false);
       setConfirmErase(false);
+      router.refresh();
+    });
+  };
+  const cleanWipe = () => {
+    setBusy(true);
+    startTransition(async () => {
+      await wipeProgress();
+      // clear the game's local saves so nothing is re-synced back up
+      try {
+        for (const k of Object.keys(localStorage)) if (k.startsWith('starshell.')) localStorage.removeItem(k);
+      } catch {
+        /* ignore (private mode) */
+      }
+      setBusy(false);
+      setPrompting(false);
+      setConfirmWipe(false);
       router.refresh();
     });
   };
@@ -154,6 +171,29 @@ export function PlaySlots({ runs, astro }: { runs: RunSlot[]; astro: number }) {
           </div>
         </>
       )}
+
+      {/* CLEAN WIPE — erase EVERYTHING (always available, even with no runs). */}
+      <div className="mt-3 flex flex-col items-center gap-2 border-t border-white/5 pt-4">
+        {confirmWipe ? (
+          <div className="flex flex-col items-center gap-2 rounded-lg border border-[#ff3a48]/50 bg-[#ff3a48]/[0.08] px-4 py-3">
+            <p className="text-center text-[7px] leading-relaxed text-[#ff8a92]">
+              CLEAN WIPE — permanently erase EVERYTHING: all runs, your arsenal, armory, division, and AstroDiamonds. Back to a brand-new player. This cannot be undone.
+            </p>
+            <div className="flex gap-2">
+              <button type="button" disabled={busy || pending} onClick={cleanWipe} className="min-h-[32px] rounded-md border border-[#ff3a48]/60 bg-[#ff3a48]/20 px-4 text-[8px] uppercase text-[#ff8a92] transition-colors hover:bg-[#ff3a48]/30 disabled:opacity-40">
+                Wipe everything
+              </button>
+              <button type="button" onClick={() => setConfirmWipe(false)} className="min-h-[32px] rounded-md border border-white/20 px-4 text-[8px] uppercase text-white/60 transition-colors hover:bg-white/10">
+                Cancel
+              </button>
+            </div>
+          </div>
+        ) : (
+          <button type="button" onClick={() => setConfirmWipe(true)} className="min-h-[32px] text-[7px] uppercase tracking-[0.2em] text-white/30 transition-colors hover:text-[#ff3a48]">
+            ⚠ Clean wipe · erase all data
+          </button>
+        )}
+      </div>
     </div>
   );
 }
