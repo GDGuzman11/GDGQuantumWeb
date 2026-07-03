@@ -9,6 +9,7 @@ import { PlaySlots } from '@/components/arcade/PlaySlots';
 export const metadata: Metadata = { title: 'Pilot Console · Starshell', robots: { index: false, follow: false } };
 
 const DIVISION_NAMES: Record<string, string> = {
+  outrider: 'Outrider',
   vanguard: 'Vanguard',
   ghost: 'Ghost',
   warden: 'Warden',
@@ -27,7 +28,7 @@ export default async function PlayPage() {
   // Divisions unlock at Marine Level 5; anything set below that wasn't earned → MARINE.
   const earnedDivision = marineLevel >= 5 ? marine?.division : null;
   const divName = earnedDivision ? DIVISION_NAMES[earnedDivision] : null;
-  const rank = divName ? `${divName.toUpperCase()} · LVL ${marineLevel}` : `MARINE · LVL ${marineLevel}`;
+  const rank = divName ? `${divName.toUpperCase()} · LVL ${marineLevel}` : `OUTRIDER · LVL ${marineLevel}`;
   const best = progress?.bestLevel ?? 0;
   const astro = progress?.astro ?? 0;
 

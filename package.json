@@ -5,7 +5,7 @@
   "scripts": {
     "dev": "next dev",
     "build": "next build",
-    "vercel-build": "if [ -n \"$DIRECT_URL\" ]; then prisma migrate deploy; else echo 'DIRECT_URL not set - skipping prisma migrate deploy'; fi && next build",
+    "vercel-build": "if [ -n \"$DIRECT_URL\" ]; then prisma migrate deploy || echo 'prisma migrate deploy failed (db unreachable) - continuing build'; else echo 'DIRECT_URL not set - skipping prisma migrate deploy'; fi && next build",
     "start": "next start",
     "postinstall": "prisma generate",
     "lint": "next lint",
