@@ -59,6 +59,7 @@ model PlayerProgress {
   marine        Json?
   loadout       Json?
   lifetimeStats Json?
+  runs          Json? // up to 5 resumable campaign slots (RunSlot[])
   astro         Int      @default(0)
   bestLevel     Int      @default(0)
   updatedAt     DateTime @updatedAt
