@@ -21,6 +21,7 @@ export function ArcadeGate() {
   const router = useRouter();
   const params = useSearchParams();
   const slotId = params.get('slot');
+  const screen = params.get('screen'); // e.g. ?screen=division → open the Divisions screen
   const [ready, setReady] = useState(false);
   const [initialRun, setInitialRun] = useState<RunSlot | null>(null);
 
@@ -66,6 +67,7 @@ export function ArcadeGate() {
   return (
     <FpsGame
       initialRun={initialRun}
+      initialScreen={screen}
       onRunSave={(slot) => { void upsertRun(slot); }}
       onRunEnd={(id) => { void deleteRun(id); }}
       onExit={() => router.push('/play')}

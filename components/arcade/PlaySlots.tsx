@@ -114,6 +114,18 @@ export function PlaySlots({ runs, astro }: { runs: RunSlot[]; astro: number }) {
         </button>
       </div>
 
+      {/* Combat Divisions — its own entry on the main page, below Continue / Start New Run. */}
+      <button
+        type="button"
+        onClick={() => router.push('/arcade?screen=division')}
+        className="mt-3 w-full rounded-lg border border-[#c8a8ff]/40 bg-[#c8a8ff]/[0.07] p-4 text-left transition-colors hover:bg-[#c8a8ff]/15"
+      >
+        <p className="text-[12px] text-[#c8a8ff]">⬢ COMBAT DIVISIONS</p>
+        <p className="mt-2 text-[7px] leading-relaxed text-white/50">
+          Your Marine&apos;s specialization. At Marine Level 5 you graduate into one of five divisions — Vanguard, Ghost, Warden, Phantom, or Lifeline — or stay a balanced Outrider. Each reshapes your silhouette, combat stats, and engineering. Browse them and try their gear.
+        </p>
+      </button>
+
       {/* slots belt */}
       {runs.length > 0 && (
         <>
