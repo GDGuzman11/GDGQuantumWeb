@@ -98,6 +98,8 @@ export function WeaponGenerator({ onBack }: { onBack: () => void }) {
   const [kept, setKept] = useState<WeaponBlueprint[]>([]);
   const [expanded, setExpanded] = useState(false);
   const [fireNonce, setFireNonce] = useState(0);
+  const [showBakeset, setShowBakeset] = useState(false); // the bake-set viewer modal
+  const [bakeSel, setBakeSel] = useState(0); // which kept weapon is previewed
   const seedRef = useRef(1);
 
   const bp = batch[cur] ?? null;
@@ -258,25 +260,16 @@ export function WeaponGenerator({ onBack }: { onBack: () => void }) {
           </div>
           {note && <p className="font-pixel text-[6px] leading-relaxed text-[#ffd27a]/70">{note}</p>}
 
-          {kept.length > 0 && (
-            <div className="mt-1 rounded border border-white/10 bg-white/[0.03] p-2">
-              <p className="mb-1 font-pixel text-[7px] uppercase text-[#aef5c8]/80">Bake set · {kept.length}</p>
-              <div className="flex flex-col gap-1">
-                {kept.map((k) => (
-                  <div key={k.id} className="flex items-center justify-between gap-2 font-pixel text-[7px] text-white/60">
-                    <span className="truncate">{k.name}</span>
-                    <button type="button" onClick={() => setKept((ks) => ks.filter((x) => x.id !== k.id))} className="text-white/40 hover:text-[#ff6f9a]">
-                      ✕
-                    </button>
-                  </div>
-                ))}
-              </div>
-              <button type="button" onClick={download} className="mt-2 min-h-[28px] w-full rounded border border-[#aef5c8]/50 bg-[#aef5c8]/10 px-3 font-pixel text-[7px] uppercase text-[#aef5c8] hover:bg-[#aef5c8]/20">
-                ⬇ Download generated.json
-              </button>
-              <p className="mt-1 font-pixel text-[6px] leading-relaxed text-white/35">Replace components/arcade/fps/gen/generated.json with this file to bake these weapons in.</p>
-            </div>
-          )}
+          <button
+            type="button"
+            onClick={() => {
+              setBakeSel(0);
+              setShowBakeset(true);
+            }}
+            className="mt-1 min-h-[34px] rounded border border-[#aef5c8]/50 bg-[#aef5c8]/10 px-4 font-pixel text-[8px] uppercase text-[#aef5c8] transition-colors hover:bg-[#aef5c8]/20"
+          >
+            📦 View bake set · {kept.length}
+          </button>
         </div>
 
         {/* ── RIGHT: batch picker + preview + tuning + components ── */}
@@ -428,6 +421,87 @@ export function WeaponGenerator({ onBack }: { onBack: () => void }) {
             <span className="font-pixel text-[8px] uppercase text-white/45">{bp.family} · dmg {bp.stats.dmg} · rate {bp.stats.rate}s</span>
           </div>
           <p className="mt-2 text-center font-pixel text-[7px] uppercase text-white/35">Drag to rotate · Test Fire shows the muzzle flash + recoil and plays the selected audio</p>
+        </div>
+      )}
+
+      {/* ── BAKE SET VIEWER — the kept weapons, each previewable + removable ── */}
+      {showBakeset && (
+        <div className="absolute inset-0 z-[70] flex flex-col bg-[#05070c] p-4">
+          <div className="flex items-center justify-between">
+            <h3 className="font-pixel text-[10px] uppercase tracking-[0.2em] text-[#aef5c8]">📦 BAKE SET · {kept.length}</h3>
+            <button type="button" onClick={() => setShowBakeset(false)} className="min-h-[30px] rounded border border-white/20 bg-white/[0.04] px-3 font-pixel text-[8px] uppercase text-white/60 hover:bg-white/10">
+              ✕ Close
+            </button>
+          </div>
+
+          {kept.length === 0 ? (
+            <div className="flex flex-1 items-center justify-center px-6 text-center font-pixel text-[9px] uppercase leading-relaxed text-white/30">
+              Nothing kept yet — generate a weapon, then hit “✓ Keep for bake” to add it here.
+            </div>
+          ) : (
+            <div className="mt-3 grid min-h-0 flex-1 grid-cols-1 gap-4 lg:grid-cols-[1fr_1.3fr]">
+              {/* kept list — click to preview, ✕ to remove */}
+              <div className="flex flex-col gap-1 overflow-y-auto">
+                {kept.map((k, i) => {
+                  const active = i === Math.min(bakeSel, kept.length - 1);
+                  return (
+                    <div key={k.id} className={`flex items-center gap-2 rounded border px-2 py-1.5 ${active ? 'border-[#aef5c8] bg-[#aef5c8]/10' : 'border-white/10 bg-white/[0.02] hover:bg-white/[0.05]'}`}>
+                      <button type="button" onClick={() => setBakeSel(i)} className="flex flex-1 flex-col items-start overflow-hidden text-left">
+                        <span className="truncate font-pixel text-[8px] uppercase text-white">{k.name}</span>
+                        <span className="truncate font-pixel text-[6px] uppercase text-white/45">
+                          {k.family} · {poolLabel(k.family)}
+                          {k.division ? ` · ⬡ ${GEN_DIVISIONS[k.division as GenDivisionId]?.name ?? k.division}` : ''}
+                        </span>
+                      </button>
+                      <button
+                        type="button"
+                        aria-label={`Remove ${k.name}`}
+                        onClick={() => setKept((ks) => ks.filter((x) => x.id !== k.id))}
+                        className="shrink-0 rounded border border-white/10 px-2 py-1 font-pixel text-[9px] text-white/40 hover:border-[#ff6f9a]/50 hover:text-[#ff6f9a]"
+                      >
+                        ✕
+                      </button>
+                    </div>
+                  );
+                })}
+              </div>
+
+              {/* live 3D preview of the selected kept weapon */}
+              {(() => {
+                const sel = kept[Math.min(bakeSel, kept.length - 1)];
+                if (!sel) return null;
+                return (
+                  <div className="flex min-h-0 flex-col gap-2">
+                    <div className="relative min-h-[220px] flex-1 overflow-hidden rounded-lg border border-white/10 bg-gradient-to-b from-[#0b0f16] to-[#05070c]">
+                      <GunPreview key={`bake-${sel.id}`} gunId={sel.id} />
+                    </div>
+                    <div className="font-pixel text-[10px] uppercase text-white">{sel.name}</div>
+                    <div className="flex flex-wrap items-center gap-1 font-pixel text-[7px] uppercase">
+                      <span className="rounded border border-white/15 bg-white/[0.04] px-2 py-0.5 text-white/70">{sel.family} · {poolLabel(sel.family)}</span>
+                      {sel.division && (
+                        <span className="rounded border px-2 py-0.5" style={{ color: hexc(GEN_DIVISIONS[sel.division as GenDivisionId]?.accent ?? 0xffffff), borderColor: `${hexc(GEN_DIVISIONS[sel.division as GenDivisionId]?.accent ?? 0xffffff)}66` }}>
+                          ⬡ {GEN_DIVISIONS[sel.division as GenDivisionId]?.name ?? sel.division}
+                        </span>
+                      )}
+                      <span className="text-white/45">dmg {sel.stats.dmg} · rate {sel.stats.rate}s · mag {sel.stats.mag}</span>
+                    </div>
+                  </div>
+                );
+              })()}
+            </div>
+          )}
+
+          <div className="mt-3 flex flex-col gap-1">
+            <button
+              type="button"
+              onClick={download}
+              disabled={kept.length === 0}
+              className="min-h-[38px] rounded-md border border-[#aef5c8]/60 bg-[#aef5c8]/15 px-6 font-pixel text-[9px] uppercase text-[#aef5c8] transition-colors hover:bg-[#aef5c8]/25 disabled:opacity-40"
+            >
+              ⬇ Download generated.json ({kept.length})
+            </button>
+            <p className="text-center font-pixel text-[6px] leading-relaxed text-white/35">Replace components/arcade/fps/gen/generated.json with this file to bake these weapons in.</p>
+          </div>
         </div>
       )}
     </div>
