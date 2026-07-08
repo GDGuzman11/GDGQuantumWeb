@@ -93,6 +93,20 @@ export function isGenerated(id: string): boolean {
   return REGISTRY.has(id);
 }
 
+/** The Combat Division a generated weapon is issued to (undefined = universal). */
+export function weaponDivision(id: string): string | undefined {
+  return REGISTRY.get(id)?.division;
+}
+
+/** Division gating (mirrors armour): a weapon TAGGED for a division only shows for that
+ *  exact division; untagged weapons (the whole base arsenal + universal generated guns)
+ *  are available to everyone. */
+export function isWeaponForDivision(id: string, marineDivision: string | null | undefined): boolean {
+  const d = REGISTRY.get(id)?.division;
+  if (!d) return true; // untagged = universal standard-issue
+  return d === (marineDivision ?? 'outrider');
+}
+
 export function getBlueprint(id: string): WeaponBlueprint | undefined {
   return REGISTRY.get(id);
 }

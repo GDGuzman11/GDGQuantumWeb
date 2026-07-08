@@ -53,7 +53,7 @@ export function WeaponGenerator({ onBack }: { onBack: () => void }) {
   const [primary, setPrimary] = useState<DesignDNA>('Military Standard');
   const [secondary, setSecondary] = useState<DesignDNA>('Precision Tactical');
   const [familySel, setFamilySel] = useState<Family | 'auto'>('auto');
-  const [division, setDivision] = useState<GenDivisionId>('outrider');
+  const [division, setDivision] = useState<GenDivisionId | 'any'>('any');
   const [bp, setBp] = useState<WeaponBlueprint | null>(null);
   const [busy, setBusy] = useState(false);
   const [source, setSource] = useState<'ai' | 'fallback' | null>(null);
@@ -71,7 +71,7 @@ export function WeaponGenerator({ onBack }: { onBack: () => void }) {
       primary,
       secondary,
       family: familySel === 'auto' ? undefined : familySel,
-      division,
+      division: division === 'any' ? undefined : division,
       existing,
       seed: (seedRef.current += 1),
     });
@@ -146,6 +146,9 @@ export function WeaponGenerator({ onBack }: { onBack: () => void }) {
           <div>
             <p className="mb-1 font-pixel text-[7px] uppercase tracking-[0.2em] text-[#aef5c8]/80">Division · issued to</p>
             <div className="grid grid-cols-3 gap-1">
+              <button type="button" onClick={() => setDivision('any')} className={chip(division === 'any')}>
+                ANY · universal
+              </button>
               {DIVISION_IDS.map((d) => (
                 <button
                   key={d}
