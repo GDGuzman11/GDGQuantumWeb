@@ -11,7 +11,7 @@ import { useMemo, useState } from 'react';
 import { GunPreview } from './GunPreview';
 import { GUNS, gunById } from '../fps/weapons';
 import { loadMarine } from '../fps/marine/store';
-import { isWeaponForDivision } from '../fps/gen/registry';
+import { isWeaponForDivision, weaponDivision } from '../fps/gen/registry';
 import { categoriesForFamily } from '../fps/arsenal/categories';
 import { partsForCategory, applyEngineering, TIERS, type EngPart, type Tier } from '../fps/arsenal/parts';
 import { MANUFACTURERS } from '../fps/arsenal/manufacturers';
@@ -121,6 +121,7 @@ export function FpsArsenal({ astro, onSpend, onBack }: { astro: number; onSpend:
             >
               {g.name}
               {hasSlots(g.id) && <span className="ml-1 text-[#aef5c8]">◆</span>}
+              {weaponDivision(g.id) && <span className="ml-1 text-[#ffd27a]">⬡</span>}
             </button>
           ))}
         </div>

@@ -7,7 +7,8 @@ import { loadArsenal, saveArsenal, isWeaponUnlocked, unlockWeapon, equippedParts
 import { applyEngineering } from '../fps/arsenal/parts';
 import { unlockWeaponPrice } from '../fps/arsenal/economy';
 import { loadMarine } from '../fps/marine/store';
-import { isWeaponForDivision } from '../fps/gen/registry';
+import { isWeaponForDivision, weaponDivision } from '../fps/gen/registry';
+import { GEN_DIVISIONS, type GenDivisionId } from '../fps/gen/divisions';
 
 // Normalization bounds for the stat bars (computed once over the whole arsenal).
 const DMG_MAX = Math.max(...GUNS.map((g) => g.dmg));
@@ -193,7 +194,10 @@ function Picker({ label, items, value, focus, onPick, save, astro, gateOpen }: {
         {items.map((g) => {
           const unlocked = isWeaponUnlocked(save, g.id);
           const price = unlockWeaponPrice(g);
-          const sub = unlocked ? `${g.family} · ${g.dmg}` : !gateOpen ? `🔒 LVL ${UNLOCK_GATE_LEVEL}+` : `🔒 ◈${price}`;
+          const dv = weaponDivision(g.id);
+          const divName = dv ? GEN_DIVISIONS[dv as GenDivisionId]?.name : null;
+          const base = unlocked ? `${g.family} · ${g.dmg}` : !gateOpen ? `🔒 LVL ${UNLOCK_GATE_LEVEL}+` : `🔒 ◈${price}`;
+          const sub = divName ? `${base} · ⬡${divName}` : base;
           return <Chip key={g.id} label={g.name} sub={sub} on={value === g.id} ring={focus === g.id} locked={!unlocked} afford={astro >= price && gateOpen} color="#7fdfff" onClick={() => onPick(g.id)} />;
         })}
       </div>
