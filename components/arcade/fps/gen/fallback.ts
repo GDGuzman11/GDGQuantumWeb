@@ -11,8 +11,9 @@
 import type { Family } from '../weapons';
 import { rng } from '../rand';
 import { DNA, type DesignDNA } from './dna';
+import { GEN_DIVISIONS, type GenDivisionId } from './divisions';
 import type { BlueprintSlot, TemplateId, WeaponBlueprint } from './blueprint';
-import { parseWeaponBlueprint } from './blueprint';
+import { parseWeaponBlueprint, templatesForFamily } from './blueprint';
 import { featureHash } from './similarity';
 
 function hashStr(s: string): number {
@@ -75,24 +76,42 @@ const TEMPLATE_SLOTS: Record<TemplateId, { slot: BlueprintSlot['slot']; moving?:
 const clamp = (v: number, lo: number, hi: number) => (v < lo ? lo : v > hi ? hi : v);
 const pick = <T,>(arr: T[], r: number, fallback: T): T => (arr.length ? arr[Math.floor(r * arr.length) % arr.length] : fallback);
 
-/** Fuse two DNA into one blueprint. `seed` varies the roll so regenerate differs. */
-export function generateFallbackBlueprint(primary: DesignDNA, secondary: DesignDNA, seed = 0): WeaponBlueprint {
+export interface FallbackOpts {
+  family?: Family; // force a weapon type (undefined = DNA/division decides)
+  division?: GenDivisionId; // tag + flavour toward this Combat Division
+}
+
+/** Fuse two DNA into one blueprint. `seed` varies the roll so regenerate differs.
+ *  An optional `family`/`division` forces the weapon type + biases toward a division. */
+export function generateFallbackBlueprint(primary: DesignDNA, secondary: DesignDNA, seed = 0, opts: FallbackOpts = {}): WeaponBlueprint {
   const P = DNA[primary];
   const S = DNA[secondary];
-  const rand = rng(hashStr(`${primary}>${secondary}`) ^ (seed >>> 0));
+  const div = opts.division ? GEN_DIVISIONS[opts.division] : null;
+  const rand = rng(hashStr(`${primary}>${secondary}>${opts.family ?? ''}>${opts.division ?? ''}`) ^ (seed >>> 0));
 
   // 70/30 blend helper for numeric leanings.
   const blend = (a: number, b: number) => a * 0.7 + b * 0.3;
 
-  const template = pick(P.silhouettes, rand(), 'compactRifle');
-  const family = familyForTemplate(template);
+  // Weapon type: explicit family wins; else a division's favoured type; else the DNA.
+  let family: Family;
+  let template: TemplateId;
+  if (opts.family) {
+    family = opts.family;
+    template = pick(templatesForFamily(family), rand(), templatesForFamily(family)[0]);
+  } else if (div) {
+    family = pick(div.families, rand(), 'rifle');
+    template = pick(templatesForFamily(family), rand(), templatesForFamily(family)[0]);
+  } else {
+    template = pick(P.silhouettes, rand(), 'compactRifle');
+    family = familyForTemplate(template);
+  }
   const base = FAMILY_BASE[family];
 
   // palette: primary bodies + secondary's lead body woven in; accent mostly primary,
-  // occasionally the secondary's for contrast.
+  // a division's accent when building for one, occasionally the secondary's for contrast.
   const body = [...P.body];
   if (S.body[0] != null && !body.includes(S.body[0])) body.splice(1, 0, S.body[0]);
-  const accent = rand() < 0.25 ? S.accent : P.accent;
+  const accent = div ? div.accent : rand() < 0.25 ? S.accent : P.accent;
 
   const gb = {
     girth: blend(P.geometry.girth, S.geometry.girth),
@@ -130,13 +149,16 @@ export function generateFallbackBlueprint(primary: DesignDNA, secondary: DesignD
   const reload = base.reload * (1 - 0.3 * sb.reload);
   const adsFov = base.adsFov - sb.handling * 6;
 
-  const name = `${pick(P.words, rand(), 'PROTO')} ${pick(S.words, rand(), 'MK')}`.toUpperCase();
+  const leadWord = div ? pick(div.words, rand(), 'PROTO') : pick(P.words, rand(), 'PROTO');
+  const name = `${leadWord} ${pick(S.words, rand(), 'MK')}`.toUpperCase();
   const audioFamily = pick(P.audio, rand(), 'ballistic');
+  const vocab = [...(div ? div.words : []), ...P.words, ...S.words];
 
   const raw = {
     id: `gen-${name.toLowerCase().replace(/[^a-z0-9]+/g, '-')}-${(seed >>> 0).toString(36)}`,
     name,
     family,
+    ...(opts.division ? { division: opts.division } : {}),
     stats: {
       dmg,
       rate,
@@ -164,11 +186,11 @@ export function generateFallbackBlueprint(primary: DesignDNA, secondary: DesignD
     componentTheme: {
       body,
       accent,
-      nameVocab: [...P.words, ...S.words],
+      nameVocab: vocab,
       geometryBias: { girth: gb.girth, vents: gb.vents, emissive: gb.emissive, muzzle: gb.muzzle },
       statBias: sb,
     },
-    lore: `${P.philosophy} ${S.philosophy}`,
+    lore: `${div ? div.philosophy + ' ' : ''}${P.philosophy} ${S.philosophy}`.trim(),
     dna: { primary, secondary, featureHash: '' },
   };
 

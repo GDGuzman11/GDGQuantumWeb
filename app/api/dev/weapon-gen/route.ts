@@ -10,8 +10,10 @@
  * (standalone repo, offline, or no key).
  */
 import { NextResponse } from 'next/server';
+import type { Family } from '@/components/arcade/fps/weapons';
 import { DESIGN_DNA, DNA, isDesignDNA } from '@/components/arcade/fps/gen/dna';
-import { AUDIO_FAMILIES, TEMPLATE_IDS, WEAPON_FAMILIES, parseWeaponBlueprint } from '@/components/arcade/fps/gen/blueprint';
+import { AUDIO_FAMILIES, TEMPLATE_IDS, WEAPON_FAMILIES, normalizeForFamily, parseWeaponBlueprint } from '@/components/arcade/fps/gen/blueprint';
+import { GEN_DIVISIONS, isGenDivision } from '@/components/arcade/fps/gen/divisions';
 import { featureHash } from '@/components/arcade/fps/gen/similarity';
 
 export const runtime = 'nodejs';
@@ -52,11 +54,16 @@ function systemPrompt(): string {
   ].join('\n');
 }
 
-function userPrompt(primary: string, secondary: string, existing: string[]): string {
+function userPrompt(primary: string, secondary: string, family: Family | null, division: string | null, existing: string[]): string {
   const dedup = existing.length
     ? `\n\nAvoid these existing DNA signatures / names (make something visibly distinct): ${existing.slice(0, 40).join(', ')}.`
     : '';
-  return `Generate one weapon. PRIMARY DNA: ${primary}. SECONDARY DNA: ${secondary}.${dedup}`;
+  const fam = family ? `\nThe weapon MUST be family "${family}" — choose a template + stats appropriate to it.` : '';
+  const d = division && isGenDivision(division) ? GEN_DIVISIONS[division] : null;
+  const divLine = d
+    ? `\nThis weapon is issued to the ${d.name} division: ${d.philosophy} Lean its identity — accent near #${d.accent.toString(16)}, and draw naming/lore from: ${d.words.slice(0, 6).join(', ')}. Set "division":"${d.id}".`
+    : '';
+  return `Generate one weapon. PRIMARY DNA: ${primary}. SECONDARY DNA: ${secondary}.${fam}${divLine}${dedup}`;
 }
 
 /** Pull the first balanced JSON object out of the model's text (defensive). */
@@ -72,7 +79,7 @@ function extractJson(text: string): unknown {
   }
 }
 
-async function callClaude(key: string, primary: string, secondary: string, existing: string[]): Promise<unknown> {
+async function callClaude(key: string, primary: string, secondary: string, family: Family | null, division: string | null, existing: string[]): Promise<unknown> {
   const res = await fetch(API, {
     method: 'POST',
     headers: {
@@ -84,7 +91,7 @@ async function callClaude(key: string, primary: string, secondary: string, exist
       model: MODEL,
       max_tokens: 1600,
       system: systemPrompt(),
-      messages: [{ role: 'user', content: userPrompt(primary, secondary, existing) }],
+      messages: [{ role: 'user', content: userPrompt(primary, secondary, family, division, existing) }],
     }),
   });
   if (!res.ok) throw new Error(`anthropic ${res.status}`);
@@ -101,7 +108,7 @@ export async function POST(req: Request) {
     return NextResponse.json({ ok: false, error: 'no-key', message: 'ANTHROPIC_API_KEY is not set — using the deterministic fallback.' }, { status: 503 });
   }
 
-  let body: { primary?: string; secondary?: string; existing?: string[] };
+  let body: { primary?: string; secondary?: string; family?: string; division?: string; existing?: string[] };
   try {
     body = await req.json();
   } catch {
@@ -112,17 +119,21 @@ export async function POST(req: Request) {
   if (!isDesignDNA(primary) || !isDesignDNA(secondary)) {
     return NextResponse.json({ ok: false, error: 'bad-dna' }, { status: 400 });
   }
+  const family = (WEAPON_FAMILIES as string[]).includes(String(body.family)) ? (body.family as Family) : null;
+  const division = typeof body.division === 'string' && isGenDivision(body.division) ? body.division : null;
   const existing = Array.isArray(body.existing) ? body.existing.filter((x): x is string => typeof x === 'string') : [];
 
   try {
-    let raw = await callClaude(key, primary, secondary, existing);
+    let raw = await callClaude(key, primary, secondary, family, division, existing);
     let bp = parseWeaponBlueprint(raw);
     if (!bp) {
       // one repair retry
-      raw = await callClaude(key, primary, secondary, existing);
+      raw = await callClaude(key, primary, secondary, family, division, existing);
       bp = parseWeaponBlueprint(raw);
     }
     if (!bp) return NextResponse.json({ ok: false, error: 'invalid-json' }, { status: 502 });
+    if (family) normalizeForFamily(bp, family); // guarantee the weapon type is tagged/pooled right
+    if (division) bp.division = division;
     bp.dna.primary = primary;
     bp.dna.secondary = secondary;
     bp.dna.featureHash = featureHash(bp);

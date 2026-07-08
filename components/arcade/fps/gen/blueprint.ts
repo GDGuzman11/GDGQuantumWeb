@@ -99,12 +99,59 @@ export interface WeaponBlueprint {
   id: string;
   name: string;
   family: Family;
+  division?: string; // Combat Division this weapon is built for (see gen/divisions)
   stats: WeaponStats;
   audio: WeaponAudio;
   model: ModelRecipe;
   componentTheme: ComponentTheme;
   lore: string;
   dna: { primary: string; secondary: string; featureHash: string };
+}
+
+/** Silhouette templates that suit each weapon family (first = the default). */
+export function templatesForFamily(f: Family): TemplateId[] {
+  switch (f) {
+    case 'mg':
+      return ['bullpupMg', 'rotaryHeavy'];
+    case 'laser':
+      return ['energyEmitter'];
+    case 'sniper':
+      return ['longPrecision'];
+    case 'launcher':
+      return ['launcherTube'];
+    case 'pistol':
+      return ['pistol'];
+    default:
+      return ['compactRifle'];
+  }
+}
+
+/** Force a blueprint onto a chosen weapon family: fixes the template + the
+ *  family-conditional flags (scoped/auto/splash/heat) so it is TAGGED and POOLED as
+ *  that type. Mutates + returns the blueprint. */
+export function normalizeForFamily(bp: WeaponBlueprint, family: Family): WeaponBlueprint {
+  bp.family = family;
+  const tps = templatesForFamily(family);
+  if (!tps.includes(bp.model.template)) bp.model.template = tps[0];
+  const s = bp.stats;
+  if (family === 'sniper') {
+    s.scoped = true;
+    s.auto = false;
+    if (s.adsFov > 40) s.adsFov = 26;
+    delete s.splash;
+    delete s.heat;
+  } else if (family === 'launcher') {
+    s.scoped = false;
+    s.auto = false;
+    if (s.splash == null) s.splash = 6;
+    delete s.heat;
+  } else {
+    s.scoped = false;
+    delete s.splash;
+    if (family !== 'laser') delete s.heat;
+    if (family === 'mg') s.auto = true;
+  }
+  return bp;
 }
 
 // ── validation + clamping (plain, no deps) ─────────────────────────────────────
@@ -183,6 +230,7 @@ export function parseWeaponBlueprint(raw: unknown): WeaponBlueprint | null {
     id: slugId(name, r.id),
     name: name.toUpperCase().slice(0, 22),
     family,
+    ...(typeof r.division === 'string' && r.division ? { division: r.division } : {}),
     stats: {
       dmg: Math.round(clamp(num(rs.dmg, 40), 8, 500)),
       rate: +clamp(num(rs.rate, 0.14), 0.05, 2.6).toFixed(3),

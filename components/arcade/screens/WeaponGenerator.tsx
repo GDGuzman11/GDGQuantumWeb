@@ -10,13 +10,22 @@
  * the loadout uses renders it, and (once kept/baked) it flows into loadout/arsenal/
  * combat/audio automatically. Never shipped publicly — mounted only when `dev`.
  */
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useRef, useState } from 'react';
 import { GunPreview } from './GunPreview';
+import type { Family } from '../fps/weapons';
 import { DESIGN_DNA, type DesignDNA } from '../fps/gen/dna';
+import { DIVISION_IDS, GEN_DIVISIONS, type GenDivisionId } from '../fps/gen/divisions';
 import { generateWeapon } from '../fps/gen/client';
 import { generatedBlueprints, registerBlueprint } from '../fps/gen/registry';
-import { AUDIO_FAMILIES, type AudioFamily, type WeaponBlueprint } from '../fps/gen/blueprint';
+import { AUDIO_FAMILIES, WEAPON_FAMILIES, type AudioFamily, type WeaponBlueprint } from '../fps/gen/blueprint';
 import { nearestMatch } from '../fps/gen/similarity';
+
+/** Which loadout pool a family lands in (mirrors weapons.ts). */
+function poolLabel(f: Family): string {
+  if (f === 'rifle' || f === 'mg' || f === 'laser') return 'PRIMARY';
+  if (f === 'sniper' || f === 'launcher') return 'SECONDARY';
+  return 'SIDEARM';
+}
 
 const chip = (active: boolean) =>
   `min-h-[26px] rounded border px-2 py-1 font-pixel text-[7px] uppercase leading-tight transition-colors ${
@@ -43,6 +52,8 @@ function Stat({ label, value, step, min, max, onChange }: { label: string; value
 export function WeaponGenerator({ onBack }: { onBack: () => void }) {
   const [primary, setPrimary] = useState<DesignDNA>('Military Standard');
   const [secondary, setSecondary] = useState<DesignDNA>('Precision Tactical');
+  const [familySel, setFamilySel] = useState<Family | 'auto'>('auto');
+  const [division, setDivision] = useState<GenDivisionId>('outrider');
   const [bp, setBp] = useState<WeaponBlueprint | null>(null);
   const [busy, setBusy] = useState(false);
   const [source, setSource] = useState<'ai' | 'fallback' | null>(null);
@@ -56,13 +67,20 @@ export function WeaponGenerator({ onBack }: { onBack: () => void }) {
     const existing = generatedBlueprints()
       .filter((b) => b.id !== bp?.id)
       .map((b) => `${b.name} (${b.dna.primary}>${b.dna.secondary})`);
-    const res = await generateWeapon({ primary, secondary, existing, seed: (seedRef.current += 1) });
+    const res = await generateWeapon({
+      primary,
+      secondary,
+      family: familySel === 'auto' ? undefined : familySel,
+      division,
+      existing,
+      seed: (seedRef.current += 1),
+    });
     registerBlueprint(res.blueprint);
     setBp(res.blueprint);
     setSource(res.source);
     if (res.note) setNote(res.note);
     setBusy(false);
-  }, [primary, secondary, bp?.id]);
+  }, [primary, secondary, familySel, division, bp?.id]);
 
   // Live-update the registry whenever a field is edited so the preview + audio track.
   const patch = useCallback(
@@ -125,6 +143,38 @@ export function WeaponGenerator({ onBack }: { onBack: () => void }) {
               ))}
             </div>
           </div>
+          <div>
+            <p className="mb-1 font-pixel text-[7px] uppercase tracking-[0.2em] text-[#aef5c8]/80">Division · issued to</p>
+            <div className="grid grid-cols-3 gap-1">
+              {DIVISION_IDS.map((d) => (
+                <button
+                  key={d}
+                  type="button"
+                  onClick={() => setDivision(d)}
+                  style={division === d ? { color: `#${GEN_DIVISIONS[d].accent.toString(16).padStart(6, '0')}`, borderColor: `#${GEN_DIVISIONS[d].accent.toString(16).padStart(6, '0')}` } : undefined}
+                  className={chip(division === d)}
+                >
+                  {GEN_DIVISIONS[d].name}
+                </button>
+              ))}
+            </div>
+          </div>
+          <div>
+            <p className="mb-1 font-pixel text-[7px] uppercase tracking-[0.2em] text-white/60">Weapon type</p>
+            <div className="grid grid-cols-4 gap-1 sm:grid-cols-7">
+              <button type="button" onClick={() => setFamilySel('auto')} className={chip(familySel === 'auto')}>
+                AUTO
+              </button>
+              {WEAPON_FAMILIES.map((f) => (
+                <button key={f} type="button" onClick={() => setFamilySel(f)} className={chip(familySel === f)}>
+                  {f}
+                </button>
+              ))}
+            </div>
+            <p className="mt-1 font-pixel text-[6px] text-white/35">
+              {familySel === 'auto' ? 'DNA / division picks the type.' : `Forced → ${poolLabel(familySel)} pool.`}
+            </p>
+          </div>
           <div className="flex flex-wrap items-center gap-2">
             <button
               type="button"
@@ -184,7 +234,17 @@ export function WeaponGenerator({ onBack }: { onBack: () => void }) {
                   onChange={(e) => patch((b) => (b.name = e.target.value.toUpperCase().slice(0, 22)))}
                   className="flex-1 rounded border border-white/15 bg-black/40 px-2 py-1 font-pixel text-[10px] uppercase text-white outline-none focus:border-[#7fdfff]/60"
                 />
-                <span className="font-pixel text-[7px] uppercase text-white/45">{bp.family}</span>
+              </div>
+              <div className="flex flex-wrap items-center gap-1 font-pixel text-[7px] uppercase">
+                <span className="rounded border border-white/15 bg-white/[0.04] px-2 py-0.5 text-white/70">{bp.family} · {poolLabel(bp.family)}</span>
+                {bp.division && (
+                  <span
+                    className="rounded border px-2 py-0.5"
+                    style={{ color: `#${GEN_DIVISIONS[bp.division as GenDivisionId]?.accent.toString(16).padStart(6, '0')}`, borderColor: `#${GEN_DIVISIONS[bp.division as GenDivisionId]?.accent.toString(16).padStart(6, '0')}66` }}
+                  >
+                    ⬡ {GEN_DIVISIONS[bp.division as GenDivisionId]?.name ?? bp.division}
+                  </span>
+                )}
               </div>
 
               <div className="grid grid-cols-2 gap-x-4 gap-y-1 rounded border border-white/10 bg-white/[0.02] p-2">
