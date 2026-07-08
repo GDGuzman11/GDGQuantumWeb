@@ -1,23 +1,20 @@
 'use client';
 
 /**
- * DEV-ONLY Design DNA weapon generator screen. Pick a PRIMARY + SECONDARY DNA, hit
- * Generate (AI route → deterministic fallback), preview the resulting gun live in 3D,
- * tune its stats/name/audio, check it against existing weapons for uniqueness, then
- * KEEP + EXPORT the blueprint(s) to bake into `fps/gen/generated.json`.
- *
- * The generated weapon is registered into the live registry, so the same GunPreview
- * the loadout uses renders it, and (once kept/baked) it flows into loadout/arsenal/
- * combat/audio automatically. Never shipped publicly — mounted only when `dev`.
+ * DEV-ONLY Design DNA weapon generator. Order: Division → Weapon type → Primary →
+ * Secondary DNA + a batch COUNT (generate N per request). Each generated gun previews
+ * live in 3D, lists its COMPONENTS (the parametric parts that build the model) with a
+ * hover info window per component, and can be tuned + KEPT + EXPORTED to bake into
+ * `fps/gen/generated.json`. Never shipped publicly — mounted only when `dev`.
  */
-import { useCallback, useRef, useState } from 'react';
+import { useCallback, useMemo, useRef, useState } from 'react';
 import { GunPreview } from './GunPreview';
 import type { Family } from '../fps/weapons';
 import { DESIGN_DNA, type DesignDNA } from '../fps/gen/dna';
 import { DIVISION_IDS, GEN_DIVISIONS, type GenDivisionId } from '../fps/gen/divisions';
 import { generateWeapon } from '../fps/gen/client';
 import { generatedBlueprints, registerBlueprint } from '../fps/gen/registry';
-import { AUDIO_FAMILIES, WEAPON_FAMILIES, type AudioFamily, type WeaponBlueprint } from '../fps/gen/blueprint';
+import { AUDIO_FAMILIES, WEAPON_FAMILIES, type AudioFamily, type BlueprintSlot, type WeaponBlueprint } from '../fps/gen/blueprint';
 import { nearestMatch } from '../fps/gen/similarity';
 
 /** Which loadout pool a family lands in (mirrors weapons.ts). */
@@ -26,6 +23,8 @@ function poolLabel(f: Family): string {
   if (f === 'sniper' || f === 'launcher') return 'SECONDARY';
   return 'SIDEARM';
 }
+const MUZZLE = ['none', 'brake', 'ports', 'shroud'];
+const hexc = (n: number) => `#${n.toString(16).padStart(6, '0')}`;
 
 const chip = (active: boolean) =>
   `min-h-[26px] rounded border px-2 py-1 font-pixel text-[7px] uppercase leading-tight transition-colors ${
@@ -49,60 +48,107 @@ function Stat({ label, value, step, min, max, onChange }: { label: string; value
   );
 }
 
+/** A weapon component (blueprint slot) chip with a hover INFO WINDOW. */
+function SlotChip({ slot, accent }: { slot: BlueprintSlot; accent: number }) {
+  const rows: [string, string][] = [
+    ['Length', `×${slot.len.toFixed(2)}`],
+    ['Girth', `×${slot.girth.toFixed(2)}`],
+    ['Segments', `${slot.segs}`],
+    ['Vents', `${slot.vents}`],
+    ['Muzzle', MUZZLE[slot.muzzle] ?? `${slot.muzzle}`],
+    ['Taper', slot.taper.toFixed(2)],
+    ['Glow', `${Math.round(slot.emissive * 100)}%`],
+    ['Motion', slot.moving ?? 'static'],
+  ];
+  return (
+    <div className="group relative">
+      <span className="inline-flex min-h-[24px] items-center gap-1 rounded border border-white/15 bg-white/[0.03] px-2 font-pixel text-[7px] uppercase text-white/70">
+        <span className="h-1.5 w-1.5 rounded-full" style={{ backgroundColor: hexc(accent) }} />
+        {slot.slot}
+        {slot.moving && <span className="text-[#ffd27a]">✦</span>}
+      </span>
+      {/* hover info window */}
+      <div className="pointer-events-none absolute bottom-full left-0 z-50 mb-1 hidden w-44 rounded-md border border-white/20 bg-[#0a0e15] p-2 shadow-xl group-hover:block">
+        <p className="mb-1 font-pixel text-[8px] uppercase text-[#7fdfff]">{slot.slot}</p>
+        <div className="flex flex-col gap-0.5">
+          {rows.map(([k, v]) => (
+            <div key={k} className="flex items-center justify-between font-pixel text-[6px] uppercase">
+              <span className="text-white/40">{k}</span>
+              <span className="text-white/80">{v}</span>
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export function WeaponGenerator({ onBack }: { onBack: () => void }) {
+  const [division, setDivision] = useState<GenDivisionId | 'any'>('any');
+  const [familySel, setFamilySel] = useState<Family | 'auto'>('auto');
   const [primary, setPrimary] = useState<DesignDNA>('Military Standard');
   const [secondary, setSecondary] = useState<DesignDNA>('Precision Tactical');
-  const [familySel, setFamilySel] = useState<Family | 'auto'>('auto');
-  const [division, setDivision] = useState<GenDivisionId | 'any'>('any');
-  const [bp, setBp] = useState<WeaponBlueprint | null>(null);
+  const [count, setCount] = useState(1);
+  const [batch, setBatch] = useState<WeaponBlueprint[]>([]);
+  const [cur, setCur] = useState(0);
   const [busy, setBusy] = useState(false);
   const [source, setSource] = useState<'ai' | 'fallback' | null>(null);
-  const [note, setNote] = useState<string>('');
+  const [note, setNote] = useState('');
   const [kept, setKept] = useState<WeaponBlueprint[]>([]);
   const seedRef = useRef(1);
+
+  const bp = batch[cur] ?? null;
 
   const runGenerate = useCallback(async () => {
     setBusy(true);
     setNote('');
-    const existing = generatedBlueprints()
-      .filter((b) => b.id !== bp?.id)
-      .map((b) => `${b.name} (${b.dna.primary}>${b.dna.secondary})`);
-    const res = await generateWeapon({
-      primary,
-      secondary,
-      family: familySel === 'auto' ? undefined : familySel,
-      division: division === 'any' ? undefined : division,
-      existing,
-      seed: (seedRef.current += 1),
-    });
-    registerBlueprint(res.blueprint);
-    setBp(res.blueprint);
-    setSource(res.source);
-    if (res.note) setNote(res.note);
+    const results: WeaponBlueprint[] = [];
+    let src: 'ai' | 'fallback' = 'fallback';
+    let noteMsg = '';
+    for (let i = 0; i < count; i++) {
+      const existing = [...generatedBlueprints(), ...results].map((b) => `${b.name} (${b.dna.primary}>${b.dna.secondary})`);
+      const res = await generateWeapon({
+        primary,
+        secondary,
+        family: familySel === 'auto' ? undefined : familySel,
+        division: division === 'any' ? undefined : division,
+        existing,
+        seed: (seedRef.current += 1),
+      });
+      registerBlueprint(res.blueprint);
+      results.push(res.blueprint);
+      src = res.source;
+      if (res.note) noteMsg = res.note;
+    }
+    setBatch(results);
+    setCur(0);
+    setSource(src);
+    setNote(noteMsg);
     setBusy(false);
-  }, [primary, secondary, familySel, division, bp?.id]);
+  }, [primary, secondary, familySel, division, count]);
 
-  // Live-update the registry whenever a field is edited so the preview + audio track.
+  // Live-update the current weapon in the batch on edit so preview + audio track.
   const patch = useCallback(
     (mut: (b: WeaponBlueprint) => void) => {
-      setBp((prev) => {
-        if (!prev) return prev;
-        const next: WeaponBlueprint = JSON.parse(JSON.stringify(prev));
-        mut(next);
-        registerBlueprint(next);
+      setBatch((prev) => {
+        if (!prev[cur]) return prev;
+        const next = [...prev];
+        const clone: WeaponBlueprint = JSON.parse(JSON.stringify(next[cur]));
+        mut(clone);
+        registerBlueprint(clone);
+        next[cur] = clone;
         return next;
       });
     },
-    [],
+    [cur],
   );
 
-  const near = bp ? nearestMatch(bp, generatedBlueprints().filter((b) => b.id !== bp.id)) : null;
+  const near = useMemo(() => (bp ? nearestMatch(bp, generatedBlueprints().filter((b) => b.id !== bp.id)) : null), [bp]);
   const dupPct = near ? Math.round(near.score * 100) : 0;
   const isKept = bp ? kept.some((k) => k.id === bp.id) : false;
 
   const download = () => {
-    const data = JSON.stringify(kept, null, 2);
-    const blob = new Blob([data], { type: 'application/json' });
+    const blob = new Blob([JSON.stringify(kept, null, 2)], { type: 'application/json' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
@@ -121,30 +167,10 @@ export function WeaponGenerator({ onBack }: { onBack: () => void }) {
       </div>
 
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-[1fr_1.1fr]">
-        {/* ── LEFT: DNA selection + generate ── */}
+        {/* ── LEFT: Division → Weapon type → Primary → Secondary → Count → Generate ── */}
         <div className="flex flex-col gap-3">
           <div>
-            <p className="mb-1 font-pixel text-[7px] uppercase tracking-[0.2em] text-[#7fdfff]/80">Primary DNA · ~70%</p>
-            <div className="grid grid-cols-2 gap-1 sm:grid-cols-3">
-              {DESIGN_DNA.map((d) => (
-                <button key={d} type="button" onClick={() => setPrimary(d)} className={chip(primary === d)}>
-                  {d}
-                </button>
-              ))}
-            </div>
-          </div>
-          <div>
-            <p className="mb-1 font-pixel text-[7px] uppercase tracking-[0.2em] text-[#ffd27a]/80">Secondary DNA · ~30%</p>
-            <div className="grid grid-cols-2 gap-1 sm:grid-cols-3">
-              {DESIGN_DNA.map((d) => (
-                <button key={d} type="button" onClick={() => setSecondary(d)} className={`${chip(secondary === d)} ${d === primary ? 'opacity-40' : ''}`}>
-                  {d}
-                </button>
-              ))}
-            </div>
-          </div>
-          <div>
-            <p className="mb-1 font-pixel text-[7px] uppercase tracking-[0.2em] text-[#aef5c8]/80">Division · issued to</p>
+            <p className="mb-1 font-pixel text-[7px] uppercase tracking-[0.2em] text-[#aef5c8]/80">1 · Division · issued to</p>
             <div className="grid grid-cols-3 gap-1">
               <button type="button" onClick={() => setDivision('any')} className={chip(division === 'any')}>
                 ANY · universal
@@ -154,7 +180,7 @@ export function WeaponGenerator({ onBack }: { onBack: () => void }) {
                   key={d}
                   type="button"
                   onClick={() => setDivision(d)}
-                  style={division === d ? { color: `#${GEN_DIVISIONS[d].accent.toString(16).padStart(6, '0')}`, borderColor: `#${GEN_DIVISIONS[d].accent.toString(16).padStart(6, '0')}` } : undefined}
+                  style={division === d ? { color: hexc(GEN_DIVISIONS[d].accent), borderColor: hexc(GEN_DIVISIONS[d].accent) } : undefined}
                   className={chip(division === d)}
                 >
                   {GEN_DIVISIONS[d].name}
@@ -163,7 +189,7 @@ export function WeaponGenerator({ onBack }: { onBack: () => void }) {
             </div>
           </div>
           <div>
-            <p className="mb-1 font-pixel text-[7px] uppercase tracking-[0.2em] text-white/60">Weapon type</p>
+            <p className="mb-1 font-pixel text-[7px] uppercase tracking-[0.2em] text-white/60">2 · Weapon type</p>
             <div className="grid grid-cols-4 gap-1 sm:grid-cols-7">
               <button type="button" onClick={() => setFamilySel('auto')} className={chip(familySel === 'auto')}>
                 AUTO
@@ -178,24 +204,48 @@ export function WeaponGenerator({ onBack }: { onBack: () => void }) {
               {familySel === 'auto' ? 'DNA / division picks the type.' : `Forced → ${poolLabel(familySel)} pool.`}
             </p>
           </div>
+          <div>
+            <p className="mb-1 font-pixel text-[7px] uppercase tracking-[0.2em] text-[#7fdfff]/80">3 · Primary DNA · ~70%</p>
+            <div className="grid grid-cols-2 gap-1 sm:grid-cols-3">
+              {DESIGN_DNA.map((d) => (
+                <button key={d} type="button" onClick={() => setPrimary(d)} className={chip(primary === d)}>
+                  {d}
+                </button>
+              ))}
+            </div>
+          </div>
+          <div>
+            <p className="mb-1 font-pixel text-[7px] uppercase tracking-[0.2em] text-[#ffd27a]/80">4 · Secondary DNA · ~30%</p>
+            <div className="grid grid-cols-2 gap-1 sm:grid-cols-3">
+              {DESIGN_DNA.map((d) => (
+                <button key={d} type="button" onClick={() => setSecondary(d)} className={`${chip(secondary === d)} ${d === primary ? 'opacity-40' : ''}`}>
+                  {d}
+                </button>
+              ))}
+            </div>
+          </div>
+
           <div className="flex flex-wrap items-center gap-2">
+            <span className="font-pixel text-[7px] uppercase text-white/60">Count</span>
+            <div className="flex items-center gap-1">
+              {[1, 2, 3, 4, 6].map((n) => (
+                <button key={n} type="button" onClick={() => setCount(n)} className={chip(count === n)}>
+                  ×{n}
+                </button>
+              ))}
+            </div>
             <button
               type="button"
               disabled={busy}
               onClick={runGenerate}
               className="min-h-[34px] rounded border border-[#7fdfff]/60 bg-[#7fdfff]/15 px-5 font-pixel text-[9px] uppercase text-[#7fdfff] transition-colors hover:bg-[#7fdfff]/25 disabled:opacity-50"
             >
-              {busy ? '… GENERATING' : bp ? '↻ Regenerate' : '✦ Generate'}
+              {busy ? '… GENERATING' : `✦ Generate ×${count}`}
             </button>
-            {source && (
-              <span className="font-pixel text-[7px] uppercase text-white/45">
-                {source === 'ai' ? '◆ AI' : '◇ FALLBACK'}
-              </span>
-            )}
+            {source && <span className="font-pixel text-[7px] uppercase text-white/45">{source === 'ai' ? '◆ AI' : '◇ FALLBACK'}</span>}
           </div>
           {note && <p className="font-pixel text-[6px] leading-relaxed text-[#ffd27a]/70">{note}</p>}
 
-          {/* Bake set */}
           {kept.length > 0 && (
             <div className="mt-1 rounded border border-white/10 bg-white/[0.03] p-2">
               <p className="mb-1 font-pixel text-[7px] uppercase text-[#aef5c8]/80">Bake set · {kept.length}</p>
@@ -212,15 +262,23 @@ export function WeaponGenerator({ onBack }: { onBack: () => void }) {
               <button type="button" onClick={download} className="mt-2 min-h-[28px] w-full rounded border border-[#aef5c8]/50 bg-[#aef5c8]/10 px-3 font-pixel text-[7px] uppercase text-[#aef5c8] hover:bg-[#aef5c8]/20">
                 ⬇ Download generated.json
               </button>
-              <p className="mt-1 font-pixel text-[6px] leading-relaxed text-white/35">
-                Replace components/arcade/fps/gen/generated.json with this file to bake these weapons in.
-              </p>
+              <p className="mt-1 font-pixel text-[6px] leading-relaxed text-white/35">Replace components/arcade/fps/gen/generated.json with this file to bake these weapons in.</p>
             </div>
           )}
         </div>
 
-        {/* ── RIGHT: preview + tuning ── */}
+        {/* ── RIGHT: batch picker + preview + tuning + components ── */}
         <div className="flex flex-col gap-3">
+          {batch.length > 1 && (
+            <div className="flex flex-wrap gap-1">
+              {batch.map((b, i) => (
+                <button key={b.id} type="button" onClick={() => setCur(i)} className={chip(cur === i)}>
+                  {i + 1} · {b.name}
+                </button>
+              ))}
+            </div>
+          )}
+
           <div className="relative h-56 w-full rounded-lg border border-white/10 bg-gradient-to-b from-[#0b0f16] to-[#05070c]">
             {bp ? (
               <GunPreview key={bp.id} gunId={bp.id} />
@@ -241,13 +299,20 @@ export function WeaponGenerator({ onBack }: { onBack: () => void }) {
               <div className="flex flex-wrap items-center gap-1 font-pixel text-[7px] uppercase">
                 <span className="rounded border border-white/15 bg-white/[0.04] px-2 py-0.5 text-white/70">{bp.family} · {poolLabel(bp.family)}</span>
                 {bp.division && (
-                  <span
-                    className="rounded border px-2 py-0.5"
-                    style={{ color: `#${GEN_DIVISIONS[bp.division as GenDivisionId]?.accent.toString(16).padStart(6, '0')}`, borderColor: `#${GEN_DIVISIONS[bp.division as GenDivisionId]?.accent.toString(16).padStart(6, '0')}66` }}
-                  >
+                  <span className="rounded border px-2 py-0.5" style={{ color: hexc(GEN_DIVISIONS[bp.division as GenDivisionId]?.accent ?? 0xffffff), borderColor: `${hexc(GEN_DIVISIONS[bp.division as GenDivisionId]?.accent ?? 0xffffff)}66` }}>
                     ⬡ {GEN_DIVISIONS[bp.division as GenDivisionId]?.name ?? bp.division}
                   </span>
                 )}
+              </div>
+
+              {/* COMPONENTS — hover a chip for its info window */}
+              <div className="rounded border border-white/10 bg-white/[0.02] p-2">
+                <p className="mb-1.5 font-pixel text-[7px] uppercase text-[#7fdfff]/80">Components · {bp.model.slots.length} · hover for info</p>
+                <div className="flex flex-wrap gap-1">
+                  {bp.model.slots.map((s, i) => (
+                    <SlotChip key={`${s.slot}-${i}`} slot={s} accent={bp.model.palette.accent} />
+                  ))}
+                </div>
               </div>
 
               <div className="grid grid-cols-2 gap-x-4 gap-y-1 rounded border border-white/10 bg-white/[0.02] p-2">
@@ -281,9 +346,7 @@ export function WeaponGenerator({ onBack }: { onBack: () => void }) {
               />
 
               <div className="flex items-center justify-between font-pixel text-[7px] uppercase">
-                <span className={dupPct >= 85 ? 'text-[#ff6f9a]' : 'text-[#aef5c8]/80'}>
-                  {near ? `Closest ${dupPct}% · ${near.match.name}` : 'Unique — no matches'}
-                </span>
+                <span className={dupPct >= 85 ? 'text-[#ff6f9a]' : 'text-[#aef5c8]/80'}>{near ? `Closest ${dupPct}% · ${near.match.name}` : 'Unique — no matches'}</span>
                 <span className="text-white/40">{bp.dna.featureHash}</span>
               </div>
 
@@ -296,11 +359,7 @@ export function WeaponGenerator({ onBack }: { onBack: () => void }) {
                 >
                   {isKept ? '✓ Kept' : '✓ Keep for bake'}
                 </button>
-                <button
-                  type="button"
-                  onClick={() => navigator.clipboard?.writeText(JSON.stringify(bp, null, 2))}
-                  className="min-h-[30px] rounded border border-white/20 bg-white/[0.04] px-3 font-pixel text-[8px] uppercase text-white/60 hover:bg-white/10"
-                >
+                <button type="button" onClick={() => navigator.clipboard?.writeText(JSON.stringify(bp, null, 2))} className="min-h-[30px] rounded border border-white/20 bg-white/[0.04] px-3 font-pixel text-[8px] uppercase text-white/60 hover:bg-white/10">
                   ⧉ Copy JSON
                 </button>
               </div>
