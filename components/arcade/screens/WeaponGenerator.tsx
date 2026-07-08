@@ -169,7 +169,8 @@ export function WeaponGenerator({ onBack }: { onBack: () => void }) {
   };
 
   return (
-    <div className="absolute inset-0 z-40 flex flex-col gap-3 overflow-y-auto bg-[#05070c] p-4 text-white">
+    <div className="absolute inset-0 z-40 flex flex-col bg-[#05070c] text-white">
+      <div className="flex flex-1 flex-col gap-3 overflow-y-auto p-4">
       <div className="flex items-center justify-between">
         <h2 className="font-pixel text-[10px] uppercase tracking-[0.2em] text-[#7fdfff]">⚙ DEV · DNA WEAPON GENERATOR</h2>
         <button type="button" onClick={onBack} className="min-h-[28px] rounded border border-white/20 bg-white/[0.04] px-3 font-pixel text-[8px] uppercase text-white/60 hover:bg-white/10">
@@ -388,9 +389,11 @@ export function WeaponGenerator({ onBack }: { onBack: () => void }) {
         </div>
       </div>
 
+      </div>
+
       {/* ── TEST RANGE — enlarged preview + Test Fire (visual + audio) ── */}
       {expanded && bp && (
-        <div className="absolute inset-0 z-[70] flex flex-col bg-[#05070c]/96 p-4">
+        <div className="absolute inset-0 z-[70] flex flex-col bg-[#05070c] p-4">
           <div className="flex items-center justify-between">
             <h3 className="font-pixel text-[10px] uppercase tracking-[0.2em] text-[#7fdfff]">🎯 {bp.name} · TEST RANGE</h3>
             <button type="button" onClick={() => setExpanded(false)} className="min-h-[30px] rounded border border-white/20 bg-white/[0.04] px-3 font-pixel text-[8px] uppercase text-white/60 hover:bg-white/10">
