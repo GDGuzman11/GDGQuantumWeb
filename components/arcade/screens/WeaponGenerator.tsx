@@ -94,7 +94,7 @@ export function WeaponGenerator({ onBack }: { onBack: () => void }) {
   };
 
   return (
-    <div className="flex h-full w-full flex-col gap-3 overflow-y-auto p-4 text-white">
+    <div className="absolute inset-0 z-40 flex flex-col gap-3 overflow-y-auto bg-[#05070c] p-4 text-white">
       <div className="flex items-center justify-between">
         <h2 className="font-pixel text-[10px] uppercase tracking-[0.2em] text-[#7fdfff]">⚙ DEV · DNA WEAPON GENERATOR</h2>
         <button type="button" onClick={onBack} className="min-h-[28px] rounded border border-white/20 bg-white/[0.04] px-3 font-pixel text-[8px] uppercase text-white/60 hover:bg-white/10">
