@@ -9,6 +9,7 @@
  */
 import { useCallback, useMemo, useRef, useState } from 'react';
 import { GunPreview } from './GunPreview';
+import { sfx } from '../engine/audio';
 import type { Family } from '../fps/weapons';
 import { DESIGN_DNA, type DesignDNA } from '../fps/gen/dna';
 import { DIVISION_IDS, GEN_DIVISIONS, type GenDivisionId } from '../fps/gen/divisions';
@@ -95,9 +96,19 @@ export function WeaponGenerator({ onBack }: { onBack: () => void }) {
   const [source, setSource] = useState<'ai' | 'fallback' | null>(null);
   const [note, setNote] = useState('');
   const [kept, setKept] = useState<WeaponBlueprint[]>([]);
+  const [expanded, setExpanded] = useState(false);
+  const [fireNonce, setFireNonce] = useState(0);
   const seedRef = useRef(1);
 
   const bp = batch[cur] ?? null;
+
+  // Test fire: kick the muzzle-flash/recoil in the preview + play the weapon's audio
+  // (its selected audio family), so you see + hear the gun fire.
+  const testFire = useCallback(() => {
+    if (!bp) return;
+    setFireNonce((n) => n + 1);
+    sfx.playWeaponFire(bp.id, bp.family);
+  }, [bp]);
 
   const runGenerate = useCallback(async () => {
     setBusy(true);
@@ -281,7 +292,16 @@ export function WeaponGenerator({ onBack }: { onBack: () => void }) {
 
           <div className="relative h-56 w-full rounded-lg border border-white/10 bg-gradient-to-b from-[#0b0f16] to-[#05070c]">
             {bp ? (
-              <GunPreview key={bp.id} gunId={bp.id} />
+              <>
+                <GunPreview key={bp.id} gunId={bp.id} onExpand={() => setExpanded(true)} />
+                <button
+                  type="button"
+                  onClick={() => setExpanded(true)}
+                  className="absolute bottom-2 right-2 rounded border border-[#7fdfff]/40 bg-black/50 px-2 py-1 font-pixel text-[7px] uppercase text-[#7fdfff] backdrop-blur-sm hover:bg-black/70"
+                >
+                  ⤢ Test range
+                </button>
+              </>
             ) : (
               <div className="flex h-full items-center justify-center font-pixel text-[8px] uppercase text-white/30">Pick DNA · Generate</div>
             )}
@@ -367,6 +387,46 @@ export function WeaponGenerator({ onBack }: { onBack: () => void }) {
           )}
         </div>
       </div>
+
+      {/* ── TEST RANGE — enlarged preview + Test Fire (visual + audio) ── */}
+      {expanded && bp && (
+        <div className="absolute inset-0 z-[70] flex flex-col bg-[#05070c]/96 p-4">
+          <div className="flex items-center justify-between">
+            <h3 className="font-pixel text-[10px] uppercase tracking-[0.2em] text-[#7fdfff]">🎯 {bp.name} · TEST RANGE</h3>
+            <button type="button" onClick={() => setExpanded(false)} className="min-h-[30px] rounded border border-white/20 bg-white/[0.04] px-3 font-pixel text-[8px] uppercase text-white/60 hover:bg-white/10">
+              ✕ Close
+            </button>
+          </div>
+          <div className="relative mt-3 flex-1 overflow-hidden rounded-lg border border-white/10 bg-gradient-to-b from-[#0b0f16] to-[#05070c]">
+            <GunPreview key={`big-${bp.id}`} gunId={bp.id} fireNonce={fireNonce} />
+          </div>
+          <div className="mt-3 flex flex-wrap items-center justify-center gap-3">
+            <button
+              type="button"
+              onClick={testFire}
+              className="min-h-[46px] rounded-md border border-[#ff7a3a]/60 bg-[#ff7a3a]/15 px-8 font-pixel text-[12px] uppercase text-[#ff7a3a] transition-transform hover:bg-[#ff7a3a]/25 active:scale-95"
+            >
+              🔥 Test Fire
+            </button>
+            <label className="flex items-center gap-2 font-pixel text-[8px] uppercase text-white/60">
+              <span>Audio</span>
+              <select
+                value={bp.audio.family}
+                onChange={(e) => patch((b) => (b.audio.family = e.target.value as AudioFamily))}
+                className="rounded border border-white/15 bg-black/40 px-2 py-1.5 font-pixel text-[9px] uppercase text-white outline-none"
+              >
+                {AUDIO_FAMILIES.map((f) => (
+                  <option key={f} value={f}>
+                    {f}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <span className="font-pixel text-[8px] uppercase text-white/45">{bp.family} · dmg {bp.stats.dmg} · rate {bp.stats.rate}s</span>
+          </div>
+          <p className="mt-2 text-center font-pixel text-[7px] uppercase text-white/35">Drag to rotate · Test Fire shows the muzzle flash + recoil and plays the selected audio</p>
+        </div>
+      )}
     </div>
   );
 }
