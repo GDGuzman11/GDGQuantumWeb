@@ -22,6 +22,7 @@ import { makeModularArena, buildFromLayout, makeSampleLayout } from './fps/kit/g
 import { resolveLevel, buildBossArena, campaignTotalLevels, isBossLevel, isGauntletLevel, bossKindFor, GAUNTLET_ORDER } from './fps/kit/levels';
 import { LevelEditor } from './screens/LevelEditor';
 import { WeaponGenerator } from './screens/WeaponGenerator';
+import { ArmorGenerator } from './screens/ArmorGenerator';
 import type { LevelLayout } from './fps/kit/layout';
 import { makePlayer3 } from './fps/physics';
 import { spawnEnemies, spawnBosses, spawnBossMinions, makeHuntMemory, assignSquadHomes, fireteamCount, BOSSES, SQUAD_SIZE, type BossKind, type Difficulty, type HuntMemory, type Squad } from './fps/enemy';
@@ -38,7 +39,7 @@ import { milestoneBonus, stageFor } from './fps/arsenal/familiarity';
 import { sfx } from './engine/audio';
 import { THEME_LIST } from './fps/kit/themes';
 
-type Mode = 'menu' | 'loadout' | 'play' | 'shop' | 'complete' | 'customize' | 'editor' | 'weapongen' | 'arsenal' | 'armory' | 'division' | 'premium';
+type Mode = 'menu' | 'loadout' | 'play' | 'shop' | 'complete' | 'customize' | 'editor' | 'weapongen' | 'armorgen' | 'arsenal' | 'armory' | 'division' | 'premium';
 type Loadout = { p1: string; p2: string; sa: string; th: string };
 
 // Final gauntlet: the 5 TOUGHEST bosses (by HP), one per round, ordered hardest-last.
@@ -906,6 +907,9 @@ export function FpsGame({ initialRun, initialScreen, onRunSave, onRunEnd, onScor
                   <button type="button" onClick={() => setMode('weapongen')} className="min-h-[30px] rounded border border-[#7fdfff]/50 bg-[#7fdfff]/10 px-4 font-pixel text-[8px] uppercase text-[#7fdfff] transition-colors hover:bg-[#7fdfff]/20">
                     ✦ Weapon Gen
                   </button>
+                  <button type="button" onClick={() => setMode('armorgen')} className="min-h-[30px] rounded border border-[#aef5c8]/50 bg-[#aef5c8]/10 px-4 font-pixel text-[8px] uppercase text-[#aef5c8] transition-colors hover:bg-[#aef5c8]/20">
+                    ⬡ Armor Gen
+                  </button>
                 </div>
                 <p className="font-pixel text-[7px] tracking-[0.2em] text-[#ffd27a]/80">⚙ DEV · WARP TO BOSS</p>
                 <div className="flex flex-wrap justify-center gap-1">
@@ -1017,6 +1021,8 @@ export function FpsGame({ initialRun, initialScreen, onRunSave, onRunEnd, onScor
         {mode === 'editor' && <LevelEditor onPlay={playLayout} onBack={() => setMode('menu')} />}
 
         {mode === 'weapongen' && <WeaponGenerator onBack={() => setMode('menu')} />}
+
+        {mode === 'armorgen' && <ArmorGenerator onBack={() => setMode('menu')} />}
 
         {mode === 'arsenal' && <FpsArsenal astro={astro} onSpend={spendAstro} onBack={() => setMode('menu')} />}
 
