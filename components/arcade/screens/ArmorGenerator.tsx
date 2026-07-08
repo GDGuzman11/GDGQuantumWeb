@@ -14,7 +14,12 @@ import { DIVISION_IDS, GEN_DIVISIONS, type GenDivisionId } from '../fps/gen/divi
 import { generateArmorBlueprint } from '../fps/gen/armorClient';
 import { armorSets, registerArmorSet } from '../fps/gen/armorSets';
 import { armorSetPieces } from '../fps/marine/parts';
+import { statLayers } from '../fps/marine/stats';
+import { ARMOR_STAT_LABEL, type ArmorStat } from '../fps/marine/slots';
+import { StatBar } from './StatBar';
 import type { ArmorSetBlueprint } from '../fps/gen/armorBlueprint';
+
+const STAT_ORDER: ArmorStat[] = ['armor', 'mobility', 'shield', 'recovery'];
 
 const chip = (active: boolean) =>
   `min-h-[26px] rounded border px-2 py-1 font-pixel text-[7px] uppercase leading-tight transition-colors ${
@@ -34,6 +39,7 @@ export function ArmorGenerator({ onBack }: { onBack: () => void }) {
   const seedRef = useRef(1);
 
   const pieces = useMemo(() => (set ? armorSetPieces(set.id) : []), [set]);
+  const layers = useMemo(() => (set ? statLayers(set.division, pieces) : null), [set, pieces]);
 
   const runGenerate = useCallback(async () => {
     setBusy(true);
@@ -179,6 +185,20 @@ export function ArmorGenerator({ onBack }: { onBack: () => void }) {
                 </span>
               </div>
               <div className="font-pixel text-[7px] uppercase text-white/45">{pieces.length} pieces · DNA {set.dna.primary} × {set.dna.secondary}</div>
+              {layers && (
+                <div className="rounded border border-white/10 bg-white/[0.02] p-2 font-pixel">
+                  <div className="mb-1.5 flex items-center justify-between text-[7px] uppercase">
+                    <span className="text-white/55">Full-set rating</span>
+                    <span className="text-[#aef5c8]">{layers.rating}/100</span>
+                  </div>
+                  <div className="flex flex-col gap-1.5">
+                    {STAT_ORDER.map((k) => (
+                      <StatBar key={k} label={ARMOR_STAT_LABEL[k]} base={layers.base[k]} added={layers.added[k]} delta={layers.base[k] > 0 ? layers.added[k] / layers.base[k] : 0} compact />
+                    ))}
+                  </div>
+                  <p className="mt-1 text-[6px] text-white/35">Cyan = {GEN_DIVISIONS[set.division as GenDivisionId]?.name ?? set.division} base · green = this set adds</p>
+                </div>
+              )}
               <textarea
                 value={set.lore}
                 onChange={(e) => patch((b) => (b.lore = e.target.value.slice(0, 400)))}
