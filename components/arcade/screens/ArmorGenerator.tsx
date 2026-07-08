@@ -28,6 +28,8 @@ export function ArmorGenerator({ onBack }: { onBack: () => void }) {
   const [secondary, setSecondary] = useState<DesignDNA>('Military Standard');
   const [set, setSet] = useState<ArmorSetBlueprint | null>(null);
   const [busy, setBusy] = useState(false);
+  const [source, setSource] = useState<'ai' | 'fallback' | null>(null);
+  const [note, setNote] = useState('');
   const [kept, setKept] = useState<ArmorSetBlueprint[]>([]);
   const seedRef = useRef(1);
 
@@ -35,11 +37,17 @@ export function ArmorGenerator({ onBack }: { onBack: () => void }) {
 
   const runGenerate = useCallback(async () => {
     setBusy(true);
-    const res = await generateArmorBlueprint({ primary, secondary, division, seed: (seedRef.current += 1) });
+    setNote('');
+    const existing = armorSets()
+      .filter((s) => s.id !== set?.id)
+      .map((s) => `${s.name} (${s.division})`);
+    const res = await generateArmorBlueprint({ primary, secondary, division, existing, seed: (seedRef.current += 1) });
     registerArmorSet(res.blueprint);
     setSet(res.blueprint);
+    setSource(res.source);
+    if (res.note) setNote(res.note);
     setBusy(false);
-  }, [primary, secondary, division]);
+  }, [primary, secondary, division, set?.id]);
 
   const patch = useCallback((mut: (b: ArmorSetBlueprint) => void) => {
     setSet((prev) => {
@@ -112,7 +120,7 @@ export function ArmorGenerator({ onBack }: { onBack: () => void }) {
               ))}
             </div>
           </div>
-          <div>
+          <div className="flex flex-wrap items-center gap-2">
             <button
               type="button"
               disabled={busy}
@@ -121,7 +129,9 @@ export function ArmorGenerator({ onBack }: { onBack: () => void }) {
             >
               {busy ? '… GENERATING' : set ? '↻ Regenerate' : '✦ Generate set'}
             </button>
+            {source && <span className="font-pixel text-[7px] uppercase text-white/45">{source === 'ai' ? '◆ AI' : '◇ FALLBACK'}</span>}
           </div>
+          {note && <p className="font-pixel text-[6px] leading-relaxed text-[#ffd27a]/70">{note}</p>}
 
           {kept.length > 0 && (
             <div className="mt-1 rounded border border-white/10 bg-white/[0.03] p-2">
