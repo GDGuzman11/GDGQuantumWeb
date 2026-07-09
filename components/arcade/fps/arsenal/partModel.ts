@@ -232,6 +232,9 @@ export function buildPartMesh(spec: PartModelSpec, tier: RenderTier): THREE.Grou
 interface Anchor {
   pos: [number, number, number];
   rot?: [number, number, number];
+  /** Per-gun size match: scale the part mesh so it fits THIS gun's dimensions (a barrel
+   *  on a long carbine vs a stubby pistol). Number = uniform; tuple = per-axis. */
+  scale?: number | [number, number, number];
   hide?: string; // base mesh name to hide when this slot is equipped
 }
 const SLOT_ANCHORS: Record<string, Partial<Record<SlotKind, Anchor>>> = {
@@ -323,8 +326,10 @@ export function hasSlots(_weaponId: string): boolean {
 }
 
 /** Generic anchor for a slot, derived from the base model's bounding box, so ANY weapon
- *  without a bespoke SLOT_ANCHORS entry still mounts parts in sensible places (additive —
- *  no base-mesh hiding). Convention: −Z is the muzzle/front, +Z the rear, +Y up. */
+ *  without a bespoke SLOT_ANCHORS entry still mounts parts in sensible places, SIZED to
+ *  the gun (a part mesh is tuned for a mid rifle, so it's scaled to this gun's footprint)
+ *  and overlaid on the part it represents rather than floating off the hull. Convention:
+ *  −Z is the muzzle/front, +Z the rear, +Y up. (Additive — no base-mesh hiding.) */
 function defaultAnchor(slot: SlotKind, b: THREE.Box3): Anchor {
   const cx = (b.min.x + b.max.x) / 2;
   const cy = (b.min.y + b.max.y) / 2;
@@ -334,38 +339,45 @@ function defaultAnchor(slot: SlotKind, b: THREE.Box3): Anchor {
   const top = b.max.y;
   const bot = b.min.y;
   const side = b.max.x;
-  const P = (x: number, y: number, z: number): Anchor => ({ pos: [x, y, z] });
+  // Size the part to this gun. Part meshes are authored for a ~mid rifle (max dim ≈ 0.9);
+  // scale by this gun's overall size so a launcher gets a big barrel and a pistol a small
+  // one. Clamped so it never gets grotesque.
+  const maxDim = Math.max(b.max.x - b.min.x, b.max.y - b.min.y, b.max.z - b.min.z);
+  const s = Math.max(0.7, Math.min(1.7, maxDim / 0.9));
+  const A = (x: number, y: number, z: number): Anchor => ({ pos: [x, y, z], scale: s });
+  const halfLen = 0.15 * s; // ~half a scaled barrel/tube part, to overlay the muzzle region
   switch (slot) {
     case 'barrel':
     case 'tube':
     case 'emitter':
     case 'warhead':
-      return P(cx, cy, front - 0.02);
+      // sit the part ON the front of the gun (its muzzle end lands ~at the hull front)
+      return A(cx, cy + (top - cy) * 0.15, front + halfLen * 1.9);
     case 'optic':
     case 'scope':
     case 'sight':
     case 'targeting':
-      return P(cx, top + 0.02, cz);
+      return A(cx, top - 0.005 * s, cz - (cz - front) * 0.1); // flush on the top rail, slightly forward
     case 'magazine':
     case 'feed':
-      return P(cx, bot - 0.02, cz + 0.04);
+      return A(cx, bot + 0.02 * s, cz + 0.04); // seated in the magwell, hanging down
     case 'rear':
     case 'stock':
     case 'reactor':
-      return P(cx, cy, rear + 0.03);
+      return A(cx, cy, rear - 0.02 * s); // butts against the rear of the receiver
     case 'cooling':
-      return P(side + 0.02, cy + 0.03, cz - 0.04);
+      return A(side - 0.01 * s, cy + (top - cy) * 0.3, cz - 0.04);
     case 'core':
-      return P(cx, cy, cz + (rear - cz) * 0.5);
+      return A(cx, cy, cz + (rear - cz) * 0.4);
     case 'stabilizer':
     case 'stability':
-      return P(cx, bot - 0.01, cz);
+      return A(cx, bot + 0.01 * s, cz);
     case 'bolt':
-      return P(side + 0.02, cy + 0.02, cz + 0.05);
+      return A(side - 0.01 * s, cy + 0.02, cz + 0.05);
     case 'grip':
-      return P(cx, bot - 0.03, cz + 0.08);
+      return A(cx, bot + 0.02 * s, cz + 0.08);
     default:
-      return P(cx, cy, cz);
+      return A(cx, cy, cz);
   }
 }
 
@@ -387,6 +399,10 @@ export function buildEngineeredGun(id: string, tier: RenderTier, equipped: EngPa
       if (m) m.visible = false;
     }
     const pm = buildPartMesh(part.model, tier);
+    if (a.scale != null) {
+      if (typeof a.scale === 'number') pm.scale.setScalar(a.scale);
+      else pm.scale.set(a.scale[0], a.scale[1], a.scale[2]);
+    }
     pm.position.set(a.pos[0], a.pos[1], a.pos[2]);
     if (a.rot) pm.rotation.set(a.rot[0], a.rot[1], a.rot[2]);
     pm.name = `eng:${part.slot}`;
