@@ -173,17 +173,3 @@ export async function verifyEmail(token: string): Promise<AuthResult> {
   ]);
   return { ok: true };
 }
-
-/** Resend a verification email to the signed-in user (used from the hub later). */
-export async function resendVerification(): Promise<AuthResult> {
-  const user = await getSessionUser();
-  if (!user) return { ok: false, error: 'Please sign in first.' };
-  if (user.emailVerified) return { ok: true };
-  try {
-    const token = await createToken(user.id, 'verify', VERIFY_TTL_MS);
-    await sendAccountEmail('verify', user.email, `${siteUrl}/verify/${token}`);
-  } catch (err) {
-    console.error('[auth] resend verify failed:', err);
-  }
-  return { ok: true };
-}
