@@ -38,6 +38,44 @@ There are **two tracking files**:
 
 **Status** (PM keeps this current):
 ```
+═══════════════ STARSHELL — FIT-TO-SLOT PARTS + ARMOR OVERHAUL + DEAD-CODE CLEANUP (2026-07-09, Gabe-driven, main session) ═══════════════
+Three connected pieces of work shipped since the 2026-06-27 entry (each step QA-green: tsc 0, lint 0, `next build`
+exit 0; `/` First Load held 94 kB; game code stays code-split to `/arcade`). All on `main` (site) + the standalone
+Starshell repo, both pushed. Headless-verified throughout; the VISUAL gate (Gabe eyeballs the pieces in the dev
+Marine/Armory + loadout preview + in-game viewmodel) is still OPEN.
+1) FIT-TO-SLOT PART REPLACEMENT — a bought engineering component now REPLACES the gun/armor part it upgrades instead
+   of sitting ON TOP of it (Gabe's idea). New shared `fps/fit.ts` (`fitToSlot`/`fitByCore`/`meshesByName`/`localBox`):
+   hide the tagged base mesh(es), measure their box, scale+fit the component into it — flush by construction, sized
+   from what it replaced (per-slot mode axisZ/footprint/hang/fill). WEAPONS: `buildEngineeredGun` (arsenal/partModel)
+   rewritten to slot-replace with a legacy-anchor fallback; base meshes tagged `base:<slot>` across every PLAYABLE
+   family (rifles/mg/laser/sniper/launcher/pistol) — 46 slots replace-and-fit (headless-verified); exotic animated
+   parts (rotary clusters/coils/beams/revolver cylinders) keep their motion + overlay. GENERATOR: static generated
+   slots tagged `base:<slot>` so components replace them too. PREMIUM 32 guns DEFERRED (not wired into the loadout/
+   engineering flow — zero runtime effect today; improved `defaultAnchor` overlay covers them if ever wired). ARMOR:
+   hybrid — structural slots (helmet/chest/shoulders/upperArms/forearms/thighs/shins/boots) REPLACE the recruit
+   shell tagged `armor:<slot>` on the humanoid (`enemies/models/humanoid.ts`; metadata only, enemies unchanged; the
+   single arm box split into upper/fore shells; legs use their thigh/shin/foot meshes across all leg styles);
+   additive slots (belt/hip/knees/gloves/backpack/core/comms/insignia) still OVERLAY (no base shell to replace).
+2) MOVING-PART REALISM (Gabe rule — "no spinning magazines/helmets"): weapons — a parse-level allow-list in
+   `gen/blueprint.ts` (`sanitizeMoving`; covers AI + fallback + baked `generated.json`): spin/coil only on rotary
+   slots, bolt only on bolt/slide, glow anywhere (fixed RUST OUTRIDER's spinning mag). Armor — spin restricted to
+   the power core + backpack only (chests/shoulders/plates/helmet sensors pulse, never spin). HELMET+VISOR MERGED
+   into one head component (removed the recruit + phantom visor slots + the whole visor subsystem); `buildHelmet`
+   rewritten so every division shares ONE consistent head SHAPE (skull tagged `fitcore`, sized by `fitByCore` so
+   antennas/crown/beacon never squash it) and differs only in the LOOK (Gabe: keep the head shape, change the look;
+   the bespoke product helmets' distinct skull proportions kept as-is by Gabe's call). Fixed a floating base visor
+   (a `hide:<slot>` tag clears the recruit visor/crest/antenna on helmet-equip WITHOUT shifting the fit box).
+3) DEAD-CODE CLEANUP (extensive, Gabe-requested; knip + ts-prune + per-symbol verification): deleted 30 retired
+   files — the entire old snap-deck/chrome-bust front-end (`components/{chrome,deck,hero,hero/tunnel,sections/*,
+   sky/NightSky,home/HeroStage,helix/HelixMark,ui/CtaLink}` + `lib/{pointer,pulse,reveal,tilt,warp,world}`) — plus
+   3 unused deps (gsap, @react-three/drei, three-stdlib; lock reconciled; `postprocessing` KEPT, live in the orb),
+   the visor subsystem, 7 dead CSS keyframes (grain-shift/glitch/crack/shard/holo-out), and 8 verified-dead exports
+   (buildTrooper→EnemyParts type-only, DEFAULT_LOADOUT/THROWABLE, getBlueprint, isDuplicate, allArmorSlots,
+   ARMOR_SLOT_IDS, deleteLayout, resendVerification). Net 46 files, +8/-4623 lines; `/` First Load unchanged at 94 kB.
+OPEN/next (Gabe): the VISUAL playtest of the weapon + armor fit-to-slot; optional — per-slot fit boxes for the
+additive armor slots (belt/hip/knees/gloves/backpack/core/comms so they size to the body region, still overlaid),
+and wiring the 32 premium guns into the engineering flow.
+═════════════════════════════════════════════════════════════════════════════════════
 ═══════════════ STARSHELL — MAJOR ARCADE OVERHAULS (2026-06-27, Gabe-driven, main session) ═══════════════
 Five big `/arcade` upgrades shipped since the 2026-06-24 entry (each phase QA-green: tsc 0, lint 0, `npm run
 build` exit 0; `/` First Load held ~94 kB — the game stays code-split/isolated; `/arcade` ~322 kB). All
