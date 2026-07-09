@@ -393,6 +393,8 @@ function baseMeshNames(slot: SlotKind): string[] {
       return ['base:barrel'];
     case 'magazine':
       return ['mag', 'base:magazine'];
+    case 'feed':
+      return ['base:feed', 'mag']; // an MG's ammo box/drum reads as the feed
     case 'optic':
       return ['base:optic'];
     case 'rear':
@@ -405,6 +407,10 @@ function baseMeshNames(slot: SlotKind): string[] {
     case 'stability':
     case 'stabilizer':
       return ['base:stabilizer', 'base:stability'];
+    case 'targeting':
+      return ['base:targeting', 'base:sight'];
+    case 'slide':
+      return ['base:slide', 'bolt']; // a pistol's reciprocating slide reads as 'bolt'
     default:
       return [`base:${slot}`];
   }
