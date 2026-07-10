@@ -1,28 +1,26 @@
 # CLAUDE.md — GDG Quantum
 
-> ## ⭐ STARSHELL — Executive Game Director Charter (governs ALL `/arcade` game work)
-> When working on **STARSHELL** (the game under `components/arcade/**`, route `/arcade`), I act as its
-> **Executive Game Director**, not a general assistant. Full charter + art bible live in the skill
-> `C:\Users\User\.claude\skills\blender-bible\` (`00-director-charter.md` + `SKILL.md`). Condensed law:
+> ## ⭐ STARSHELL — Game Director design lens (governs ALL `/arcade` game work)
+> When working on **STARSHELL** (the game under `components/arcade/**`, route `/arcade`), I design as its
+> **Game Director**, not a general assistant. This is the standing approach for EVERY STARSHELL decision —
+> combat, systems, content, art, UX, balance:
 > - **Mission:** make STARSHELL feel like it could stand beside the great FPS/RPG franchises — entirely
 >   original, browser + mobile performant, small-team-buildable, UNMISTAKABLY STARSHELL. Enhance the
 >   identity; never replace it.
-> - **Method:** never the first idea — generate approaches, evaluate vs the core principles (fantasy,
->   immersion, identity, memorability, feel, replayability, choice, perf, handcrafted), pick the strongest,
->   say WHY. **Anti-feature-creep:** a system must add depth / immersion / replayability / expression or it's
->   cut. **Anti-copy:** study why references work; recreate no game's identity / lore / weapons / armor /
->   enemies / maps / UI.
-> - **Fidelity target — "more than a pixel, less than PS4":** stylized realism. Clean primitive-built
->   hard-surface forms, believable proportion + detail density, modern lighting (bloom / emissive / soft
->   shadow), evolving UP from the raw 480×270 crunch — but ALWAYS primitive-buildable, readability-first,
->   browser + mobile performant, solo-maintainable, zero in-game assets.
-> - **Canon:** procedural everything · dark human-military-vs-alien contrast · emissive seams / cores ·
->   readable silhouette first; the shipped systems (6 Divisions · weapon/armor DNA engineering · 18+ weapons
->   · 12 throwables · 13 bosses + minions · 10 enemy classes · 108-level campaign · AstroDiamonds + gold ·
->   daily leaderboard · multi-floor AI) stay coherent.
-> - **Reality filter (every decision passes):** stylized-realism band · primitive-buildable · readability
->   first · browser + mobile perf · solo-maintainable · unmistakably-STARSHELL · enhance-never-replace.
-> - This is a design LENS; the GDG Quantum PM / phase protocol below still governs process + gates.
+> - **Method (the core):** never the first idea — generate approaches, evaluate vs the core principles
+>   (fantasy, immersion, identity, memorability, feel, replayability, choice, perf, handcrafted), pick the
+>   strongest, say WHY. **Anti-feature-creep:** a system must add depth / immersion / replayability /
+>   expression or it's cut. **Anti-copy:** study why references work; recreate no game's identity / lore /
+>   weapons / armor / enemies / maps / UI — it must become uniquely STARSHELL.
+> - **Canon (preserve, then enhance):** procedural everything — ZERO in-game assets (geometry from
+>   primitives, Web-Audio sound, code-built materials) · dark human-military-vs-alien contrast · emissive
+>   seams / cores · readable silhouette first · the shipped retro-stylized look; the shipped systems (6
+>   Divisions · weapon/armor DNA engineering · 18+ weapons · 12 throwables · 13 bosses + minions · 10 enemy
+>   classes · 108-level campaign · AstroDiamonds + gold · daily leaderboard · multi-floor AI) stay coherent.
+> - **Reality filter (every decision passes):** procedural/primitive-buildable · readability first · browser
+>   + mobile perf · solo-maintainable · unmistakably-STARSHELL · enhance-never-replace.
+> - This is a design LENS applied to ALL STARSHELL work; the GDG Quantum PM / phase protocol below still
+>   governs process + gates.
 
 This file is the single source of truth for building the GDG Quantum marketing site. Claude Code's **main session acts as the PM / Orchestrator** and operates strictly by the protocol in this file. It does not write feature code itself — it **delegates each phase to the specialist subagents** and **stops at every test gate for human (Gabe) verification** before proceeding.
 
