@@ -66,6 +66,11 @@ export interface Enemy {
   wakeAtHp?: number; // boss HP fraction at/below which this reinforcement wakes
   destructible?: 'beacon' | 'shield'; // a deployable object (no AI), shootable
   enh?: boolean; // ENHANCED gauntlet variant (bigger, faster, more aggressive)
+  // Two-phase ARTILLERY: a gun (cls 'artillery') linked by pairId to a dormant pilot
+  // (cls 'jetpack') that ejects + flies when the gun is destroyed.
+  pairId?: number; // links a siege gun to its dormant jetpack pilot
+  airborne?: boolean; // jetpack pilot is flying (skip grounding; runs flight AI)
+  artCd?: number; // artillery: seconds until the next shell
 }
 
 // Energy shield carried by every regular enemy: starts at 3/4 of max HP, absorbs
@@ -267,6 +272,8 @@ const CLASS: Record<EnemyClass, ClassDef> = {
   elite: { range: 9, angle: 1.1, strafe: 0.7, speedMul: 1.1, hp: 1.5, viewMul: 1.15 }, // fast flank
   commander: { range: 20, angle: 0.2, strafe: 0.3, speedMul: 0.85, hp: 2.0, viewMul: 1.1 }, // stays back, calm
   berserker: { range: 2.5, angle: 0.0, strafe: 0.3, speedMul: 1.3, hp: 1.6, viewMul: 1.0 }, // charges to melee
+  artillery: { range: 80, angle: 0.0, strafe: 0.0, speedMul: 0.0, hp: 3.0, viewMul: 1.4 }, // static siege gun, long reach, tanky
+  jetpack: { range: 24, angle: 0.5, strafe: 0.9, speedMul: 1.25, hp: 1.1, viewMul: 1.15 }, // agile aerial fighter
 };
 
 /** Every squad is a fixed 5-man fireteam: a CAPTAIN who steadies their aim, ONE
@@ -653,6 +660,27 @@ export function spawnEnemies(lvl: Level3D, nSquads: number, level: number, diff:
       out.push({ x, y: 0, z, health: hp, maxHealth: hp, shield: hp * SHIELD_FRAC, maxShield: hp * SHIELD_FRAC, shieldRegenT: 0, state: 'idle', lastSeen: null, fireCd: rand() * 0.6, hitFlash: 0, wander: rand() * 6, step: 0, alarm: 0, weapon, cls, side, barUntil: 0, boss: null, track: 0, muzzle: 0, stunT: 0, slowT: 0, blindT: 0, burnT: 0, burnDps: 0, onDeck: false, perch, squadId: s });
     }
   }
+
+  // TWO ARTILLERY emplacements on the enemy's back line, at the OPPOSITE flanks of that
+  // edge — rear siege guns raining arc-shells on the approach. Each carries a DORMANT
+  // jetpack pilot (pairId-linked) that ejects + flies when the gun is destroyed.
+  const mk = (x: number, z: number, cls: EnemyClass, hpMul: number, shieldFrac: number, extra: Partial<Enemy>): Enemy => {
+    const hp = ENEMY_HP * hpMul * P.hpMul * hpRamp;
+    return { x, y: 0, z, health: hp, maxHealth: hp, shield: hp * shieldFrac, maxShield: hp * shieldFrac, shieldRegenT: 0, state: 'idle', lastSeen: null, fireCd: rand() * 0.6, hitFlash: 0, wander: rand() * 6, step: 0, alarm: 0, weapon: 'rifle', cls, side: 1, barUntil: 0, boss: null, track: 0, muzzle: 0, stunT: 0, slowT: 0, blindT: 0, burnT: 0, burnDps: 0, onDeck: false, perch: null, squadId: 0, ...extra };
+  };
+  let flankI = 0;
+  for (const flank of [-1, 1] as const) {
+    let gx = Math.max(-half + 8, Math.min(half - 8, a.x + flank * half * 0.6));
+    let gz = a.z;
+    for (let guard = 0; guard < 30; guard++) {
+      if (Math.abs(gx) <= half - 6 && Math.abs(gz) <= half - 6 && !blocked(lvl, gx, gz)) break;
+      gx = Math.max(-half + 8, Math.min(half - 8, a.x + flank * half * 0.6 + (rand() - 0.5) * 16));
+      gz = a.z + (rand() - 0.5) * 12;
+    }
+    const pid = 900 + flankI++;
+    out.push(mk(gx, gz, 'artillery', CLASS.artillery.hp, 0, { pairId: pid, side: flank, artCd: 2.5 + rand() * 2 }));
+    out.push(mk(gx, gz, 'jetpack', CLASS.jetpack.hp, SHIELD_FRAC, { pairId: pid, side: flank, dormant: true }));
+  }
   return out;
 }
 
@@ -963,6 +991,10 @@ export function updateEnemies(
   const buildings: Footprint[] = enemies.some((e) => e.boss)
     ? (lvl.modules ?? []).map((m) => ({ cx: m.cx, cz: m.cz, hx: m.sx / 2, hz: m.sz / 2 }))
     : [];
+  // Building footprints for ARTILLERY building-flush targeting (all levels; cheap map).
+  const artBuildings: Footprint[] = enemies.some((e) => e.cls === 'artillery')
+    ? (lvl.modules ?? []).map((m) => ({ cx: m.cx, cz: m.cz, hx: m.sx / 2, hz: m.sz / 2 }))
+    : [];
   const mem = squad.mem;
   for (let i = 0; i < enemies.length; i++) {
     if (sees[i]) {
@@ -1116,6 +1148,24 @@ export function updateEnemies(
     }
   }
 
+  // ARTILLERY two-phase: when a siege gun is destroyed, EJECT its dormant jetpack
+  // pilot at the gun's spot — it wakes airborne and flies (the once-`p.dormant` guard
+  // means each gun ejects its pilot exactly once).
+  for (const g of enemies) {
+    if (g.cls === 'artillery' && g.health <= 0 && g.pairId != null) {
+      const pilot = enemies.find((p) => p.cls === 'jetpack' && p.pairId === g.pairId && p.dormant && p.health > 0);
+      if (pilot) {
+        pilot.dormant = false;
+        pilot.airborne = true;
+        pilot.x = g.x;
+        pilot.z = g.z;
+        pilot.y = 3;
+        pilot.state = 'alert';
+        squad.aggroUntil = now + 3000;
+      }
+    }
+  }
+
   // Pass 2: act on personal or shared knowledge.
   for (let i = 0; i < enemies.length; i++) {
     const e = enemies[i];
@@ -1123,6 +1173,64 @@ export function updateEnemies(
     if (e.dormant) continue; // reinforcement not yet woken
     if (e.hitFlash > 0) e.hitFlash -= dt;
     if (e.destructible) continue; // deployable object — no AI, just shootable
+
+    // ── ARTILLERY siege gun (static): long-range arcing bombardment ────────────────
+    if (e.cls === 'artillery') {
+      e.muzzle = Math.max(0, e.muzzle - dt);
+      if (e.stunT > 0) { e.stunT -= dt; continue; }
+      e.artCd = (e.artCd ?? 3) - dt;
+      const tgt = sees[i] ? { x: player.x, z: player.z } : haveIntel ? squad.lastKnown : null;
+      if (tgt && !combatLock && (e.artCd ?? 0) <= 0) {
+        // Building-flush: if you're inside a structure footprint, walk shells across it.
+        const inB = artBuildings.find((b) => Math.abs(tgt.x - b.cx) <= b.hx && Math.abs(tgt.z - b.cz) <= b.hz);
+        const aimX = inB ? inB.cx + (Math.random() * 2 - 1) * inB.hx : tgt.x + pvx * 0.8;
+        const aimZ = inB ? inB.cz + (Math.random() * 2 - 1) * inB.hz : tgt.z + pvz * 0.8;
+        const dd = Math.hypot(aimX - e.x, aimZ - e.z) || 1;
+        const my = e.y + 3.2; // muzzle high on the angled barrel
+        bossShots.push({ kind: 'grenade', x: e.x, y: my, z: e.z, dir: [aimX - e.x, dd * 0.55, aimZ - e.z], speed: 26, dmg: Math.round(22 * P.dmgMul), color: 0xff7a2a, splash: 4.2, gravity: 24 });
+        bossTelegraphs.push({ kind: 'eruption', x: aimX, z: aimZ, radius: 4.8, delay: 1.0 });
+        // WALL DESTRUCTION: chip nearby breakable boxes at the impact (bunker-buster).
+        const from: Vec3 = [e.x, my, e.z];
+        let hitN = 0;
+        for (const b of lvl.boxes) {
+          if (b.dead || b.indestructible) continue;
+          if (Math.abs(b.x - aimX) < 4.5 && Math.abs(b.z - aimZ) < 4.5) {
+            wallHits.push({ box: b, dmg: 60 * P.dmgMul, from, x: b.x, y: b.y, z: b.z, color: 0xff7a2a });
+            if (++hitN >= 4) break;
+          }
+        }
+        e.artCd = (inB ? 2.6 : 3.4) + Math.random() * 1.6;
+        e.muzzle = 0.25;
+      }
+      continue;
+    }
+    // ── JETPACK fighter (airborne): rise, orbit at standoff, strafe, fire down ──────
+    if (e.cls === 'jetpack') {
+      e.muzzle = Math.max(0, e.muzzle - dt);
+      if (e.stunT > 0) { e.stunT -= dt; continue; }
+      const FLY_ALT = 9;
+      e.airborne = true;
+      e.y += (FLY_ALT - e.y) * Math.min(1, dt * 1.4); // rise/hover to altitude
+      const known = sees[i] ? { x: player.x, z: player.z } : haveIntel ? squad.lastKnown : null;
+      if (known) {
+        const dx = known.x - e.x;
+        const dz = known.z - e.z;
+        const dd = Math.hypot(dx, dz) || 1;
+        const radial = Math.abs(dd - CLASS.jetpack.range) < 3 ? 0 : Math.sign(dd - CLASS.jetpack.range);
+        let mx = (dx / dd) * radial + (-dz / dd) * e.side * 0.9; // approach/retreat + orbit strafe
+        let mz = (dz / dd) * radial + (dx / dd) * e.side * 0.9;
+        const ml = Math.hypot(mx, mz) || 1;
+        const sp = P.speed * CLASS.jetpack.speedMul * (e.slowT > 0 ? 0.5 : 1) * dt;
+        const lim = lvl.size / 2 - 2;
+        e.x = Math.max(-lim, Math.min(lim, e.x + (mx / ml) * sp));
+        e.z = Math.max(-lim, Math.min(lim, e.z + (mz / ml) * sp));
+        e.step += sp * 1.3;
+      }
+      if (e.slowT > 0) e.slowT -= dt;
+      if (sees[i]) fireAt(e, true); // fire down from altitude (reuses the standard path)
+      continue;
+    }
+
     if (e.alarm > 0) e.alarm -= dt;
     // Shield regen: paused for a few seconds after any hit, then slowly refills.
     if (e.shieldRegenT > 0) e.shieldRegenT -= dt;

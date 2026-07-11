@@ -980,6 +980,8 @@ export function useFpsLoop(
               let mult = 1;
               if (e.boss) {
                 t = raySphere(eye, sdir, [e.x, e.y + BOSSES[e.boss].scale, e.z], BOSSES[e.boss].radius);
+              } else if (e.cls === 'artillery') {
+                t = raySphere(eye, sdir, [e.x, e.y + 2.6, e.z], 3.6); // big siege-gun emplacement
               } else if (e.destructible) {
                 t = raySphere(eye, sdir, [e.x, e.y + 1.0, e.z], e.destructible === 'shield' ? 3.0 : ENEMY_R); // shield = a wide blocker
               } else {
