@@ -280,12 +280,8 @@ const HEAL_RATE = 55; // HP/s a healer restores to a nearby wounded ally
  *  so cover still matters most of the time. */
 const BREAKERS = new Set<EnemyClass>(['tank', 'breacher', 'suppressor', 'commander']);
 
-const R = 0.45; // collision radius (kept modest so 2×-visual enemies still fit doors/nav)
+const R = 0.45; // collision radius
 const EYE_H = 1.4;
-/** Regular squad enemies render + hit-test at 2× (Gabe: "twice as big"). Collision R
- *  stays modest on purpose so the taller troopers still path through doors/openings —
- *  only the visual model + body hit-spheres scale. */
-export const ENEMY_SCALE = 2;
 
 interface Params {
   acc: number; // hit-chance scaler (feeds diffMul in fireAt)

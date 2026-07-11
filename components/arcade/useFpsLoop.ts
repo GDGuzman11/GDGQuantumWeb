@@ -5,7 +5,7 @@ import * as THREE from 'three';
 import { buildWorld, type World } from './fps/scene';
 import { EYE, MAX_PITCH, launchPlayer, pushPlayer, startGrapple, stepPlayer, type Player3 } from './fps/physics';
 import type { Level3D } from './fps/level3d';
-import { updateEnemies, hurtEnemy, BOSSES, ENEMY_SCALE, type Difficulty, type Enemy, type Squad, type Smoke } from './fps/enemy';
+import { updateEnemies, hurtEnemy, BOSSES, type Difficulty, type Enemy, type Squad, type Smoke } from './fps/enemy';
 import { rayWallBox, raySphere, segBlocked, type Vec3 } from './fps/combat';
 import type { Box } from './fps/level3d';
 import { bossTex } from './fps/textures';
@@ -57,15 +57,12 @@ const LIMB_MULT = 0.75;
 /** Ray vs a non-boss enemy's body (legs+torso+head spheres, sized to a ~2 m humanoid).
  *  Returns the nearest entry distance + the zone damage multiplier (Infinity = miss). */
 function bodyHit(eye: Vec3, dir: Vec3, e: Enemy): { t: number; mult: number } {
-  // Scale the body spheres to the enemy's rendered size: regular squad troopers are
-  // ENEMY_SCALE (2×); minions use their own scale (also fixes their old flat hit boxes).
-  const s = e.minion ? MINIONS[e.minion].scale : ENEMY_SCALE;
-  const legs = raySphere(eye, dir, [e.x, e.y + 0.55 * s, e.z], 0.6 * s);
-  const torso = raySphere(eye, dir, [e.x, e.y + 1.25 * s, e.z], 0.55 * s);
-  const head = raySphere(eye, dir, [e.x, e.y + 1.72 * s, e.z], 0.3 * s);
+  const legs = raySphere(eye, dir, [e.x, e.y + 0.55, e.z], 0.6);
+  const torso = raySphere(eye, dir, [e.x, e.y + 1.25, e.z], 0.55);
+  const head = raySphere(eye, dir, [e.x, e.y + 1.72, e.z], 0.3);
   const t = Math.min(legs, torso, head);
   if (!isFinite(t)) return { t: Infinity, mult: 1 };
-  const iy = (eye[1] + dir[1] * t - e.y) / s; // impact height above the feet, normalized to model scale
+  const iy = eye[1] + dir[1] * t - e.y; // impact height above the feet
   const mult = iy > 1.5 ? HEADSHOT_MULT : iy > 1.05 ? CHEST_MULT : iy > 0.7 ? 1 : LIMB_MULT;
   return { t, mult };
 }
@@ -484,9 +481,8 @@ export function useFpsLoop(
           world!.scene.add(m);
           return m;
         }
-        // Regular enemies are 3D models, one per doctrine class — 2× (Gabe: "twice as big").
+        // Regular enemies are 3D models, one per doctrine class.
         const m = buildEnemyModel(e.cls, tier);
-        m.scale.setScalar(ENEMY_SCALE);
         world!.scene.add(m);
         return m;
       });
@@ -1748,8 +1744,7 @@ export function useFpsLoop(
 
           if (showBar) {
             const ratio = Math.max(0, e.health / e.maxHealth);
-            // Float the bar above the (now taller) regular troopers; bosses/minions/deployables keep theirs.
-            const by = e.y + (e.boss || e.minion || e.destructible ? 2.6 : 2.6 * ENEMY_SCALE);
+            const by = e.y + 2.6;
             barBg[i].position.set(e.x, by, e.z);
             barFill[i].position.set(e.x, by, e.z);
             barFill[i].scale.x = 1.4 * ratio;
