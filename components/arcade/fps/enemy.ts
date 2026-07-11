@@ -274,7 +274,7 @@ const CLASS: Record<EnemyClass, ClassDef> = {
   elite: { range: 9, angle: 1.1, strafe: 0.7, speedMul: 1.1, hp: 1.5, viewMul: 1.15 }, // fast flank
   commander: { range: 20, angle: 0.2, strafe: 0.3, speedMul: 0.85, hp: 2.0, viewMul: 1.1 }, // stays back, calm
   berserker: { range: 2.5, angle: 0.0, strafe: 0.3, speedMul: 1.3, hp: 1.6, viewMul: 1.0 }, // charges to melee
-  artillery: { range: 80, angle: 0.0, strafe: 0.0, speedMul: 0.0, hp: 3.0, viewMul: 1.4 }, // static siege gun, long reach, tanky
+  artillery: { range: 80, angle: 0.0, strafe: 0.0, speedMul: 0.0, hp: 3.0, viewMul: 1.8 }, // static siege gun, long reach + wide sensor sight (MGs to 40 m), tanky
   jetpack: { range: 24, angle: 0.5, strafe: 0.9, speedMul: 1.25, hp: 1.1, viewMul: 1.15 }, // agile aerial fighter
 };
 
@@ -1182,7 +1182,7 @@ export function updateEnemies(
     if (e.cls === 'artillery') {
       e.muzzle = Math.max(0, e.muzzle - dt);
       const distA = Math.hypot(player.x - e.x, player.z - e.z);
-      const MG_RANGE = 20; // inside this, the twin MGs transform out and fire directly
+      const MG_RANGE = 40; // inside this, the twin MGs transform out and fire directly
       const deploying = distA <= MG_RANGE && sees[i]; // deploy only with a clean sightline
       e.mgT = deploying ? Math.min(1, (e.mgT ?? 0) + dt * 1.8) : Math.max(0, (e.mgT ?? 0) - dt * 1.8);
       if (e.stunT > 0) { e.stunT -= dt; continue; }
@@ -1207,17 +1207,19 @@ export function updateEnemies(
       e.artCd = (e.artCd ?? 3) - dt;
       const tgt = sees[i] || haveIntel || acquired ? (haveIntel && !sees[i] ? squad.lastKnown! : { x: player.x, z: player.z }) : null;
       if (tgt && !combatLock && acquired && (e.artCd ?? 0) <= 0) {
-        const approx = !sees[i]; // no clean sight → aim scatter (approximate knowledge)
-        const scat = approx ? 5 : 0;
+        const approx = !sees[i]; // no clean sight → wider aim scatter (approximate knowledge)
+        // ACCURACY scales with range: it only knows you ROUGHLY at distance (a big miss
+        // radius), tightening sharply as you close in — ~50% less accurate than before.
+        const rangeFrac = Math.max(0, Math.min(1, (distA - MG_RANGE) / (CLASS.artillery.range - MG_RANGE)));
+        const scat = (approx ? 1 : 0.55) * (2 + rangeFrac * 11); // ~2 m near the MG edge → ~13 m far
         const inB = artBuildings.find((b) => Math.abs(tgt.x - b.cx) <= b.hx && Math.abs(tgt.z - b.cz) <= b.hz);
         const aimX = (inB ? inB.cx + (Math.random() * 2 - 1) * inB.hx : tgt.x + pvx * 0.8) + (Math.random() * 2 - 1) * scat;
         const aimZ = (inB ? inB.cz + (Math.random() * 2 - 1) * inB.hz : tgt.z + pvz * 0.8) + (Math.random() * 2 - 1) * scat;
         const dx = aimX - e.x;
         const dz = aimZ - e.z;
         const dd = Math.hypot(dx, dz) || 1;
-        // launch angle scales with range: ~22° at the MG edge → ~66° at max reach.
-        const frac = Math.max(0, Math.min(1, (dd - MG_RANGE) / (CLASS.artillery.range - MG_RANGE)));
-        const theta = 0.38 + frac * 0.77;
+        // launch angle scales with TRUE range: ~22° near the MG edge → ~66° at max reach.
+        const theta = 0.38 + rangeFrac * 0.77;
         const G = 24;
         const v = Math.sqrt((dd * G) / Math.max(0.35, Math.sin(2 * theta))); // speed to land at range dd
         const vh = v * Math.cos(theta);
