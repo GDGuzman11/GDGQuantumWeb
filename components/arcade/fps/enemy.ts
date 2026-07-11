@@ -71,6 +71,8 @@ export interface Enemy {
   pairId?: number; // links a siege gun to its dormant jetpack pilot
   airborne?: boolean; // jetpack pilot is flying (skip grounding; runs flight AI)
   artCd?: number; // artillery: seconds until the next shell
+  mgT?: number; // artillery: dual-MG deploy amount (0 retracted … 1 deployed)
+  mgFireCd?: number; // artillery: close-range MG fire cadence
 }
 
 // Energy shield carried by every regular enemy: starts at 3/4 of max HP, absorbs
@@ -678,7 +680,8 @@ export function spawnEnemies(lvl: Level3D, nSquads: number, level: number, diff:
       gz = a.z + (rand() - 0.5) * 12;
     }
     const pid = 900 + flankI++;
-    out.push(mk(gx, gz, 'artillery', CLASS.artillery.hp, 0, { pairId: pid, side: flank, artCd: 2.5 + rand() * 2 }));
+    // Artillery carries 4× the Tank's shield (same HP mult as the tank → shieldFrac ×4).
+    out.push(mk(gx, gz, 'artillery', CLASS.artillery.hp, SHIELD_FRAC * 4, { pairId: pid, side: flank, artCd: 2.5 + rand() * 2, mgT: 0 }));
     out.push(mk(gx, gz, 'jetpack', CLASS.jetpack.hp, SHIELD_FRAC, { pairId: pid, side: flank, dormant: true }));
   }
   return out;
@@ -1174,21 +1177,53 @@ export function updateEnemies(
     if (e.hitFlash > 0) e.hitFlash -= dt;
     if (e.destructible) continue; // deployable object — no AI, just shootable
 
-    // ── ARTILLERY siege gun (static): long-range arcing bombardment ────────────────
+    // ── ARTILLERY siege gun (static): distance-scaled arc bombardment + close-range
+    //    deployable DUAL MACHINE GUNS. Acquires your approx. position ~4 s in. ────────
     if (e.cls === 'artillery') {
       e.muzzle = Math.max(0, e.muzzle - dt);
+      const distA = Math.hypot(player.x - e.x, player.z - e.z);
+      const MG_RANGE = 20; // inside this, the twin MGs transform out and fire directly
+      const deploying = distA <= MG_RANGE && sees[i]; // deploy only with a clean sightline
+      e.mgT = deploying ? Math.min(1, (e.mgT ?? 0) + dt * 1.8) : Math.max(0, (e.mgT ?? 0) - dt * 1.8);
       if (e.stunT > 0) { e.stunT -= dt; continue; }
+      const acquired = elapsed >= 4; // ~4 s in it knows roughly where you are
+
+      if (distA <= MG_RANGE) {
+        // CLOSE: dual machine guns rip directly at you once transformed out.
+        e.mgFireCd = (e.mgFireCd ?? 0) - dt;
+        if (sees[i] && !combatLock && (e.mgT ?? 0) > 0.6 && (e.mgFireCd ?? 0) <= 0) {
+          e.mgFireCd = 0.11; // rapid dual fire
+          e.muzzle = 0.09;
+          const my = e.y + 2.0;
+          tracers.push({ from: [e.x - 1.3, my, e.z], to: peye, color: 0xffcf6a });
+          tracers.push({ from: [e.x + 1.3, my, e.z], to: peye, color: 0xffcf6a });
+          if (Math.random() < (0.45 + P.acc) * (pspeed > 4 ? 0.7 : 1)) damage += 6 * P.dmgMul;
+        }
+        continue;
+      }
+
+      // FAR/MEDIUM: lob a shell. Launch ANGLE scales with distance (far = high steep
+      // lob, near the MG edge = flatter) via a ballistic solve so it lands on target.
       e.artCd = (e.artCd ?? 3) - dt;
-      const tgt = sees[i] ? { x: player.x, z: player.z } : haveIntel ? squad.lastKnown : null;
-      if (tgt && !combatLock && (e.artCd ?? 0) <= 0) {
-        // Building-flush: if you're inside a structure footprint, walk shells across it.
+      const tgt = sees[i] || haveIntel || acquired ? (haveIntel && !sees[i] ? squad.lastKnown! : { x: player.x, z: player.z }) : null;
+      if (tgt && !combatLock && acquired && (e.artCd ?? 0) <= 0) {
+        const approx = !sees[i]; // no clean sight → aim scatter (approximate knowledge)
+        const scat = approx ? 5 : 0;
         const inB = artBuildings.find((b) => Math.abs(tgt.x - b.cx) <= b.hx && Math.abs(tgt.z - b.cz) <= b.hz);
-        const aimX = inB ? inB.cx + (Math.random() * 2 - 1) * inB.hx : tgt.x + pvx * 0.8;
-        const aimZ = inB ? inB.cz + (Math.random() * 2 - 1) * inB.hz : tgt.z + pvz * 0.8;
-        const dd = Math.hypot(aimX - e.x, aimZ - e.z) || 1;
+        const aimX = (inB ? inB.cx + (Math.random() * 2 - 1) * inB.hx : tgt.x + pvx * 0.8) + (Math.random() * 2 - 1) * scat;
+        const aimZ = (inB ? inB.cz + (Math.random() * 2 - 1) * inB.hz : tgt.z + pvz * 0.8) + (Math.random() * 2 - 1) * scat;
+        const dx = aimX - e.x;
+        const dz = aimZ - e.z;
+        const dd = Math.hypot(dx, dz) || 1;
+        // launch angle scales with range: ~22° at the MG edge → ~66° at max reach.
+        const frac = Math.max(0, Math.min(1, (dd - MG_RANGE) / (CLASS.artillery.range - MG_RANGE)));
+        const theta = 0.38 + frac * 0.77;
+        const G = 24;
+        const v = Math.sqrt((dd * G) / Math.max(0.35, Math.sin(2 * theta))); // speed to land at range dd
+        const vh = v * Math.cos(theta);
         const my = e.y + 3.2; // muzzle high on the angled barrel
-        bossShots.push({ kind: 'grenade', x: e.x, y: my, z: e.z, dir: [aimX - e.x, dd * 0.55, aimZ - e.z], speed: 26, dmg: Math.round(22 * P.dmgMul), color: 0xff7a2a, splash: 4.2, gravity: 24 });
-        bossTelegraphs.push({ kind: 'eruption', x: aimX, z: aimZ, radius: 4.8, delay: 1.0 });
+        bossShots.push({ kind: 'grenade', x: e.x, y: my, z: e.z, dir: [(dx / dd) * vh, v * Math.sin(theta), (dz / dd) * vh], speed: v, dmg: Math.round(22 * P.dmgMul), color: 0xff7a2a, splash: 4.2, gravity: G });
+        bossTelegraphs.push({ kind: 'eruption', x: aimX, z: aimZ, radius: 4.8, delay: Math.min(1.6, 0.7 + dd * 0.012) });
         // WALL DESTRUCTION: chip nearby breakable boxes at the impact (bunker-buster).
         const from: Vec3 = [e.x, my, e.z];
         let hitN = 0;

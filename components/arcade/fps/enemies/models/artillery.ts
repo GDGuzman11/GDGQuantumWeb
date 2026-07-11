@@ -56,6 +56,28 @@ export function buildArtilleryGun(tier: RenderTier): THREE.Group {
   g.add(cylY(0.08, 2.2, steel, -1.6, 2.6, 0.4));
   g.add(box(0.3, 0.2, 0.1, glow, -1.6, 3.7, 0.4));
 
+  // DUAL MACHINE GUNS — deploy out of the turret sides when the player gets close.
+  // Stored retracted (scale 0); the loop ramps their scale via the enemy's `mgT`.
+  const mgFire = accent(0xffcf6a, tier, 2.2);
+  const mkMG = (sx: number): THREE.Group => {
+    const pod = new THREE.Group();
+    pod.position.set(sx * 1.4, 1.7, 0.5);
+    pod.add(box(0.4, 0.4, 0.7, dark, 0, 0, 0)); // housing
+    pod.add(cylZ(0.09, 1.5, steel, -0.1, 0.05, 0.9)); // barrel 1
+    pod.add(cylZ(0.09, 1.5, steel, 0.1, -0.05, 0.9)); // barrel 2
+    const flash = box(0.28, 0.28, 0.16, mgFire, 0, 0, 1.6); // muzzle flash (dimmed unless firing)
+    flash.name = 'mgFlash';
+    pod.add(flash);
+    pod.scale.setScalar(0.001); // retracted
+    return pod;
+  };
+  const mgL = mkMG(-1);
+  const mgR = mkMG(1);
+  g.add(mgL, mgR);
+  g.userData.mgL = mgL;
+  g.userData.mgR = mgR;
+  g.userData.mgFlash = mgFire;
+
   g.userData.bodyMats = [armor, dark, steel];
   return g;
 }
