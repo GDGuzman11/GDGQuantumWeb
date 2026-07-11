@@ -280,8 +280,12 @@ const HEAL_RATE = 55; // HP/s a healer restores to a nearby wounded ally
  *  so cover still matters most of the time. */
 const BREAKERS = new Set<EnemyClass>(['tank', 'breacher', 'suppressor', 'commander']);
 
-const R = 0.45; // collision radius
+const R = 0.45; // collision radius (kept modest so 2×-visual enemies still fit doors/nav)
 const EYE_H = 1.4;
+/** Regular squad enemies render + hit-test at 2× (Gabe: "twice as big"). Collision R
+ *  stays modest on purpose so the taller troopers still path through doors/openings —
+ *  only the visual model + body hit-spheres scale. */
+export const ENEMY_SCALE = 2;
 
 interface Params {
   acc: number; // hit-chance scaler (feeds diffMul in fireAt)
@@ -295,9 +299,10 @@ const PARAMS: Record<Difficulty, Params> = {
   // `view` = how close a regular bot must be to acquire you (LoS still required).
   // Kept well under the arena size so they DON'T spot you across the map at spawn.
   // Difficulty now scales damage + HP too (not just hit chance), for a real curve.
-  normal: { acc: 0.2, rate: 1.25, speed: 2.3, view: 24, dmgMul: 0.85, hpMul: 0.85 },
-  hard: { acc: 0.34, rate: 0.92, speed: 2.9, view: 30, dmgMul: 1.05, hpMul: 1.0 },
-  nightmare: { acc: 0.48, rate: 0.7, speed: 3.4, view: 38, dmgMul: 1.3, hpMul: 1.2 },
+  // speed bumped ~10% (Gabe) — bigger AND a touch quicker, still dodgeable.
+  normal: { acc: 0.2, rate: 1.25, speed: 2.53, view: 24, dmgMul: 0.85, hpMul: 0.85 },
+  hard: { acc: 0.34, rate: 0.92, speed: 3.19, view: 30, dmgMul: 1.05, hpMul: 1.0 },
+  nightmare: { acc: 0.48, rate: 0.7, speed: 3.74, view: 38, dmgMul: 1.3, hpMul: 1.2 },
 };
 
 interface Footprint {
