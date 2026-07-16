@@ -38,9 +38,12 @@ const BLOOM = {
   mobile: { intensity: 0.7, luminanceThreshold: 0.62, luminanceSmoothing: 0.2, kernelSize: KernelSize.SMALL, radius: 0.55 },
 } as const;
 
-// Subtle "graded" look — punchier contrast + a little more colour so shapes separate
-// from the dark arena. Procedural (no LUT asset — keeps the zero-asset canon).
-const GRADE = { brightness: 0.02, contrast: 0.16, saturation: 0.14 };
+// Subtle "graded" look — a little more COLOUR so shapes separate from the dark arena.
+// Procedural (no LUT asset — keeps the zero-asset canon). NOTE: contrast is kept at 0 —
+// positive contrast pushes bright pixels brighter and, stacked on bloom, clipped the
+// (large, bright) sky to solid white. Saturation adds vividness WITHOUT brightening, so
+// it's sky-safe. To re-introduce punch later, do it highlight-safe via a tone-mapper.
+const GRADE = { brightness: 0.0, contrast: 0.0, saturation: 0.12 };
 
 // Bright thin edge on enemies so they pop off dark walls at range (desktop only).
 const OUTLINE = { edgeStrength: 3.2, visibleEdgeColor: 0x9fe8ff, hiddenEdgeColor: 0x1a2634 };
