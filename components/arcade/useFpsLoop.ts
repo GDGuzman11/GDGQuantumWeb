@@ -282,7 +282,10 @@ export function useFpsLoop(
     let renderScale = tier === 'mobile' ? 0.8 : 1.0;
     let fpsFrames = 0;
     let fpsTimer = 0;
-    const BASE_H = 270;
+    // Desktop renders at a higher base (360 vs the old 270) so the map + distant
+    // enemies read clearly — still chunky/pixelated. Mobile stays at 270 to protect
+    // phone perf. Dynamic-res still scales this down under load.
+    const BASE_H = tier === 'mobile' ? 270 : 360;
     const MIN_H = 150;
     const MAX_H = 430;
     const resize = () => {
@@ -436,6 +439,9 @@ export function useFpsLoop(
       } else {
         composer.renderPass.mainScene = world.scene;
       }
+      // Repoint the enemy-outline effect at the new scene (its internal depth/mask
+      // passes hold their own scene ref, so a level rebuild must update it).
+      if (composer.outline) composer.outline.mainScene = world.scene;
       // Build the viewmodel once; (re)load the active gun for this level.
       if (!viewmodel) viewmodel = new Viewmodel(tier, RW / RH);
       viewmodel.setGun(g.guns[g.active].id, g.gunParts?.[g.active]);
@@ -1600,6 +1606,7 @@ export function useFpsLoop(
         }
 
         // Enemy actors (3D models for regulars, billboard sprites for bosses).
+        const outlineSel: THREE.Object3D[] = []; // live enemies fed to the outline effect
         for (let i = 0; i < sprites.length; i++) {
           const e = g.enemies[i];
           const s = sprites[i];
@@ -1616,6 +1623,7 @@ export function useFpsLoop(
           barBg[i].visible = showBar;
           barFill[i].visible = showBar;
           barShield[i].visible = showBar && e.shield > 0;
+          if (alive) outlineSel.push(s); // pop off the map (desktop outline pass)
           if (!alive) {
             // Death: sprite bosses vanish; 3D bosses + enemies topple then go.
             if (e.boss) {
@@ -1770,6 +1778,8 @@ export function useFpsLoop(
             }
           }
         }
+        // Feed the live enemies to the outline pass so they pop off the map (desktop).
+        if (composer?.outline) composer.outline.selection.set(outlineSel);
         for (let i = tracers.length - 1; i >= 0; i--) {
           if (now > tracers[i].until) {
             world?.scene.remove(tracers[i].line);
