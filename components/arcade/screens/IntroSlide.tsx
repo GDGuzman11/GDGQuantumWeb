@@ -83,9 +83,9 @@ export function IntroSlide({ onDone, reducedMotion = false, volume = 0.85 }: { o
       <div className="absolute bottom-6 right-4 max-w-[min(88vw,420px)] border-l-2 border-[#ff7a2a]/80 bg-black/55 px-4 py-3 backdrop-blur-sm sm:bottom-10 sm:right-8">
         <p className="font-pixel text-[8px] uppercase tracking-[0.28em] text-[#ff7a2a]/90">{'// OUTLANDER'}</p>
         <p className="mt-2 text-[12px] leading-relaxed text-white/90 sm:text-[13px]">
-          They called this sector lost and left me in it. Now I&rsquo;m the only name still answering the roll &mdash;
-          standing on the ones who couldn&rsquo;t. Their fleet fills the sky like the war&rsquo;s already won.
-          It hasn&rsquo;t. Not while I&rsquo;m still loading.
+          Okay so &mdash; everyone&rsquo;s dead, there&rsquo;s a warship the size of my problems parked in the sky,
+          and I&rsquo;m standing on what&rsquo;s left of my squad. Command&rsquo;s not answering. Reinforcements aren&rsquo;t
+          coming. Fresh out of people to disappoint. Cool. Fuck it &mdash; let&rsquo;s see what I can do.
         </p>
       </div>
 
