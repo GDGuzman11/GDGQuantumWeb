@@ -23,6 +23,8 @@ import { resolveLevel, buildBossArena, campaignTotalLevels, isBossLevel, isGaunt
 import { LevelEditor } from './screens/LevelEditor';
 import { WeaponGenerator } from './screens/WeaponGenerator';
 import { ArmorGenerator } from './screens/ArmorGenerator';
+import { TitleScreen } from './screens/TitleScreen';
+import { IntroSlide } from './screens/IntroSlide';
 import type { LevelLayout } from './fps/kit/layout';
 import { makePlayer3 } from './fps/physics';
 import { spawnEnemies, spawnBosses, spawnBossMinions, makeHuntMemory, assignSquadHomes, fireteamCount, BOSSES, SQUAD_SIZE, type BossKind, type Difficulty, type HuntMemory, type Squad } from './fps/enemy';
@@ -39,7 +41,7 @@ import { milestoneBonus, stageFor } from './fps/arsenal/familiarity';
 import { sfx } from './engine/audio';
 import { THEME_LIST } from './fps/kit/themes';
 
-type Mode = 'menu' | 'loadout' | 'play' | 'shop' | 'complete' | 'customize' | 'editor' | 'weapongen' | 'armorgen' | 'arsenal' | 'armory' | 'division' | 'premium';
+type Mode = 'title' | 'intro' | 'menu' | 'loadout' | 'play' | 'shop' | 'complete' | 'customize' | 'editor' | 'weapongen' | 'armorgen' | 'arsenal' | 'armory' | 'division' | 'premium';
 type Loadout = { p1: string; p2: string; sa: string; th: string };
 
 // Final gauntlet: the 5 TOUGHEST bosses (by HP), one per round, ordered hardest-last.
@@ -97,7 +99,8 @@ export function FpsGame({ initialRun, initialScreen, onRunSave, onRunEnd, onScor
   // Squad learning, persisted across a run's levels (reset on a new campaign) so
   // later fights hunt the player smarter. The SAME object feeds every level's squad.
   const huntMemRef = useRef<HuntMemory | null>(null);
-  const [mode, setMode] = useState<Mode>('menu');
+  const [mode, setMode] = useState<Mode>('title'); // land on the cinematic Title Page
+  const [reducedMotion, setReducedMotion] = useState(false);
   const [diff, setDiff] = useState<Difficulty>('normal');
   const [squads, setSquads] = useState(2); // number of enemy fireteams per non-boss level
   const [isTouch, setIsTouch] = useState(false);
@@ -206,6 +209,11 @@ export function FpsGame({ initialRun, initialScreen, onRunSave, onRunEnd, onScor
   useEffect(() => {
     if (initialScreen === 'division') setMode('division');
   }, [initialScreen]);
+
+  // Reduced-motion (client-only, SSR-safe) for the Title Page + intro slide.
+  useEffect(() => {
+    setReducedMotion(window.matchMedia('(prefers-reduced-motion: reduce)').matches);
+  }, []);
 
   useEffect(() => {
     setIsTouch('ontouchstart' in window || (typeof navigator !== 'undefined' && navigator.maxTouchPoints > 0));
@@ -490,7 +498,7 @@ export function FpsGame({ initialRun, initialScreen, onRunSave, onRunEnd, onScor
     setRun({ level: initialRun.level, gold: initialRun.gold, maxHp: initialRun.maxHp, upgrades: initialRun.upgrades as Record<string, Upg> });
     setRunStats({ kills: 0, headshots: 0, shots: 0, hits: 0, dmg: 0, startedAt: Date.now(), endedAt: 0 });
     setRunActive(true);
-    setMode('menu'); // land in the lobby (tracker), not straight into play
+    setMode('title'); // land on the Title Page (its CONTINUE deploys the resumed run)
   }, [initialRun]);
 
   // Resume from the lobby: continue a paused level, or (re)deploy the current level.
@@ -773,6 +781,24 @@ export function FpsGame({ initialRun, initialScreen, onRunSave, onRunEnd, onScor
               </div>
             )}
           </>
+        )}
+
+        {mode === 'title' && (
+          <TitleScreen
+            canResume={runActive}
+            onNewGame={() => setMode('intro')}
+            onContinue={resumeRun}
+            onMenu={() => setMode('menu')}
+            reducedMotion={reducedMotion}
+            isTouch={isTouch}
+          />
+        )}
+        {mode === 'intro' && (
+          <IntroSlide
+            onDone={() => { setLoadoutReturn('campaign'); setMode('loadout'); }}
+            reducedMotion={reducedMotion}
+            volume={cfg.masterVol}
+          />
         )}
 
         {mode === 'play' && intro && <MatchIntro key={intro.level} level={intro.level} boss={intro.boss} onDone={() => setIntro(null)} />}
