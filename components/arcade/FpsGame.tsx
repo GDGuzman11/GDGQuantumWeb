@@ -23,6 +23,7 @@ import { resolveLevel, buildBossArena, campaignTotalLevels, isBossLevel, isGaunt
 import { LevelEditor } from './screens/LevelEditor';
 import { WeaponGenerator } from './screens/WeaponGenerator';
 import { ArmorGenerator } from './screens/ArmorGenerator';
+import { CapitalGenerator } from './screens/CapitalGenerator';
 import { TitleScreen } from './screens/TitleScreen';
 import { IntroSlide } from './screens/IntroSlide';
 import type { LevelLayout } from './fps/kit/layout';
@@ -41,7 +42,7 @@ import { milestoneBonus, stageFor } from './fps/arsenal/familiarity';
 import { sfx } from './engine/audio';
 import { THEME_LIST } from './fps/kit/themes';
 
-type Mode = 'title' | 'intro' | 'hangar' | 'menu' | 'loadout' | 'play' | 'shop' | 'complete' | 'customize' | 'editor' | 'weapongen' | 'armorgen' | 'arsenal' | 'armory' | 'division' | 'premium';
+type Mode = 'title' | 'intro' | 'hangar' | 'menu' | 'loadout' | 'play' | 'shop' | 'complete' | 'customize' | 'editor' | 'weapongen' | 'armorgen' | 'capitalgen' | 'arsenal' | 'armory' | 'division' | 'premium';
 type Loadout = { p1: string; p2: string; sa: string; th: string };
 
 // Final gauntlet: the 5 TOUGHEST bosses (by HP), one per round, ordered hardest-last.
@@ -987,6 +988,9 @@ export function FpsGame({ initialRun, initialScreen, onRunSave, onRunEnd, onScor
                   <button type="button" onClick={() => setMode('armorgen')} className="min-h-[30px] rounded border border-[#aef5c8]/50 bg-[#aef5c8]/10 px-4 font-pixel text-[8px] uppercase text-[#aef5c8] transition-colors hover:bg-[#aef5c8]/20">
                     ⬡ Armor Gen
                   </button>
+                  <button type="button" onClick={() => setMode('capitalgen')} className="min-h-[30px] rounded border border-[#ff7a2a]/50 bg-[#ff7a2a]/10 px-4 font-pixel text-[8px] uppercase text-[#ff7a2a] transition-colors hover:bg-[#ff7a2a]/20">
+                    ⬢ Capital Gen
+                  </button>
                 </div>
                 <p className="font-pixel text-[7px] tracking-[0.2em] text-[#ffd27a]/80">⚙ DEV · WARP TO BOSS</p>
                 <div className="flex flex-wrap justify-center gap-1">
@@ -1110,6 +1114,7 @@ export function FpsGame({ initialRun, initialScreen, onRunSave, onRunEnd, onScor
         {mode === 'weapongen' && <WeaponGenerator onBack={() => setMode('menu')} />}
 
         {mode === 'armorgen' && <ArmorGenerator onBack={() => setMode('menu')} />}
+        {mode === 'capitalgen' && <CapitalGenerator onBack={() => setMode('menu')} />}
 
         {mode === 'arsenal' && <FpsArsenal astro={astro} onSpend={spendAstro} onBack={() => setMode('hangar')} />}
 
