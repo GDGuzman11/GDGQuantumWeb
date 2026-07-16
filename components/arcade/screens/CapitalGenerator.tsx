@@ -37,13 +37,16 @@ export function CapitalGenerator({ onBack }: { onBack: () => void }) {
   const sceneRef = useRef<THREE.Scene | null>(null);
   const shipRef = useRef<THREE.Group | null>(null);
   const fitRef = useRef(200);
+  const recentRef = useRef<string[]>([]); // last few ship names → tell the AI to diverge every reroll
 
   const gen = async (seed?: number) => {
     setBusy(true);
-    const res = await generateCapital({ primary, secondary, existing: kept, seed });
+    const avoid = Array.from(new Set([...kept, ...recentRef.current]));
+    const res = await generateCapital({ primary, secondary, existing: avoid, seed });
     setSpec(res.spec);
     setSource(res.source);
     setNote(res.note ?? '');
+    recentRef.current = [res.spec.name, ...recentRef.current.filter((n) => n !== res.spec.name)].slice(0, 8);
     setBusy(false);
   };
 

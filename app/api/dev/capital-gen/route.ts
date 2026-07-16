@@ -37,9 +37,11 @@ function systemPrompt(): string {
   ].join('\n');
 }
 
-function userPrompt(primary: string, secondary: string, existing: string[]): string {
-  const dedup = existing.length ? `\n\nAvoid these existing ships (make something visibly distinct in silhouette, engineering, arrival): ${existing.slice(0, 30).join(', ')}.` : '';
-  return `Design one Capital Ship. PRIMARY DNA: ${primary}. SECONDARY DNA: ${secondary}.${dedup}`;
+function userPrompt(primary: string, secondary: string, existing: string[], seed: number): string {
+  const dedup = existing.length
+    ? `\n\nThese ships already exist — make THIS one clearly distinct from every one of them in hull silhouette, command-tower placement, proportions, accent colour, and arrival: ${existing.slice(0, 30).join(', ')}.`
+    : '';
+  return `Design one Capital Ship. PRIMARY DNA: ${primary}. SECONDARY DNA: ${secondary}. Design variant #${(seed >>> 0) % 100000} — commit DECISIVELY to a bold, specific silhouette for THIS variant: pick a hull form (wedge / slab / spined / tridented / cathedral) and vary length, engine, turret and bay counts so it does not read as a generic ${primary} ship. Two variants of the same DNA must look unmistakably different.${dedup}`;
 }
 
 function extractJson(text: string): unknown {
@@ -54,11 +56,11 @@ function extractJson(text: string): unknown {
   }
 }
 
-async function callClaude(key: string, primary: string, secondary: string, existing: string[]): Promise<unknown> {
+async function callClaude(key: string, primary: string, secondary: string, existing: string[], seed: number): Promise<unknown> {
   const res = await fetch(API, {
     method: 'POST',
     headers: { 'content-type': 'application/json', 'x-api-key': key, 'anthropic-version': '2023-06-01' },
-    body: JSON.stringify({ model: MODEL, max_tokens: 1600, system: systemPrompt(), messages: [{ role: 'user', content: userPrompt(primary, secondary, existing) }] }),
+    body: JSON.stringify({ model: MODEL, max_tokens: 1600, temperature: 1, system: systemPrompt(), messages: [{ role: 'user', content: userPrompt(primary, secondary, existing, seed) }] }),
   });
   if (!res.ok) throw new Error(`anthropic ${res.status}`);
   const data = (await res.json()) as { content?: { type: string; text?: string }[] };
@@ -86,10 +88,10 @@ export async function POST(req: Request) {
   const existing = Array.isArray(body.existing) ? body.existing.filter((x): x is string => typeof x === 'string') : [];
 
   try {
-    let raw = await callClaude(key, primary, secondary, existing);
+    let raw = await callClaude(key, primary, secondary, existing, seed);
     let spec = parseCapitalSpec(raw, seed);
     if (!spec) {
-      raw = await callClaude(key, primary, secondary, existing);
+      raw = await callClaude(key, primary, secondary, existing, seed);
       spec = parseCapitalSpec(raw, seed);
     }
     if (!spec) return NextResponse.json({ ok: false, error: 'invalid-json' }, { status: 502 });
