@@ -117,6 +117,7 @@ export interface FpsSnapshot {
   armor: number; // overshield (soaks damage before health)
   maxArmor: number;
   shieldOverloaded?: boolean; // overshield burnt out (recharges disabled until a shield pickup)
+  stamina?: number; // 0..1 sprint stamina
   pickupAt: number; // timestamp of the last ammo/shield pickup (HUD flash)
   weapon: string;
   family: string;
@@ -168,6 +169,9 @@ export function useFpsLoop(
   const lookDY = useRef(0);
   const fireHeld = useRef(false);
   const crouchHeld = useRef(false); // crouch toggle (C key / touch button)
+  const sprintHeld = useRef(false); // sprint held (touch button; keyboard uses Shift)
+  const stamina = useRef(1); // 0..1 sprint stamina
+  const sprintLock = useRef(false); // depleted → locked out until it recovers
   const zoomLevel = useRef(0); // 0 = hip, 1 = zoom, 2 = deep zoom (right-click cycles)
   const sens = useRef(1); // look-sensitivity multiplier (user-adjustable)
   const aimAssistOn = useRef(true); // touch aim assist (settings)
@@ -214,6 +218,9 @@ export function useFpsLoop(
   }, []);
   const setCrouch = useCallback((v: boolean) => {
     crouchHeld.current = v;
+  }, []);
+  const setSprint = useCallback((v: boolean) => {
+    sprintHeld.current = v;
   }, []);
   const setInvertY = useCallback((v: boolean) => {
     invertY.current = v;
@@ -365,6 +372,24 @@ export function useFpsLoop(
       world?.scene.remove(m);
       (m.material as THREE.Material).dispose();
     };
+    // Persistent ground scars (artillery impacts) — a capped ring buffer of flat scorch
+    // circles; the oldest recycles once the cap is hit. Cheap, no textures.
+    const scars: THREE.Mesh[] = [];
+    const addScar = (x: number, z: number, r: number) => {
+      if (!world) return;
+      if (scars.length >= 24) {
+        const old = scars.shift()!;
+        world.scene.remove(old);
+        old.geometry.dispose();
+        (old.material as THREE.Material).dispose();
+      }
+      const rad = Math.max(1.2, r) * (0.8 + Math.random() * 0.5);
+      const m = new THREE.Mesh(new THREE.CircleGeometry(rad, 14), new THREE.MeshBasicMaterial({ color: 0x120b06, transparent: true, opacity: 0.7, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -1 }));
+      m.rotation.x = -Math.PI / 2; // lay flat on the ground
+      m.position.set(x, 0.05, z);
+      world.scene.add(m);
+      scars.push(m);
+    };
     // Remove a Group (pickups/drops) — dispose its per-instance geometries; the shared
     // pkMat materials live for the whole mount.
     const clearGroup = (o: THREE.Object3D) => {
@@ -404,6 +429,8 @@ export function useFpsLoop(
       grenades.length = 0;
       smokes.length = 0;
       flashes.length = 0;
+      for (const m of scars) { world?.scene.remove(m); m.geometry.dispose(); (m.material as THREE.Material).dispose(); }
+      scars.length = 0;
       zones.length = 0;
       drops.length = 0;
       pickups.length = 0;
@@ -571,7 +598,7 @@ export function useFpsLoop(
       if (k === 'g') throwReq.current = true;
       if ((k === 'c' || k === 'control') && !e.repeat) crouchHeld.current = !crouchHeld.current; // toggle
       if (k === '1' || k === '2' || k === '3') switchReq.current = Number(k) - 1;
-      if (k === 'w' || k === 'a' || k === 's' || k === 'd' || k === ' ' || k.startsWith('arrow')) {
+      if (k === 'w' || k === 'a' || k === 's' || k === 'd' || k === ' ' || k === 'shift' || k.startsWith('arrow')) {
         if (k.startsWith('arrow') || k === ' ') e.preventDefault();
         keys.current.add(k);
       }
@@ -787,7 +814,18 @@ export function useFpsLoop(
           const jumpNow = keys.current.has(' ') || jumpReq.current;
           jumpReq.current = false;
           const crouching = crouchHeld.current && p.onGround;
-          stepPlayer(p, g.level, { fwd, strafe, jump: jumpNow, crouch: crouching }, dt, grid ?? undefined);
+          // SPRINT: hold Shift / the touch button to run faster while moving, draining
+          // stamina; it recharges when not sprinting and locks out until recovered at 0.
+          const wantSprint = (sprintHeld.current || keys.current.has('shift')) && !crouching && (Math.abs(fwd) > 0.1 || Math.abs(strafe) > 0.1);
+          const sprinting = wantSprint && !sprintLock.current && stamina.current > 0;
+          if (sprinting) {
+            stamina.current = Math.max(0, stamina.current - dt / 3.5); // ~3.5s of sprint
+            if (stamina.current <= 0) sprintLock.current = true;
+          } else {
+            stamina.current = Math.min(1, stamina.current + dt / 5); // ~5s to refill
+            if (sprintLock.current && stamina.current > 0.3) sprintLock.current = false;
+          }
+          stepPlayer(p, g.level, { fwd, strafe, jump: jumpNow, crouch: crouching, sprint: sprinting }, dt, grid ?? undefined);
           const eyeH = EYE - (crouching ? 0.55 : 0); // crouch lowers the camera/shot origin
           const pvx = (p.x - prevPos.x) / Math.max(dt, 0.001);
           const pvz = (p.z - prevPos.z) / Math.max(dt, 0.001);
@@ -1393,6 +1431,8 @@ export function useFpsLoop(
                   world.scene.add(pm);
                   bossHazards.push({ x: im.x, z: im.z, r: 2.4, until: now + 4200, dps: 14, mesh: pm });
                 }
+                // Artillery shells scorch the ground — a persistent scar the rest of the level.
+                if (im.kind === 'artyshell') addScar(im.x, im.z, im.splash || 4);
               }
             }
           }
@@ -1852,6 +1892,7 @@ export function useFpsLoop(
           snap.maxHp = g.maxHp;
           snap.armor = p.armor;
           snap.maxArmor = p.maxArmor;
+          snap.stamina = stamina.current;
           snap.weapon = gun.name;
           snap.family = gun.family;
           snap.mag = g.mags[g.active];
@@ -1944,5 +1985,5 @@ export function useFpsLoop(
     };
   }, [canvasRef, gameRef, active, onSnapshot]);
 
-  return { setMoveAxis, addLook, cycleWeapon, cycleZoom, setSensitivity, setAimAssist, setInvertY, setFire, setCrouch, throwGrenade, jump, reload, grapple };
+  return { setMoveAxis, addLook, cycleWeapon, cycleZoom, setSensitivity, setAimAssist, setInvertY, setFire, setCrouch, setSprint, throwGrenade, jump, reload, grapple };
 }

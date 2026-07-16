@@ -175,6 +175,7 @@ export function FpsHud({ snap, level, gold, astro, isTouch }: { snap: FpsSnapsho
         <div className="mb-1 flex items-center gap-1.5 text-[7px] text-white/55 sm:text-[8px]">
           <span>HP {Math.round(snap.health)}/{snap.maxHp}</span>
           {snap.armor > 0 && <span className="text-[#5ad0ff]">◆ {Math.round(snap.armor)}</span>}
+          {snap.shieldOverloaded && <span className="text-[#ff8a3a]">⚠ OVERLOAD</span>}
         </div>
         <div className="h-2 w-28 overflow-hidden rounded-full bg-white/15 sm:w-36">
           <div
@@ -186,6 +187,12 @@ export function FpsHud({ snap, level, gold, astro, isTouch }: { snap: FpsSnapsho
         {snap.armor > 0 && (
           <div className="mt-1 h-1.5 w-28 overflow-hidden rounded-full bg-white/10 sm:w-36">
             <div className="h-full bg-[#5ad0ff] transition-[width] duration-150" style={{ width: `${(snap.armor / snap.maxArmor) * 100}%` }} />
+          </div>
+        )}
+        {/* stamina bar (amber) — shown while depleting/refilling */}
+        {snap.stamina != null && snap.stamina < 0.999 && (
+          <div className="mt-1 h-1 w-28 overflow-hidden rounded-full bg-white/10 sm:w-36">
+            <div className="h-full bg-[#ffd27a] transition-[width] duration-100" style={{ width: `${snap.stamina * 100}%` }} />
           </div>
         )}
       </div>

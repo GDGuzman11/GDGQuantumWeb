@@ -1224,7 +1224,7 @@ export function updateEnemies(
         const v = Math.sqrt((dd * G) / Math.max(0.35, Math.sin(2 * theta))); // speed to land at range dd
         const vh = v * Math.cos(theta);
         const my = e.y + 3.2; // muzzle high on the angled barrel
-        bossShots.push({ kind: 'grenade', x: e.x, y: my, z: e.z, dir: [(dx / dd) * vh, v * Math.sin(theta), (dz / dd) * vh], speed: v, dmg: Math.round(22 * P.dmgMul), color: 0xff7a2a, splash: 4.2, gravity: G });
+        bossShots.push({ kind: 'artyshell', x: e.x, y: my, z: e.z, dir: [(dx / dd) * vh, v * Math.sin(theta), (dz / dd) * vh], speed: v, dmg: Math.round(22 * P.dmgMul), color: 0xff7a2a, splash: 4.2, gravity: G });
         bossTelegraphs.push({ kind: 'eruption', x: aimX, z: aimZ, radius: 4.8, delay: Math.min(1.6, 0.7 + dd * 0.012) });
         // WALL DESTRUCTION: chip nearby breakable boxes at the impact (bunker-buster).
         const from: Vec3 = [e.x, my, e.z];
