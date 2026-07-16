@@ -104,6 +104,11 @@ export interface FpsGameState {
   god?: boolean; // dev: invincible (health stays full)
   revive?: boolean; // Nano-Revive: survive one lethal hit this level (then consumed)
   elapsed: number; // seconds since the level started (combat lock + boss grace)
+  // Rechargeable overshield: refills 2s after the last hit; after a few full recharges
+  // it OVERLOADS (disabled) until a shield pickup/station re-enables it.
+  lastHitT?: number; // ms timestamp of the last damage taken
+  shieldRecharges?: number; // full recharges used this level
+  shieldOverloaded?: boolean; // overshield burnt out until re-enabled by a shield pickup
 }
 
 export interface FpsSnapshot {
@@ -111,6 +116,7 @@ export interface FpsSnapshot {
   maxHp: number;
   armor: number; // overshield (soaks damage before health)
   maxArmor: number;
+  shieldOverloaded?: boolean; // overshield burnt out (recharges disabled until a shield pickup)
   pickupAt: number; // timestamp of the last ammo/shield pickup (HUD flash)
   weapon: string;
   family: string;
@@ -660,6 +666,7 @@ export function useFpsLoop(
         // Player damage → soak the overshield first, then health. God-mode ignores it.
         const hurtPlayer = (amount: number) => {
           if (amount <= 0 || g.god) return;
+          g.lastHitT = now; // pauses the overshield recharge for 2s
           if (p.armor > 0) {
             const soak = Math.min(p.armor, amount);
             p.armor -= soak;
@@ -1472,7 +1479,8 @@ export function useFpsLoop(
             const d = drops[i];
             d.mesh.rotation.y += dt * 2.4;
             d.mesh.position.y = d.y + 0.6 + Math.sin((now - d.born) / 300) * 0.12;
-            if (Math.hypot(d.x - p.x, d.z - p.z) < 1.7 && Math.abs(p.y - d.y) < 2.2) {
+            const dropMaxed = d.kind === 'ammo' ? g.guns.every((gn, gi) => g.reserves[gi] >= Math.ceil(gn.reserve * 1.5)) : (p.armor >= p.maxArmor && !g.shieldOverloaded);
+            if (!dropMaxed && Math.hypot(d.x - p.x, d.z - p.z) < 1.7 && Math.abs(p.y - d.y) < 2.2) {
               if (d.kind === 'ammo') {
                 for (let gi = 0; gi < g.guns.length; gi++) {
                   const base = g.guns[gi].reserve;
@@ -1480,6 +1488,7 @@ export function useFpsLoop(
                 }
               } else {
                 p.armor = Math.min(p.maxArmor, p.armor + 35);
+                g.shieldOverloaded = false; g.shieldRecharges = 0;
               }
               snap.pickupAt = now;
               sfx.swap();
@@ -1504,6 +1513,7 @@ export function useFpsLoop(
                 rp.tick = 0.4;
                 refillAmmo(0.1);
                 p.armor = Math.min(p.maxArmor, p.armor + 10);
+                g.shieldOverloaded = false; g.shieldRecharges = 0; // a station re-enables the overshield
                 snap.pickupAt = now;
                 sfx.swap();
               }
@@ -1539,9 +1549,15 @@ export function useFpsLoop(
               }
               pk.mesh.rotation.y += dt * 2;
               pk.mesh.position.y = 1.0 + Math.sin((now - pk.born) / 300) * 0.13;
-              if (p.y < 3 && Math.hypot(pk.x - p.x, pk.z - p.z) < 2.2) {
+              // Only grab it if it's actually useful — a maxed resource leaves the crate
+              // on the map (full ammo skips ammo, full health skips first-aid, etc.).
+              const maxed =
+                pk.kind === 'ammo' ? g.guns.every((gn, gi) => g.reserves[gi] >= Math.ceil(gn.reserve * 1.5))
+                : pk.kind === 'shield' ? (p.armor >= p.maxArmor && !g.shieldOverloaded) // an overloaded shield is always grabbable (re-enables it)
+                : p.health >= g.maxHp;
+              if (!maxed && p.y < 3 && Math.hypot(pk.x - p.x, pk.z - p.z) < 2.2) {
                 if (pk.kind === 'ammo') refillAmmo(0.5);
-                else if (pk.kind === 'shield') p.armor = Math.min(p.maxArmor, p.armor + 50);
+                else if (pk.kind === 'shield') { p.armor = Math.min(p.maxArmor, p.armor + 50); g.shieldOverloaded = false; g.shieldRecharges = 0; }
                 else p.health = Math.min(g.maxHp, p.health + 50);
                 snap.pickupAt = now;
                 sfx.swap();
@@ -1590,6 +1606,18 @@ export function useFpsLoop(
             if (g.regenT > (g.regenDelay ?? 2)) p.health = Math.min(g.maxHp, p.health + (g.regenRate ?? 24) * dt);
           }
           if (g.god) p.health = g.maxHp; // dev god-mode: stay topped up after all damage
+          // Rechargeable OVERSHIELD: 2s after the last hit it refills; each full refill is
+          // a "recharge" and after a few it OVERLOADS (disabled) until a shield pickup/
+          // station re-enables it. Time-gated on damage only (not LoS), so it recharges in
+          // every stage — including the dev enemy-test arenas.
+          if (!g.shieldOverloaded && now - (g.lastHitT ?? 0) > 2000 && p.armor < p.maxArmor) {
+            p.armor = Math.min(p.maxArmor, p.armor + 40 * dt);
+            if (p.armor >= p.maxArmor) {
+              g.shieldRecharges = (g.shieldRecharges ?? 0) + 1;
+              if (g.shieldRecharges >= 3) g.shieldOverloaded = true;
+            }
+          }
+          snap.shieldOverloaded = g.shieldOverloaded ?? false;
           // Drive the 3D viewmodel (bob from movement; recoil/flash/reload poses
           // were triggered by the fire/reload hooks above). Drawn after the world.
           viewmodel?.update(dt, Math.hypot(pvx, pvz), g.reloading);

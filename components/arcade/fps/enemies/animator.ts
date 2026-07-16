@@ -37,23 +37,28 @@ export function poseEnemy(model: Object3D, cls: EnemyClass, moving: boolean, aim
   const A = ANIM[cls];
   const hipY = (model.userData.hipY as number) ?? 0.9;
 
-  const swing = moving ? Math.sin(step * A.gait) * A.swing : 0;
+  const ph = step * A.gait; // gait phase
+  // Legs stride opposite each other (bigger, readable steps — no more gliding).
+  const swing = moving ? Math.sin(ph) * A.swing * 1.25 : 0;
   P.legL.rotation.x = swing;
   P.legR.rotation.x = -swing;
 
+  // Arms counter-swing the legs (unless the weapon is up).
   if (aiming) {
     P.armR.rotation.x = -1.35;
     P.armL.rotation.x = -1.1;
   } else {
-    P.armR.rotation.x = -swing * 0.5 - 0.1;
-    P.armL.rotation.x = swing * 0.5 - 0.1;
+    P.armR.rotation.x = -swing * 0.85 - 0.1;
+    P.armL.rotation.x = swing * 0.85 - 0.1;
   }
 
-  const bob = moving ? Math.abs(Math.sin(step * A.gait)) * A.bob : Math.sin(now * 0.002) * 0.012;
+  // Body: two dips per stride (foot-plants), a side-to-side weight sway, and a lean into
+  // the walk — reads like real footfalls (COD-ish) instead of a sliding sprite.
+  const bob = moving ? Math.abs(Math.sin(ph)) * (A.bob + 0.06) : Math.sin(now * 0.002) * 0.012;
   P.torso.position.y = hipY + bob;
-  // Keep the built-in hunch; add a brief flinch on hit (don't decay the hunch away).
-  P.torso.rotation.x = A.hunch + (hitFlash > 0 ? 0.25 * Math.min(1, hitFlash / 0.12) : 0);
-  if (A.twist) P.torso.rotation.y = Math.sin(now * 0.0016) * A.twist * 0.12;
+  P.torso.rotation.x = A.hunch + (moving ? 0.09 : 0) + (hitFlash > 0 ? 0.25 * Math.min(1, hitFlash / 0.12) : 0);
+  P.torso.rotation.z = moving ? Math.sin(ph) * 0.07 : 0; // hip/shoulder sway
+  P.torso.rotation.y = (A.twist ? Math.sin(now * 0.0016) * A.twist * 0.12 : 0) + (moving ? Math.sin(ph) * 0.05 : 0);
 }
 
 /** Death topple — tips the model over its feet. Caller manages visibility/timing. */
