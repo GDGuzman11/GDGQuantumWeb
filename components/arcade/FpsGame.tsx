@@ -855,6 +855,11 @@ export function FpsGame({ initialRun, initialScreen, onRunSave, onRunEnd, onScor
                 ✦ Premium
               </button>
             </div>
+            {dev && (
+              <button type="button" onClick={() => setMode('menu')} className="min-h-[36px] rounded-md border border-[#ffd27a]/40 bg-[#ffd27a]/10 px-6 font-pixel text-[8px] uppercase tracking-[0.15em] text-[#ffd27a] transition-colors hover:bg-[#ffd27a]/20">
+                ⚙ Dev Tools
+              </button>
+            )}
             <button type="button" onClick={() => setShowSettings(true)} className="min-h-[36px] font-pixel text-[8px] uppercase text-white/50 transition-colors hover:text-white sm:text-[9px]">
               ⚙ Settings
             </button>
