@@ -41,7 +41,7 @@ import { milestoneBonus, stageFor } from './fps/arsenal/familiarity';
 import { sfx } from './engine/audio';
 import { THEME_LIST } from './fps/kit/themes';
 
-type Mode = 'title' | 'intro' | 'menu' | 'loadout' | 'play' | 'shop' | 'complete' | 'customize' | 'editor' | 'weapongen' | 'armorgen' | 'arsenal' | 'armory' | 'division' | 'premium';
+type Mode = 'title' | 'intro' | 'hangar' | 'menu' | 'loadout' | 'play' | 'shop' | 'complete' | 'customize' | 'editor' | 'weapongen' | 'armorgen' | 'arsenal' | 'armory' | 'division' | 'premium';
 type Loadout = { p1: string; p2: string; sa: string; th: string };
 
 // Final gauntlet: the 5 TOUGHEST bosses (by HP), one per round, ordered hardest-last.
@@ -773,7 +773,7 @@ export function FpsGame({ initialRun, initialScreen, onRunSave, onRunEnd, onScor
                   <button type="button" onClick={() => setShowSettings(true)} className="min-h-[42px] rounded-md border border-white/20 bg-white/5 px-6 text-[10px] uppercase text-white/75 transition-colors hover:bg-white/10">
                     ⚙ Settings
                   </button>
-                  <button type="button" onClick={() => { setPaused(false); setMode('menu'); }} className="min-h-[42px] rounded-md border border-[#ff5d6e]/45 bg-[#ff5d6e]/10 px-6 text-[10px] uppercase text-[#ff5d6e] transition-colors hover:bg-[#ff5d6e]/20">
+                  <button type="button" onClick={() => { setPaused(false); setMode('title'); }} className="min-h-[42px] rounded-md border border-[#ff5d6e]/45 bg-[#ff5d6e]/10 px-6 text-[10px] uppercase text-[#ff5d6e] transition-colors hover:bg-[#ff5d6e]/20">
                     ⌂ Quit to Lobby
                   </button>
                 </div>
@@ -786,9 +786,10 @@ export function FpsGame({ initialRun, initialScreen, onRunSave, onRunEnd, onScor
         {mode === 'title' && (
           <TitleScreen
             canResume={runActive}
-            onNewGame={() => setMode('intro')}
-            onContinue={resumeRun}
-            onMenu={() => setMode('menu')}
+            onNewGame={() => { if (fullBleed && !fsActive) toggleFullscreen(); setMode('intro'); }}
+            onContinue={() => { if (fullBleed && !fsActive) toggleFullscreen(); resumeRun(); }}
+            onHangar={() => setMode('hangar')}
+            onExit={onExit}
             reducedMotion={reducedMotion}
             isTouch={isTouch}
           />
@@ -812,6 +813,51 @@ export function FpsGame({ initialRun, initialScreen, onRunSave, onRunEnd, onScor
           <div className="pointer-events-none absolute left-1/2 top-14 z-[60] -translate-x-1/2 rounded-full border border-[#c8a8ff]/40 bg-black/70 px-4 py-1.5 text-center font-pixel backdrop-blur-sm [animation:gdg-fade-in_0.4s_ease-out]">
             <p className="text-[7px] tracking-[0.25em] text-[#c8a8ff]/80 sm:text-[8px]">WEAPON FAMILIARITY INCREASED</p>
             <p className="mt-0.5 text-[8px] text-white/85 sm:text-[10px]">{famNote}</p>
+          </div>
+        )}
+
+        {/* HANGAR — the persistent forever-gear hub (Marine[armor+division] · Arsenal · Premium),
+            reachable on EVERY screen size (replaces the xl-only side panels + buried Division). */}
+        {mode === 'hangar' && (
+          <div className="absolute inset-0 z-40 flex flex-col items-center gap-4 overflow-y-auto bg-black/70 px-4 py-10 backdrop-blur-[2px]">
+            <button type="button" onClick={() => setMode('title')} className="absolute left-4 top-4 z-50 min-h-[36px] rounded-md border border-white/20 bg-white/5 px-4 font-pixel text-[8px] uppercase text-white/60 transition-colors hover:bg-white/10 hover:text-white sm:text-[9px]">
+              ◂ Title
+            </button>
+            {onExit && (
+              <button type="button" onClick={onExit} className="absolute right-4 top-4 z-50 min-h-[36px] rounded-md border border-white/20 bg-white/5 px-4 font-pixel text-[8px] uppercase text-white/60 transition-colors hover:bg-white/10 hover:text-white sm:text-[9px]">
+                ◂ Console
+              </button>
+            )}
+            <p className="font-pixel text-[16px] tracking-[0.2em] text-[#7fdfff] sm:text-[22px]">HANGAR</p>
+            <div className="flex items-center justify-center gap-2 sm:gap-3">
+              <div className="flex items-center gap-1.5 rounded-full border border-[#ffd27a]/45 bg-[#ffd27a]/10 px-3 py-1.5">
+                <span className="text-[14px] leading-none text-[#ffd27a]">⛀</span>
+                <span className="font-pixel text-[6px] tracking-[0.15em] text-[#ffd27a]/70">GOLD</span>
+                <span className="font-pixel text-[11px] text-[#ffd27a]">{run.gold}</span>
+              </div>
+              <div className="flex items-center gap-1.5 rounded-full border border-[#c8a8ff]/45 bg-[#c8a8ff]/10 px-3 py-1.5">
+                <span className="text-[14px] leading-none text-[#c8a8ff]">◈</span>
+                <span className="font-pixel text-[6px] tracking-[0.15em] text-[#c8a8ff]/70">ASTRODIAMONDS</span>
+                <span className="font-pixel text-[11px] text-[#c8a8ff]">{astro}</span>
+              </div>
+            </div>
+            {/* MARINE — the avatar preview carries the Armor Bay button. */}
+            <AvatarPanel onArmory={() => setMode('armory')} />
+            {/* Forever screens — all one tap, all screen sizes. */}
+            <div className="flex w-full max-w-md flex-wrap items-center justify-center gap-2">
+              <button type="button" onClick={() => setMode('division')} className="min-h-[44px] min-w-[130px] flex-1 rounded-md border border-[#c8a8ff]/45 bg-[#c8a8ff]/10 px-4 font-pixel text-[10px] uppercase tracking-[0.12em] text-[#c8a8ff] transition-colors hover:bg-[#c8a8ff]/20">
+                ⬢ Division
+              </button>
+              <button type="button" onClick={() => setMode('arsenal')} className="min-h-[44px] min-w-[130px] flex-1 rounded-md border border-[#7fdfff]/45 bg-[#7fdfff]/10 px-4 font-pixel text-[10px] uppercase tracking-[0.12em] text-[#7fdfff] transition-colors hover:bg-[#7fdfff]/20">
+                ⚙ Arsenal
+              </button>
+              <button type="button" onClick={() => setMode('premium')} className="min-h-[44px] min-w-[130px] flex-1 rounded-md border border-[#ffd27a]/45 bg-[#ffd27a]/10 px-4 font-pixel text-[10px] uppercase tracking-[0.12em] text-[#ffd27a] transition-colors hover:bg-[#ffd27a]/20">
+                ✦ Premium
+              </button>
+            </div>
+            <button type="button" onClick={() => setShowSettings(true)} className="min-h-[36px] font-pixel text-[8px] uppercase text-white/50 transition-colors hover:text-white sm:text-[9px]">
+              ⚙ Settings
+            </button>
           </div>
         )}
 
@@ -1002,7 +1048,7 @@ export function FpsGame({ initialRun, initialScreen, onRunSave, onRunEnd, onScor
                 /* ignore */
               }
               emitProgressChanged();
-              setMode('menu');
+              setMode('title');
             }}
             onDeploy={(p1, p2, sa, th) => {
               const lo = { p1, p2, sa, th };
@@ -1016,7 +1062,17 @@ export function FpsGame({ initialRun, initialScreen, onRunSave, onRunEnd, onScor
               if (loadoutReturn === 'campaign') beginCampaign(lo);
               else setMode('shop');
             }}
-            onBack={() => setMode(loadoutReturn === 'campaign' ? 'menu' : 'shop')}
+            onBack={() => setMode(loadoutReturn === 'campaign' ? 'title' : 'shop')}
+            config={loadoutReturn === 'campaign' ? {
+              diff,
+              tiers: TIERS,
+              onDiff: (d) => setDiff(d as Difficulty),
+              squads,
+              squadOptions: SQUAD_OPTIONS,
+              squadSize: SQUAD_SIZE,
+              onSquads: (n) => setSquads(n),
+              rewardMult: diffMult(diff) * squadMult(squads),
+            } : undefined}
           />
         )}
 
@@ -1030,7 +1086,7 @@ export function FpsGame({ initialRun, initialScreen, onRunSave, onRunEnd, onScor
             onRefit={() => { setLoadoutReturn('shop'); setMode('loadout'); }}
             onCustomize={() => setMode('customize')}
             onNext={() => { const next = run.level + 1; if (isGauntletLevel(next)) gauntletRef.current = 1; setRestarts(0); const b = run.buffs; setRun((r) => ({ ...r, level: next, buffs: NO_BUFFS })); persistSlot(next, run.gold, run.maxHp, run.upgrades, lastLoadout); startLevel(next, lastLoadout, run.maxHp, run.upgrades, undefined, b); }}
-            onExit={() => { setRunActive(false); setMode('menu'); }}
+            onExit={() => { setRunActive(false); setMode('title'); }}
           />
         )}
 
@@ -1050,13 +1106,13 @@ export function FpsGame({ initialRun, initialScreen, onRunSave, onRunEnd, onScor
 
         {mode === 'armorgen' && <ArmorGenerator onBack={() => setMode('menu')} />}
 
-        {mode === 'arsenal' && <FpsArsenal astro={astro} onSpend={spendAstro} onBack={() => setMode('menu')} />}
+        {mode === 'arsenal' && <FpsArsenal astro={astro} onSpend={spendAstro} onBack={() => setMode('hangar')} />}
 
-        {mode === 'armory' && <FpsArmory astro={astro} onSpend={spendAstro} onBack={() => setMode('menu')} />}
+        {mode === 'armory' && <FpsArmory astro={astro} onSpend={spendAstro} onBack={() => setMode('hangar')} />}
 
-        {mode === 'division' && <FpsDivision onBack={() => setMode('menu')} />}
+        {mode === 'division' && <FpsDivision onBack={() => setMode('hangar')} />}
 
-        {mode === 'premium' && <FpsPremium onBack={() => setMode('menu')} />}
+        {mode === 'premium' && <FpsPremium onBack={() => setMode('hangar')} />}
 
         {mode === 'complete' && (
           <RunStatsCard
@@ -1069,7 +1125,7 @@ export function FpsGame({ initialRun, initialScreen, onRunSave, onRunEnd, onScor
             earnedAstro={lastAstro}
             stats={runStats}
             onRestart={() => beginCampaign(lastLoadout)}
-            onMenu={() => { setRunActive(false); setMode('menu'); }}
+            onMenu={() => { setRunActive(false); setMode('title'); }}
           />
         )}
 
@@ -1086,7 +1142,7 @@ export function FpsGame({ initialRun, initialScreen, onRunSave, onRunEnd, onScor
             restartsLeft={MAX_RESTARTS - restarts}
             onRestartLevel={() => { setRestarts((n) => n + 1); startLevel(run.level, lastLoadout, run.maxHp, run.upgrades); }}
             onRestart={() => beginCampaign(lastLoadout)}
-            onMenu={() => { setRunActive(false); setMode('menu'); }}
+            onMenu={() => { setRunActive(false); setMode('title'); }}
           />
         )}
       </CRTFrame>

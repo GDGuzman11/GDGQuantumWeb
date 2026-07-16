@@ -41,6 +41,7 @@ export function FpsLoadout({
   onConfirm,
   onDeploy,
   onBack,
+  config,
 }: {
   astro: number;
   best: number;
@@ -49,6 +50,17 @@ export function FpsLoadout({
   onConfirm: (p1: string, p2: string, sidearm: string, thrown: string) => void;
   onDeploy: (p1: string, p2: string, sidearm: string, thrown: string) => void;
   onBack: () => void;
+  // Fresh-deploy run config (difficulty + squads). Omitted on a mid-run shop refit.
+  config?: {
+    diff: string;
+    tiers: readonly string[];
+    onDiff: (d: string) => void;
+    squads: number;
+    squadOptions: readonly number[];
+    squadSize: number;
+    onSquads: (n: number) => void;
+    rewardMult: number;
+  };
 }) {
   const [save, setSave] = useState<ArsenalSave>(() => loadArsenal());
   const marineDiv = useMemo(() => loadMarine().division ?? 'outrider', []);
@@ -100,6 +112,25 @@ export function FpsLoadout({
           </button>
         </div>
       </div>
+
+      {/* Fresh-deploy run config — difficulty + squads fold in here (was the old menu). */}
+      {config && (
+        <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1.5 rounded-md border border-white/10 bg-white/[0.03] px-3 py-2">
+          <span className="font-pixel text-[6px] uppercase tracking-[0.2em] text-white/40">DIFFICULTY</span>
+          {config.tiers.map((d) => (
+            <button key={d} type="button" onClick={() => config.onDiff(d)} className={`min-h-[26px] rounded border px-2 font-pixel text-[7px] uppercase transition-colors ${config.diff === d ? 'border-[#7fdfff] bg-[#7fdfff]/20 text-[#7fdfff]' : 'border-white/15 bg-white/[0.04] text-white/55 hover:bg-white/10'}`}>
+              {d}
+            </button>
+          ))}
+          <span className="ml-1 font-pixel text-[6px] uppercase tracking-[0.2em] text-white/40">SQUADS</span>
+          {config.squadOptions.map((n) => (
+            <button key={n} type="button" onClick={() => config.onSquads(n)} className={`min-h-[26px] rounded border px-2 font-pixel text-[7px] transition-colors ${config.squads === n ? 'border-[#aef5c8] bg-[#aef5c8]/20 text-[#aef5c8]' : 'border-white/15 bg-white/[0.04] text-white/55 hover:bg-white/10'}`}>
+              {n} · {n * config.squadSize}
+            </button>
+          ))}
+          <span className="ml-auto font-pixel text-[6px] text-[#c8a8ff]/70">REWARDS ×{config.rewardMult.toFixed(2)}</span>
+        </div>
+      )}
 
       <div className="mt-2 flex min-h-0 flex-1 gap-3">
         <div className="flex w-[42%] shrink-0 flex-col sm:w-[44%]">

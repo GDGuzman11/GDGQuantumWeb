@@ -21,14 +21,16 @@ export function TitleScreen({
   canResume,
   onNewGame,
   onContinue,
-  onMenu,
+  onHangar,
+  onExit,
   reducedMotion = false,
   isTouch = false,
 }: {
   canResume: boolean;
   onNewGame: () => void;
   onContinue: () => void;
-  onMenu: () => void;
+  onHangar: () => void;
+  onExit?: () => void;
   reducedMotion?: boolean;
   isTouch?: boolean;
 }) {
@@ -134,6 +136,12 @@ export function TitleScreen({
         <path d="M8 8l3 3M32 8l-3 3M8 32l3-3M32 32l-3-3" opacity="0.5" />
       </svg>
 
+      {/* Exit to the Pilot Console (/play). */}
+      {onExit && (
+        <button type="button" onClick={onExit} className="absolute right-3 top-3 z-[71] min-h-[36px] rounded-md border border-white/20 bg-black/40 px-3 font-pixel text-[8px] uppercase tracking-[0.15em] text-white/60 backdrop-blur-sm transition-colors hover:text-white sm:text-[9px]">
+          ◂ Console
+        </button>
+      )}
       {/* HUD readouts. */}
       <div className="pointer-events-none absolute left-3 top-3 font-pixel text-[8px] leading-relaxed tracking-[0.2em] text-[#7fdfff]/80">
         <div>STARSHELL // OUTLANDER</div>
@@ -157,8 +165,8 @@ export function TitleScreen({
             Continue
           </button>
         )}
-        <button type="button" onClick={onMenu} className="min-h-[44px] w-[240px] rounded-md border border-white/25 bg-black/30 font-pixel text-[11px] uppercase tracking-[0.18em] text-white/70 transition-colors hover:text-white hover:bg-black/50">
-          Enter Menu
+        <button type="button" onClick={onHangar} className="min-h-[44px] w-[240px] rounded-md border border-white/25 bg-black/30 font-pixel text-[11px] uppercase tracking-[0.18em] text-white/70 transition-colors hover:text-white hover:bg-black/50">
+          Hangar
         </button>
       </div>
     </div>
