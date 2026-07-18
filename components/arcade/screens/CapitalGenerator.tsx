@@ -1,17 +1,15 @@
 'use client';
 
 /**
- * DEV-ONLY Capital Ship ("Star Destroyer") generator + preview. Pick PRIMARY + SECONDARY
- * DNA, hit GENERATE — the AI route (Claude, in the Capital Ship cinematic voice) designs
- * a ship and returns a CapitalSpec; a live rotating 3D preview builds it, and the cinematic
- * write-up (lore / engineering / arrival / weapons / audio…) shows beside it. Degrades to
- * the deterministic roll offline / without a key. Never mounted outside dev.
+ * DEV-ONLY Capital Ship ("Star Destroyer") CATALOG viewer. Pick one of the 100 baked
+ * ships from the dropdown (or Random); a live rotating 3D preview builds it and its
+ * cinematic write-up shows beside it. Click the preview to enlarge to (near) fullscreen.
+ * The AI "author" flow was removed — the catalog is the single source of ships now.
+ * Never mounted outside dev.
  */
 import { useEffect, useMemo, useRef, useState } from 'react';
 import * as THREE from 'three';
 import { animateCapital, buildCapital } from '../fps/capital/model';
-import { DNA_TYPES, type CapitalDNAType } from '../fps/capital/dna';
-import { generateCapital } from '../fps/capital/client';
 import { CAPITAL_CATALOG } from '../fps/capital/catalog';
 import type { CapitalSpec } from '../fps/capital/spec';
 
@@ -26,15 +24,8 @@ const disposeGroup = (o: THREE.Object3D) => {
 };
 
 export function CapitalGenerator({ onBack }: { onBack: () => void }) {
-  const [tab, setTab] = useState<'author' | 'catalog'>('author');
   const [query, setQuery] = useState('');
-  const [primary, setPrimary] = useState<CapitalDNAType>('heavyIndustrial');
-  const [secondary, setSecondary] = useState<CapitalDNAType>('orbitalSiege');
-  const [spec, setSpec] = useState<CapitalSpec | null>(null);
-  const [busy, setBusy] = useState(false);
-  const [source, setSource] = useState<'ai' | 'fallback' | 'catalog' | null>(null);
-  const [note, setNote] = useState('');
-  const [kept, setKept] = useState<string[]>([]);
+  const [spec, setSpec] = useState<CapitalSpec | null>(CAPITAL_CATALOG[0] ?? null);
   const [expanded, setExpanded] = useState(false); // click the preview to fill the screen
 
   const filtered = useMemo(() => {
@@ -43,31 +34,13 @@ export function CapitalGenerator({ onBack }: { onBack: () => void }) {
     return CAPITAL_CATALOG.filter((s) => s.name.toLowerCase().includes(q) || s.hull.includes(q) || s.primary.toLowerCase().includes(q));
   }, [query]);
   // Index of the currently-shown ship within the catalog (for the dropdown's value).
-  const catalogIdx = useMemo(() => (source === 'catalog' && spec ? CAPITAL_CATALOG.findIndex((s) => s.name === spec.name && s.seed === spec.seed) : -1), [source, spec]);
+  const catalogIdx = useMemo(() => (spec ? CAPITAL_CATALOG.findIndex((s) => s.name === spec.name && s.seed === spec.seed) : -1), [spec]);
 
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const sceneRef = useRef<THREE.Scene | null>(null);
   const shipRef = useRef<THREE.Group | null>(null);
   const fitRef = useRef(200); // bounding-sphere radius of the current ship
   const centerRef = useRef(new THREE.Vector3()); // its visual centre (families aren't centred on origin)
-  const recentRef = useRef<string[]>([]); // last few ship names → tell the AI to diverge every reroll
-
-  const gen = async (seed?: number) => {
-    setBusy(true);
-    const avoid = Array.from(new Set([...kept, ...recentRef.current]));
-    const res = await generateCapital({ primary, secondary, existing: avoid, seed });
-    setSpec(res.spec);
-    setSource(res.source);
-    setNote(res.note ?? '');
-    recentRef.current = [res.spec.name, ...recentRef.current.filter((n) => n !== res.spec.name)].slice(0, 8);
-    setBusy(false);
-  };
-
-  // Initial roll.
-  useEffect(() => {
-    void gen();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
 
   // Renderer + orbit loop (mount once).
   useEffect(() => {
@@ -153,58 +126,26 @@ export function CapitalGenerator({ onBack }: { onBack: () => void }) {
   return (
     <div className="absolute inset-0 z-40 flex flex-col bg-black/90 px-3 py-2 sm:px-5 sm:py-3">
       <div className="flex items-center justify-between">
-        <div className="flex items-center gap-3">
-          <p className="font-pixel text-[10px] tracking-[0.2em] text-[#ff7a2a] sm:text-[13px]">⬢ CAPITAL SHIP GENERATOR</p>
-          <div className="flex gap-1">
-            {(['author', 'catalog'] as const).map((t) => (
-              <button key={t} type="button" onClick={() => setTab(t)} className={`min-h-[26px] rounded border px-3 font-pixel text-[8px] uppercase tracking-[0.15em] ${tab === t ? 'border-[#ff7a2a]/60 bg-[#ff7a2a]/15 text-[#ffb27a]' : 'border-white/15 bg-white/[0.03] text-white/45 hover:bg-white/10'}`}>
-                {t === 'author' ? 'Author' : `Catalog · ${CAPITAL_CATALOG.length}`}
-              </button>
-            ))}
-          </div>
-        </div>
+        <p className="font-pixel text-[10px] tracking-[0.2em] text-[#ff7a2a] sm:text-[13px]">⬢ CAPITAL SHIP CATALOG · {CAPITAL_CATALOG.length}</p>
         <button type="button" onClick={onBack} className="min-h-[28px] rounded border border-white/20 bg-white/[0.04] px-3 font-pixel text-[8px] uppercase text-white/60 hover:bg-white/10">◂ BACK</button>
       </div>
 
-      {tab === 'author' ? (
-        <>
-          {/* DNA pickers + actions */}
-          <div className="mt-2 flex flex-wrap items-center gap-2">
-            <span className="font-pixel text-[7px] uppercase tracking-[0.2em] text-white/40">Primary</span>
-            <select value={primary} onChange={(e) => setPrimary(e.target.value as CapitalDNAType)} className="rounded border border-white/15 bg-black/60 px-2 py-1 font-pixel text-[9px] text-[#7fdfff]">
-              {DNA_TYPES.map((d) => <option key={d} value={d}>{d}</option>)}
-            </select>
-            <span className="font-pixel text-[7px] uppercase tracking-[0.2em] text-white/40">Secondary</span>
-            <select value={secondary} onChange={(e) => setSecondary(e.target.value as CapitalDNAType)} className="rounded border border-white/15 bg-black/60 px-2 py-1 font-pixel text-[9px] text-[#c8a8ff]">
-              {DNA_TYPES.map((d) => <option key={d} value={d}>{d}</option>)}
-            </select>
-            <button type="button" disabled={busy} onClick={() => gen()} className="min-h-[30px] rounded border border-[#aef5c8]/50 bg-[#aef5c8]/10 px-4 font-pixel text-[9px] uppercase text-[#aef5c8] hover:bg-[#aef5c8]/20 disabled:opacity-40">
-              {busy ? 'Generating…' : '✦ Generate'}
-            </button>
-            <button type="button" disabled={busy} onClick={() => gen(Math.floor(Math.random() * 1e9))} className="min-h-[30px] rounded border border-[#7fdfff]/50 bg-[#7fdfff]/10 px-4 font-pixel text-[9px] uppercase text-[#7fdfff] hover:bg-[#7fdfff]/20 disabled:opacity-40">⟲ Reroll</button>
-            {spec && <button type="button" onClick={() => setKept((k) => (k.includes(spec.name) ? k : [...k, spec.name]))} className="min-h-[30px] rounded border border-[#ffd27a]/50 bg-[#ffd27a]/10 px-4 font-pixel text-[9px] uppercase text-[#ffd27a] hover:bg-[#ffd27a]/20">★ Keep</button>}
-            {source && <span className={`font-pixel text-[8px] uppercase tracking-[0.15em] ${source === 'ai' ? 'text-[#63ff84]' : source === 'catalog' ? 'text-[#ffb27a]' : 'text-white/45'}`}>{source === 'ai' ? '◉ AI' : source === 'catalog' ? '◈ catalog' : '○ fallback'}</span>}
-          </div>
-          {note && <p className="mt-1 font-pixel text-[7px] text-white/40">{note}</p>}
-        </>
-      ) : (
-        <div className="mt-2 flex flex-wrap items-center gap-2">
-          <span className="font-pixel text-[7px] uppercase tracking-[0.2em] text-white/40">Destroyer</span>
-          <select
-            value={catalogIdx}
-            onChange={(e) => { const s = CAPITAL_CATALOG[+e.target.value]; if (s) { setSpec(s); setSource('catalog'); setNote(s.lore ?? ''); } }}
-            className="min-w-[220px] max-w-full flex-1 rounded border border-white/15 bg-black/60 px-2 py-1.5 font-pixel text-[9px] text-[#ffb27a]"
-          >
-            <option value={-1} disabled>Select a Destroyer… ({filtered.length}/{CAPITAL_CATALOG.length})</option>
-            {filtered.map((s) => {
-              const idx = CAPITAL_CATALOG.indexOf(s);
-              return <option key={idx} value={idx}>{s.name} — {s.hull}</option>;
-            })}
-          </select>
-          <input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="filter…" className="w-[140px] rounded border border-white/15 bg-black/60 px-2 py-1.5 font-pixel text-[9px] text-white/80 placeholder:text-white/30" />
-          <button type="button" onClick={() => { const s = CAPITAL_CATALOG[Math.floor(Math.random() * CAPITAL_CATALOG.length)]; setSpec(s); setSource('catalog'); setNote(s.lore ?? ''); }} className="min-h-[30px] rounded border border-[#7fdfff]/50 bg-[#7fdfff]/10 px-3 font-pixel text-[9px] uppercase text-[#7fdfff] hover:bg-[#7fdfff]/20">⚄ Random</button>
-        </div>
-      )}
+      <div className="mt-2 flex flex-wrap items-center gap-2">
+        <span className="font-pixel text-[7px] uppercase tracking-[0.2em] text-white/40">Destroyer</span>
+        <select
+          value={catalogIdx}
+          onChange={(e) => { const s = CAPITAL_CATALOG[+e.target.value]; if (s) setSpec(s); }}
+          className="min-w-[220px] max-w-full flex-1 rounded border border-white/15 bg-black/60 px-2 py-1.5 font-pixel text-[9px] text-[#ffb27a]"
+        >
+          <option value={-1} disabled>Select a Destroyer… ({filtered.length}/{CAPITAL_CATALOG.length})</option>
+          {filtered.map((s) => {
+            const idx = CAPITAL_CATALOG.indexOf(s);
+            return <option key={idx} value={idx}>{s.name} — {s.hull}</option>;
+          })}
+        </select>
+        <input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="filter…" className="w-[140px] rounded border border-white/15 bg-black/60 px-2 py-1.5 font-pixel text-[9px] text-white/80 placeholder:text-white/30" />
+        <button type="button" onClick={() => setSpec(CAPITAL_CATALOG[Math.floor(Math.random() * CAPITAL_CATALOG.length)])} className="min-h-[30px] rounded border border-[#7fdfff]/50 bg-[#7fdfff]/10 px-3 font-pixel text-[9px] uppercase text-[#7fdfff] hover:bg-[#7fdfff]/20">⚄ Random</button>
+      </div>
 
       <div className="mt-2 flex min-h-0 flex-1 flex-col gap-3 md:flex-row">
         {/* preview — click to enlarge to (near) fullscreen */}
@@ -239,7 +180,7 @@ export function CapitalGenerator({ onBack }: { onBack: () => void }) {
               <Line label="Why it's unlike any other" value={spec.whyUnique} />
             </>
           ) : (
-            <p className="font-pixel text-[8px] text-white/40">Generating the first Capital Ship…</p>
+            <p className="font-pixel text-[8px] text-white/40">No ships in the catalog.</p>
           )}
         </div>
       </div>

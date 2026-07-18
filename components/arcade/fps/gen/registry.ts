@@ -19,9 +19,8 @@ import type { RenderTier } from '../materials';
 import { GUNS, PRIMARIES, SECONDARIES, SIDEARMS, type GunDef } from '../weapons';
 import { sfx } from '../../engine/audio';
 import { buildGeneratedGun } from './buildGenerated';
-import { parseWeaponBlueprint, type WeaponBlueprint } from './blueprint';
+import { type WeaponBlueprint } from './blueprint';
 import { setComponentTheme } from './themeStore';
-import bakedRaw from './generated.json';
 
 const REGISTRY = new Map<string, WeaponBlueprint>();
 
@@ -116,13 +115,7 @@ export function generatedAccent(id: string): number | null {
   return REGISTRY.get(id)?.model.palette.accent ?? null;
 }
 
-/** All currently-registered generated blueprints (baked + session). */
+/** All currently-registered generated blueprints (session only — baked set removed). */
 export function generatedBlueprints(): WeaponBlueprint[] {
   return [...REGISTRY.values()];
 }
-
-// ── BAKED weapons: register the checked-in generated.json at module load ─────────
-const baked: WeaponBlueprint[] = (Array.isArray(bakedRaw) ? bakedRaw : [])
-  .map((r) => parseWeaponBlueprint(r))
-  .filter((b): b is WeaponBlueprint => b !== null);
-registerGeneratedWeapons(baked);
