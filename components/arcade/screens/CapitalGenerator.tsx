@@ -7,11 +7,12 @@
  * write-up (lore / engineering / arrival / weapons / audio…) shows beside it. Degrades to
  * the deterministic roll offline / without a key. Never mounted outside dev.
  */
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import * as THREE from 'three';
 import { animateCapital, buildCapital } from '../fps/capital/model';
 import { DNA_TYPES, type CapitalDNAType } from '../fps/capital/dna';
 import { generateCapital } from '../fps/capital/client';
+import { CAPITAL_CATALOG } from '../fps/capital/catalog';
 import type { CapitalSpec } from '../fps/capital/spec';
 
 const disposeGroup = (o: THREE.Object3D) => {
@@ -25,13 +26,21 @@ const disposeGroup = (o: THREE.Object3D) => {
 };
 
 export function CapitalGenerator({ onBack }: { onBack: () => void }) {
+  const [tab, setTab] = useState<'author' | 'catalog'>('author');
+  const [query, setQuery] = useState('');
   const [primary, setPrimary] = useState<CapitalDNAType>('heavyIndustrial');
   const [secondary, setSecondary] = useState<CapitalDNAType>('orbitalSiege');
   const [spec, setSpec] = useState<CapitalSpec | null>(null);
   const [busy, setBusy] = useState(false);
-  const [source, setSource] = useState<'ai' | 'fallback' | null>(null);
+  const [source, setSource] = useState<'ai' | 'fallback' | 'catalog' | null>(null);
   const [note, setNote] = useState('');
   const [kept, setKept] = useState<string[]>([]);
+
+  const filtered = useMemo(() => {
+    const q = query.trim().toLowerCase();
+    if (!q) return CAPITAL_CATALOG;
+    return CAPITAL_CATALOG.filter((s) => s.name.toLowerCase().includes(q) || s.hull.includes(q) || s.primary.toLowerCase().includes(q));
+  }, [query]);
 
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const sceneRef = useRef<THREE.Scene | null>(null);
@@ -124,28 +133,56 @@ export function CapitalGenerator({ onBack }: { onBack: () => void }) {
   return (
     <div className="absolute inset-0 z-40 flex flex-col bg-black/90 px-3 py-2 sm:px-5 sm:py-3">
       <div className="flex items-center justify-between">
-        <p className="font-pixel text-[10px] tracking-[0.2em] text-[#ff7a2a] sm:text-[13px]">⬢ CAPITAL SHIP GENERATOR</p>
+        <div className="flex items-center gap-3">
+          <p className="font-pixel text-[10px] tracking-[0.2em] text-[#ff7a2a] sm:text-[13px]">⬢ CAPITAL SHIP GENERATOR</p>
+          <div className="flex gap-1">
+            {(['author', 'catalog'] as const).map((t) => (
+              <button key={t} type="button" onClick={() => setTab(t)} className={`min-h-[26px] rounded border px-3 font-pixel text-[8px] uppercase tracking-[0.15em] ${tab === t ? 'border-[#ff7a2a]/60 bg-[#ff7a2a]/15 text-[#ffb27a]' : 'border-white/15 bg-white/[0.03] text-white/45 hover:bg-white/10'}`}>
+                {t === 'author' ? 'Author' : `Catalog · ${CAPITAL_CATALOG.length}`}
+              </button>
+            ))}
+          </div>
+        </div>
         <button type="button" onClick={onBack} className="min-h-[28px] rounded border border-white/20 bg-white/[0.04] px-3 font-pixel text-[8px] uppercase text-white/60 hover:bg-white/10">◂ BACK</button>
       </div>
 
-      {/* DNA pickers + actions */}
-      <div className="mt-2 flex flex-wrap items-center gap-2">
-        <span className="font-pixel text-[7px] uppercase tracking-[0.2em] text-white/40">Primary</span>
-        <select value={primary} onChange={(e) => setPrimary(e.target.value as CapitalDNAType)} className="rounded border border-white/15 bg-black/60 px-2 py-1 font-pixel text-[9px] text-[#7fdfff]">
-          {DNA_TYPES.map((d) => <option key={d} value={d}>{d}</option>)}
-        </select>
-        <span className="font-pixel text-[7px] uppercase tracking-[0.2em] text-white/40">Secondary</span>
-        <select value={secondary} onChange={(e) => setSecondary(e.target.value as CapitalDNAType)} className="rounded border border-white/15 bg-black/60 px-2 py-1 font-pixel text-[9px] text-[#c8a8ff]">
-          {DNA_TYPES.map((d) => <option key={d} value={d}>{d}</option>)}
-        </select>
-        <button type="button" disabled={busy} onClick={() => gen()} className="min-h-[30px] rounded border border-[#aef5c8]/50 bg-[#aef5c8]/10 px-4 font-pixel text-[9px] uppercase text-[#aef5c8] hover:bg-[#aef5c8]/20 disabled:opacity-40">
-          {busy ? 'Generating…' : '✦ Generate'}
-        </button>
-        <button type="button" disabled={busy} onClick={() => gen(Math.floor(Math.random() * 1e9))} className="min-h-[30px] rounded border border-[#7fdfff]/50 bg-[#7fdfff]/10 px-4 font-pixel text-[9px] uppercase text-[#7fdfff] hover:bg-[#7fdfff]/20 disabled:opacity-40">⟲ Reroll</button>
-        {spec && <button type="button" onClick={() => setKept((k) => (k.includes(spec.name) ? k : [...k, spec.name]))} className="min-h-[30px] rounded border border-[#ffd27a]/50 bg-[#ffd27a]/10 px-4 font-pixel text-[9px] uppercase text-[#ffd27a] hover:bg-[#ffd27a]/20">★ Keep</button>}
-        {source && <span className={`font-pixel text-[8px] uppercase tracking-[0.15em] ${source === 'ai' ? 'text-[#63ff84]' : 'text-white/45'}`}>{source === 'ai' ? '◉ AI' : '○ fallback'}</span>}
-      </div>
-      {note && <p className="mt-1 font-pixel text-[7px] text-white/40">{note}</p>}
+      {tab === 'author' ? (
+        <>
+          {/* DNA pickers + actions */}
+          <div className="mt-2 flex flex-wrap items-center gap-2">
+            <span className="font-pixel text-[7px] uppercase tracking-[0.2em] text-white/40">Primary</span>
+            <select value={primary} onChange={(e) => setPrimary(e.target.value as CapitalDNAType)} className="rounded border border-white/15 bg-black/60 px-2 py-1 font-pixel text-[9px] text-[#7fdfff]">
+              {DNA_TYPES.map((d) => <option key={d} value={d}>{d}</option>)}
+            </select>
+            <span className="font-pixel text-[7px] uppercase tracking-[0.2em] text-white/40">Secondary</span>
+            <select value={secondary} onChange={(e) => setSecondary(e.target.value as CapitalDNAType)} className="rounded border border-white/15 bg-black/60 px-2 py-1 font-pixel text-[9px] text-[#c8a8ff]">
+              {DNA_TYPES.map((d) => <option key={d} value={d}>{d}</option>)}
+            </select>
+            <button type="button" disabled={busy} onClick={() => gen()} className="min-h-[30px] rounded border border-[#aef5c8]/50 bg-[#aef5c8]/10 px-4 font-pixel text-[9px] uppercase text-[#aef5c8] hover:bg-[#aef5c8]/20 disabled:opacity-40">
+              {busy ? 'Generating…' : '✦ Generate'}
+            </button>
+            <button type="button" disabled={busy} onClick={() => gen(Math.floor(Math.random() * 1e9))} className="min-h-[30px] rounded border border-[#7fdfff]/50 bg-[#7fdfff]/10 px-4 font-pixel text-[9px] uppercase text-[#7fdfff] hover:bg-[#7fdfff]/20 disabled:opacity-40">⟲ Reroll</button>
+            {spec && <button type="button" onClick={() => setKept((k) => (k.includes(spec.name) ? k : [...k, spec.name]))} className="min-h-[30px] rounded border border-[#ffd27a]/50 bg-[#ffd27a]/10 px-4 font-pixel text-[9px] uppercase text-[#ffd27a] hover:bg-[#ffd27a]/20">★ Keep</button>}
+            {source && <span className={`font-pixel text-[8px] uppercase tracking-[0.15em] ${source === 'ai' ? 'text-[#63ff84]' : source === 'catalog' ? 'text-[#ffb27a]' : 'text-white/45'}`}>{source === 'ai' ? '◉ AI' : source === 'catalog' ? '◈ catalog' : '○ fallback'}</span>}
+          </div>
+          {note && <p className="mt-1 font-pixel text-[7px] text-white/40">{note}</p>}
+        </>
+      ) : (
+        <div className="mt-2">
+          <input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="filter by name / family / DNA…" className="w-full rounded border border-white/15 bg-black/60 px-3 py-1.5 font-pixel text-[9px] text-white/80 placeholder:text-white/30" />
+          <div className="mt-2 grid max-h-[26vh] grid-cols-2 gap-1 overflow-y-auto pr-1 sm:grid-cols-3 md:grid-cols-4">
+            {filtered.map((s, i) => {
+              const active = spec?.name === s.name && spec?.seed === s.seed;
+              return (
+                <button key={`${s.name}-${s.seed}-${i}`} type="button" onClick={() => { setSpec(s); setSource('catalog'); setNote(s.lore ?? ''); }} className={`rounded border px-2 py-1 text-left ${active ? 'border-[#ff7a2a]/60 bg-[#ff7a2a]/12' : 'border-white/10 bg-white/[0.02] hover:bg-white/[0.06]'}`}>
+                  <p className="truncate font-pixel text-[8px] text-white/85">{s.name}</p>
+                  <p className="truncate font-pixel text-[6px] uppercase tracking-[0.12em] text-white/35">{s.hull} · {s.primary}</p>
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      )}
 
       <div className="mt-2 flex min-h-0 flex-1 flex-col gap-3 md:flex-row">
         {/* preview */}
