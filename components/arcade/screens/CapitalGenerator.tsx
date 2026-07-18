@@ -35,17 +35,21 @@ export function CapitalGenerator({ onBack }: { onBack: () => void }) {
   const [source, setSource] = useState<'ai' | 'fallback' | 'catalog' | null>(null);
   const [note, setNote] = useState('');
   const [kept, setKept] = useState<string[]>([]);
+  const [expanded, setExpanded] = useState(false); // click the preview to fill the screen
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
     if (!q) return CAPITAL_CATALOG;
     return CAPITAL_CATALOG.filter((s) => s.name.toLowerCase().includes(q) || s.hull.includes(q) || s.primary.toLowerCase().includes(q));
   }, [query]);
+  // Index of the currently-shown ship within the catalog (for the dropdown's value).
+  const catalogIdx = useMemo(() => (source === 'catalog' && spec ? CAPITAL_CATALOG.findIndex((s) => s.name === spec.name && s.seed === spec.seed) : -1), [source, spec]);
 
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const sceneRef = useRef<THREE.Scene | null>(null);
   const shipRef = useRef<THREE.Group | null>(null);
-  const fitRef = useRef(200);
+  const fitRef = useRef(200); // bounding-sphere radius of the current ship
+  const centerRef = useRef(new THREE.Vector3()); // its visual centre (families aren't centred on origin)
   const recentRef = useRef<string[]>([]); // last few ship names → tell the AI to diverge every reroll
 
   const gen = async (seed?: number) => {
@@ -93,9 +97,16 @@ export function CapitalGenerator({ onBack }: { onBack: () => void }) {
       const now = performance.now();
       if (shipRef.current) animateCapital(shipRef.current, 0.016, now);
       const t = (now - t0) / 1000;
-      const R = fitRef.current;
-      camera.position.set(Math.cos(t * 0.22) * R, R * 0.42, Math.sin(t * 0.22) * R);
-      camera.lookAt(0, 0, 0);
+      // Frame the ship's real bounding sphere to BOTH the vertical and horizontal FOV
+      // (with margin), and orbit its actual centre — so tall families fit, not just wide.
+      const radius = fitRef.current;
+      const vFov = (camera.fov * Math.PI) / 180;
+      const distV = radius / Math.sin(vFov / 2);
+      const distH = radius / Math.sin(Math.atan(Math.tan(vFov / 2) * camera.aspect));
+      const dist = Math.max(distV, distH) * 1.2;
+      const c = centerRef.current;
+      camera.position.set(c.x + Math.cos(t * 0.22) * dist, c.y + dist * 0.32, c.z + Math.sin(t * 0.22) * dist);
+      camera.lookAt(c);
       renderer.render(scene, camera);
       raf = requestAnimationFrame(loop);
     };
@@ -119,8 +130,17 @@ export function CapitalGenerator({ onBack }: { onBack: () => void }) {
     const ship = buildCapital(spec, 'desktop');
     scene.add(ship);
     shipRef.current = ship;
-    fitRef.current = spec.length * 1.15;
+    // Measure the actual geometry so every silhouette family frames correctly.
+    const box = new THREE.Box3().setFromObject(ship);
+    box.getCenter(centerRef.current);
+    fitRef.current = Math.max(20, box.getBoundingSphere(new THREE.Sphere()).radius);
   }, [spec]);
+
+  // Re-fit the renderer to the canvas after enlarge/restore (layout change, not a window resize).
+  useEffect(() => {
+    const id = requestAnimationFrame(() => window.dispatchEvent(new Event('resize')));
+    return () => cancelAnimationFrame(id);
+  }, [expanded]);
 
   const Line = ({ label, value }: { label: string; value?: string }) =>
     value ? (
@@ -168,26 +188,31 @@ export function CapitalGenerator({ onBack }: { onBack: () => void }) {
           {note && <p className="mt-1 font-pixel text-[7px] text-white/40">{note}</p>}
         </>
       ) : (
-        <div className="mt-2">
-          <input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="filter by name / family / DNA…" className="w-full rounded border border-white/15 bg-black/60 px-3 py-1.5 font-pixel text-[9px] text-white/80 placeholder:text-white/30" />
-          <div className="mt-2 grid max-h-[26vh] grid-cols-2 gap-1 overflow-y-auto pr-1 sm:grid-cols-3 md:grid-cols-4">
-            {filtered.map((s, i) => {
-              const active = spec?.name === s.name && spec?.seed === s.seed;
-              return (
-                <button key={`${s.name}-${s.seed}-${i}`} type="button" onClick={() => { setSpec(s); setSource('catalog'); setNote(s.lore ?? ''); }} className={`rounded border px-2 py-1 text-left ${active ? 'border-[#ff7a2a]/60 bg-[#ff7a2a]/12' : 'border-white/10 bg-white/[0.02] hover:bg-white/[0.06]'}`}>
-                  <p className="truncate font-pixel text-[8px] text-white/85">{s.name}</p>
-                  <p className="truncate font-pixel text-[6px] uppercase tracking-[0.12em] text-white/35">{s.hull} · {s.primary}</p>
-                </button>
-              );
+        <div className="mt-2 flex flex-wrap items-center gap-2">
+          <span className="font-pixel text-[7px] uppercase tracking-[0.2em] text-white/40">Destroyer</span>
+          <select
+            value={catalogIdx}
+            onChange={(e) => { const s = CAPITAL_CATALOG[+e.target.value]; if (s) { setSpec(s); setSource('catalog'); setNote(s.lore ?? ''); } }}
+            className="min-w-[220px] max-w-full flex-1 rounded border border-white/15 bg-black/60 px-2 py-1.5 font-pixel text-[9px] text-[#ffb27a]"
+          >
+            <option value={-1} disabled>Select a Destroyer… ({filtered.length}/{CAPITAL_CATALOG.length})</option>
+            {filtered.map((s) => {
+              const idx = CAPITAL_CATALOG.indexOf(s);
+              return <option key={idx} value={idx}>{s.name} — {s.hull}</option>;
             })}
-          </div>
+          </select>
+          <input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="filter…" className="w-[140px] rounded border border-white/15 bg-black/60 px-2 py-1.5 font-pixel text-[9px] text-white/80 placeholder:text-white/30" />
+          <button type="button" onClick={() => { const s = CAPITAL_CATALOG[Math.floor(Math.random() * CAPITAL_CATALOG.length)]; setSpec(s); setSource('catalog'); setNote(s.lore ?? ''); }} className="min-h-[30px] rounded border border-[#7fdfff]/50 bg-[#7fdfff]/10 px-3 font-pixel text-[9px] uppercase text-[#7fdfff] hover:bg-[#7fdfff]/20">⚄ Random</button>
         </div>
       )}
 
       <div className="mt-2 flex min-h-0 flex-1 flex-col gap-3 md:flex-row">
-        {/* preview */}
-        <div className="relative min-h-[240px] flex-1 overflow-hidden rounded-md border border-white/10 bg-black">
-          <canvas ref={canvasRef} className="h-full w-full" />
+        {/* preview — click to enlarge to (near) fullscreen */}
+        <div className={expanded ? 'fixed inset-2 z-[60] overflow-hidden rounded-md border border-white/25 bg-black shadow-2xl' : 'relative min-h-[240px] flex-1 overflow-hidden rounded-md border border-white/10 bg-black'}>
+          <canvas ref={canvasRef} onClick={() => setExpanded((e) => !e)} className="h-full w-full cursor-pointer" title={expanded ? 'Click to shrink' : 'Click to enlarge'} />
+          <button type="button" onClick={() => setExpanded((e) => !e)} className="absolute right-2 top-2 min-h-[26px] rounded border border-white/25 bg-black/60 px-3 font-pixel text-[8px] uppercase text-white/70 hover:bg-white/10">
+            {expanded ? '✕ Close' : '⤢ Enlarge'}
+          </button>
           {spec && (
             <div className="pointer-events-none absolute bottom-2 left-3">
               <p className="font-pixel text-[14px] text-white drop-shadow sm:text-[18px]">{spec.name}</p>
