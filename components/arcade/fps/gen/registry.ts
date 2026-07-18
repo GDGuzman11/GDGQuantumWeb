@@ -16,7 +16,18 @@
  */
 import type * as THREE from 'three';
 import type { RenderTier } from '../materials';
-import { GUNS, PRIMARIES, SECONDARIES, SIDEARMS, type GunDef } from '../weapons';
+import { GUNS, PRIMARIES, SECONDARIES, SIDEARMS, CATEGORY_SECTION, type GunDef, type WeaponCategory } from '../weapons';
+
+/** Map a mechanical family back to an Outlander category (generated guns are dormant
+ *  now that the AI generator is removed, but the registry stays type-correct). */
+const FAMILY_CATEGORY: Record<GunDef['family'], WeaponCategory> = {
+  rifle: 'assault',
+  laser: 'assault',
+  mg: 'mg',
+  sniper: 'sniper',
+  launcher: 'rpg',
+  pistol: 'handgun',
+};
 import { sfx } from '../../engine/audio';
 import { buildGeneratedGun } from './buildGenerated';
 import { type WeaponBlueprint } from './blueprint';
@@ -26,10 +37,15 @@ const REGISTRY = new Map<string, WeaponBlueprint>();
 
 function blueprintToGunDef(bp: WeaponBlueprint): GunDef {
   const s = bp.stats;
+  const category = FAMILY_CATEGORY[bp.family];
   const def: GunDef = {
     id: bp.id,
     name: bp.name,
     family: bp.family,
+    category,
+    section: CATEGORY_SECTION[category],
+    tier: 'premium',
+    owner: 'outlander',
     dmg: s.dmg,
     rate: s.rate,
     mag: s.mag,

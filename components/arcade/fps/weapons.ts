@@ -6,10 +6,49 @@
  */
 export type Family = 'rifle' | 'mg' | 'laser' | 'sniper' | 'pistol' | 'launcher';
 
+// OUTLANDER weapon taxonomy (from the reference sheets). CATEGORY = the sheet type;
+// SECTION = the loadout slot it fills; TIER = free (starter) / premium / store.
+export type WeaponCategory = 'assault' | 'alienAssault' | 'mg' | 'sniper' | 'rpg' | 'handgun';
+export type WeaponSection = 'primary' | 'heavy' | 'secondary';
+export type WeaponTier = 'free' | 'premium';
+
+/** Which loadout SECTION each category fills. */
+export const CATEGORY_SECTION: Record<WeaponCategory, WeaponSection> = {
+  assault: 'primary',
+  alienAssault: 'primary',
+  mg: 'primary',
+  sniper: 'heavy',
+  rpg: 'heavy',
+  handgun: 'secondary',
+};
+/** Which mechanical FAMILY (fire feel / audio / combat) each category maps to. */
+export const CATEGORY_FAMILY: Record<WeaponCategory, Family> = {
+  assault: 'rifle',
+  alienAssault: 'rifle',
+  mg: 'mg',
+  sniper: 'sniper',
+  rpg: 'launcher',
+  handgun: 'pistol',
+};
+/** Human-readable category labels (store / loadout headers). */
+export const CATEGORY_LABEL: Record<WeaponCategory, string> = {
+  assault: 'Assault Rifle',
+  alienAssault: 'Alien Assault Rifle',
+  mg: 'Machine Gun',
+  sniper: 'Sniper Rifle',
+  rpg: 'RPG',
+  handgun: 'Handgun',
+};
+export const SECTION_LABEL: Record<WeaponSection, string> = { primary: 'Primary', heavy: 'Heavy', secondary: 'Secondary' };
+
 export interface GunDef {
   id: string;
   name: string;
   family: Family;
+  category: WeaponCategory; // the reference-sheet type
+  section: WeaponSection; // loadout slot (derived from category)
+  tier: WeaponTier; // free starter vs premium
+  owner: string; // whom the weapon belongs to (Store grouping) — 'outlander' for now
   dmg: number;
   rate: number; // seconds between shots
   mag: number;
@@ -19,64 +58,91 @@ export interface GunDef {
   scoped: boolean; // sniper scope overlay on ADS
   hipFov: number;
   adsFov: number;
-  color: number; // tracer colour
+  color: number; // tracer + muzzle-flash + gun-light colour (from the sheet art)
+  caliber?: string; // flavour, from the sheet
+  tagline?: string; // flavour, from the sheet
   splash?: number; // explosive AoE radius (launchers); 0/undefined = hitscan single-target
-  burst?: number; // fires an N-round burst per trigger pull (CB-02 RANGER)
-  heat?: boolean; // energy weapon: no reload — builds heat + overheats instead (ER-08 ION)
-  charge?: number; // seconds to hold before the shot releases (RC-12 THUNDER / PM-09 METEOR)
+  burst?: number; // fires an N-round burst per trigger pull
+  heat?: boolean; // energy weapon: no reload — builds heat + overheats instead
+  charge?: number; // seconds to hold before the shot releases (snipers / heavy)
 }
 
+/** Compact starter row → expanded GunDef (fills family/section from the category). */
+type Starter = {
+  id: string;
+  name: string;
+  category: WeaponCategory;
+  tier: WeaponTier;
+  dmg: number;
+  rate: number;
+  mag: number;
+  reserve: number;
+  reload: number;
+  auto: boolean;
+  hipFov: number;
+  adsFov: number;
+  color: number;
+  caliber?: string;
+  tagline?: string;
+  splash?: number;
+  charge?: number;
+  scoped?: boolean;
+};
+function starter(s: Starter): GunDef {
+  return {
+    id: s.id,
+    name: s.name,
+    category: s.category,
+    section: CATEGORY_SECTION[s.category],
+    family: CATEGORY_FAMILY[s.category],
+    tier: s.tier,
+    owner: 'outlander',
+    dmg: s.dmg,
+    rate: s.rate,
+    mag: s.mag,
+    reserve: s.reserve,
+    reload: s.reload,
+    auto: s.auto,
+    scoped: s.scoped ?? s.category === 'sniper',
+    hipFov: s.hipFov,
+    adsFov: s.adsFov,
+    color: s.color,
+    caliber: s.caliber,
+    tagline: s.tagline,
+    ...(s.splash != null ? { splash: s.splash } : {}),
+    ...(s.charge != null ? { charge: s.charge } : {}),
+  };
+}
+
+// ── OUTLANDER STARTERS — 10 weapons available immediately (5 free + 5 premium) ──
+// Colours are pulled from the reference sheets so the muzzle flash + gun lights match.
 export const GUNS: GunDef[] = [
-  // STANDARD ISSUE — the iconic arsenal every Marine is issued (built alongside the rest).
-  { id: 'ar01', name: 'AR-01 PULSE', family: 'rifle', dmg: 34, rate: 0.12, mag: 32, reserve: 192, reload: 1.7, auto: true, scoped: false, hipFov: 78, adsFov: 57, color: 0x8fbaff },
-  { id: 'cb02', name: 'CB-02 RANGER', family: 'rifle', dmg: 62, rate: 0.34, mag: 21, reserve: 126, reload: 1.6, auto: false, scoped: false, hipFov: 78, adsFov: 48, color: 0x9fd0ff, burst: 3 },
-  { id: 'vx04', name: 'VX-04 TEMPEST', family: 'mg', dmg: 20, rate: 0.065, mag: 45, reserve: 315, reload: 1.5, auto: true, scoped: false, hipFov: 82, adsFov: 68, color: 0xffb0d0 },
-  { id: 'er08', name: 'ER-08 ION', family: 'laser', dmg: 22, rate: 0.09, mag: 60, reserve: 0, reload: 2.0, auto: true, scoped: false, hipFov: 78, adsFov: 58, color: 0x7fdfff, heat: true },
-  { id: 'rt06', name: 'RT-06 BULLDOG', family: 'launcher', dmg: 190, rate: 1.2, mag: 4, reserve: 16, reload: 2.6, auto: false, scoped: false, hipFov: 78, adsFov: 62, color: 0xff8a3a, splash: 6 },
-  { id: 'gc03', name: 'GC-03 HAMMER', family: 'launcher', dmg: 130, rate: 0.7, mag: 6, reserve: 30, reload: 2.3, auto: false, scoped: false, hipFov: 78, adsFov: 62, color: 0xbfe14a, splash: 4.5 },
-  { id: 'pm09', name: 'PM-09 METEOR', family: 'launcher', dmg: 250, rate: 1.6, mag: 3, reserve: 12, reload: 2.8, auto: false, scoped: false, hipFov: 78, adsFov: 60, color: 0x7fdfff, splash: 7, charge: 0.85 },
-  { id: 'rc12', name: 'RC-12 THUNDER', family: 'sniper', dmg: 340, rate: 1.0, mag: 5, reserve: 30, reload: 2.6, auto: false, scoped: true, hipFov: 78, adsFov: 24, color: 0x9ec8ff, charge: 0.7 },
-  { id: 'sp01', name: 'SP-01 SERVICE', family: 'pistol', dmg: 40, rate: 0.22, mag: 15, reserve: 90, reload: 1.1, auto: false, scoped: false, hipFov: 78, adsFov: 60, color: 0xaef5c8 },
-  { id: 'mp05', name: 'MP-05 VIPER', family: 'pistol', dmg: 18, rate: 0.08, mag: 24, reserve: 168, reload: 1.3, auto: true, scoped: false, hipFov: 80, adsFov: 64, color: 0xc8f5d0 },
-  // rifles (PRIMARY: +10 dmg pass)
-  { id: 'ar', name: 'PULSE AR', family: 'rifle', dmg: 36, rate: 0.11, mag: 30, reserve: 180, reload: 1.6, auto: true, scoped: false, hipFov: 78, adsFov: 58, color: 0xffe9a8 },
-  { id: 'carbine', name: 'CARBINE', family: 'rifle', dmg: 56, rate: 0.22, mag: 20, reserve: 140, reload: 1.5, auto: false, scoped: false, hipFov: 78, adsFov: 55, color: 0xffd27a },
-  { id: 'assaultx', name: 'ASSAULT-X', family: 'rifle', dmg: 40, rate: 0.1, mag: 35, reserve: 210, reload: 1.7, auto: true, scoped: false, hipFov: 78, adsFov: 56, color: 0xffe0b0 },
-  // MGs (PRIMARY: +10 dmg pass)
-  { id: 'smg', name: 'NOVA SMG', family: 'mg', dmg: 26, rate: 0.07, mag: 40, reserve: 280, reload: 1.7, auto: true, scoped: false, hipFov: 80, adsFov: 64, color: 0xff8a96 },
-  { id: 'lmg', name: 'SIEGE LMG', family: 'mg', dmg: 34, rate: 0.09, mag: 75, reserve: 300, reload: 2.6, auto: true, scoped: false, hipFov: 80, adsFov: 64, color: 0xff5d6e },
-  { id: 'ripper', name: 'RIPPER', family: 'mg', dmg: 23, rate: 0.05, mag: 50, reserve: 320, reload: 2.0, auto: true, scoped: false, hipFov: 82, adsFov: 68, color: 0xff6f9a },
-  // lasers (PRIMARY: +10 dmg pass)
-  { id: 'pulse', name: 'ION REPEATER', family: 'laser', dmg: 32, rate: 0.08, mag: 50, reserve: 250, reload: 1.8, auto: true, scoped: false, hipFov: 78, adsFov: 58, color: 0x7fdfff },
-  { id: 'beam', name: 'LANCE BEAM', family: 'laser', dmg: 23, rate: 0.08, mag: 60, reserve: 300, reload: 2.0, auto: true, scoped: false, hipFov: 78, adsFov: 48, color: 0x9af0ff }, // continuous beam: fast low-damage ticks while held
-  { id: 'arc', name: 'ARC THROWER', family: 'laser', dmg: 40, rate: 0.13, mag: 28, reserve: 168, reload: 1.9, auto: true, scoped: false, hipFov: 78, adsFov: 56, color: 0x6ad0ff },
-  // snipers (+40 dmg pass; RAILGUN gets a bigger "destructive" bump)
-  { id: 'rail', name: 'RAILGUN', family: 'sniper', dmg: 350, rate: 0.95, mag: 5, reserve: 40, reload: 2.4, auto: false, scoped: true, hipFov: 78, adsFov: 22, color: 0xc8a8ff },
-  { id: 'marksman', name: 'MARKSMAN', family: 'sniper', dmg: 135, rate: 0.5, mag: 10, reserve: 60, reload: 2.0, auto: false, scoped: true, hipFov: 78, adsFov: 38, color: 0xd8c0ff },
-  { id: 'piercer', name: 'PIERCER', family: 'sniper', dmg: 160, rate: 0.7, mag: 7, reserve: 49, reload: 2.2, auto: false, scoped: true, hipFov: 78, adsFov: 28, color: 0xb890ff },
-  // launchers — explosive, high single-shot damage + AoE splash
-  { id: 'rocket', name: 'ROCKET TUBE', family: 'launcher', dmg: 200, rate: 1.2, mag: 4, reserve: 16, reload: 2.6, auto: false, scoped: false, hipFov: 78, adsFov: 62, color: 0xff7a3a, splash: 6 },
-  { id: 'novacannon', name: 'NOVA CANNON', family: 'launcher', dmg: 300, rate: 1.8, mag: 3, reserve: 9, reload: 3.0, auto: false, scoped: false, hipFov: 78, adsFov: 60, color: 0xff5d6e, splash: 7.5 },
-  { id: 'singularity', name: 'SINGULARITY', family: 'launcher', dmg: 420, rate: 2.6, mag: 2, reserve: 6, reload: 3.4, auto: false, scoped: false, hipFov: 78, adsFov: 58, color: 0xc08bff, splash: 9 },
-  // sidearms
-  { id: 'sidearm', name: 'SIDEARM', family: 'pistol', dmg: 36, rate: 0.2, mag: 14, reserve: 90, reload: 1.2, auto: false, scoped: false, hipFov: 78, adsFov: 60, color: 0xaef5c8 },
-  { id: 'handcannon', name: 'HAND CANNON', family: 'pistol', dmg: 70, rate: 0.5, mag: 7, reserve: 49, reload: 1.6, auto: false, scoped: false, hipFov: 78, adsFov: 58, color: 0x8fe0b0 },
-  { id: 'machinepistol', name: 'MACHINE PISTOL', family: 'pistol', dmg: 18, rate: 0.08, mag: 24, reserve: 144, reload: 1.3, auto: true, scoped: false, hipFov: 80, adsFov: 64, color: 0xc8f5d0 },
+  // FREE (5) — a complete loadout on their own: 2 primary, 2 heavy, 1 secondary.
+  starter({ id: 'aurora7', name: 'AURORA-7', category: 'assault', tier: 'free', dmg: 34, rate: 0.11, mag: 32, reserve: 224, reload: 1.6, auto: true, hipFov: 78, adsFov: 56, color: 0x8fbaff, caliber: '5.56×45mm', tagline: 'Light. Precise. Deadly.' }),
+  starter({ id: 'm12vindicator', name: 'M-12 VINDICATOR', category: 'mg', tier: 'free', dmg: 24, rate: 0.07, mag: 60, reserve: 360, reload: 2.3, auto: true, hipFov: 82, adsFov: 66, color: 0x9fc0e0, caliber: '7.62mm', tagline: 'Reliable. Rugged. Ruthless.' }),
+  starter({ id: 'vanguardsr1', name: 'VANGUARD SR-1', category: 'sniper', tier: 'free', dmg: 220, rate: 1.0, mag: 6, reserve: 36, reload: 2.4, auto: false, hipFov: 78, adsFov: 24, color: 0x9ec8ff, caliber: '.338 Lapua', tagline: 'Built for extreme distances.', charge: 0.5 }),
+  starter({ id: 'm57punisher', name: 'M-57 PUNISHER', category: 'rpg', tier: 'free', dmg: 200, rate: 1.3, mag: 4, reserve: 16, reload: 2.6, auto: false, hipFov: 78, adsFov: 60, color: 0xffb04a, caliber: '90mm HEAT', tagline: 'Anti-armor devastation.', splash: 6 }),
+  starter({ id: 'm7defender', name: 'M-7 DEFENDER', category: 'handgun', tier: 'free', dmg: 38, rate: 0.2, mag: 15, reserve: 105, reload: 1.1, auto: false, hipFov: 78, adsFov: 60, color: 0xaecbff, caliber: '9mm Kinetic', tagline: 'Always at your side.' }),
+  // PREMIUM (5) — a tier up, mirroring the free set section-for-section.
+  starter({ id: 'celestialaegis', name: 'CELESTIAL AEGIS', category: 'assault', tier: 'premium', dmg: 42, rate: 0.1, mag: 36, reserve: 252, reload: 1.5, auto: true, hipFov: 78, adsFov: 55, color: 0xffd27a, caliber: '6.8mm', tagline: 'Divine protection.' }),
+  starter({ id: 'typhonmg3', name: 'TYPHON MG-3', category: 'mg', tier: 'premium', dmg: 27, rate: 0.06, mag: 75, reserve: 450, reload: 2.2, auto: true, hipFov: 82, adsFov: 66, color: 0x7fbfff, caliber: '7.62mm', tagline: 'Built for storms.' }),
+  starter({ id: 'celestiallance', name: 'CELESTIAL LANCE', category: 'sniper', tier: 'premium', dmg: 320, rate: 1.1, mag: 5, reserve: 35, reload: 2.5, auto: false, hipFov: 78, adsFov: 22, color: 0xcfe8ff, caliber: 'Energy Core', tagline: 'Light of Olympus.', charge: 0.6 }),
+  starter({ id: 'voidstormm10', name: 'VOIDSTORM M-10', category: 'rpg', tier: 'premium', dmg: 300, rate: 1.6, mag: 3, reserve: 12, reload: 2.9, auto: false, hipFov: 78, adsFov: 58, color: 0xb15cff, caliber: 'Void Energy', tagline: 'The void answers.', splash: 7.5 }),
+  starter({ id: 'pulsefirem9', name: 'PULSEFIRE M9', category: 'handgun', tier: 'premium', dmg: 30, rate: 0.12, mag: 20, reserve: 140, reload: 1.2, auto: true, hipFov: 80, adsFov: 62, color: 0xc08bff, caliber: '9mm Energy', tagline: 'Never cools down.' }),
 ];
 
 export function gunById(id: string): GunDef {
   return GUNS.find((g) => g.id === id) ?? GUNS[0];
 }
 
-// Loadout pools by FIRE ROLE (disjoint, so the primary/secondary lists never
-// repeat a gun): PRIMARY = sustained-fire weapons (assault rifles, machine guns,
-// rapid energy); SECONDARY = slow, high-damage-per-shot weapons (snipers, rail
-// guns, launchers); SIDEARM = pistols.
-const PRIMARY_FAMILIES: Family[] = ['rifle', 'mg', 'laser'];
-const SECONDARY_FAMILIES: Family[] = ['sniper', 'launcher'];
-export const PRIMARIES = GUNS.filter((g) => PRIMARY_FAMILIES.includes(g.family));
-export const SECONDARIES = GUNS.filter((g) => SECONDARY_FAMILIES.includes(g.family));
-export const SIDEARMS = GUNS.filter((g) => g.family === 'pistol');
+// Loadout pools by SECTION (disjoint): PRIMARY = assault / alien-assault / MG;
+// HEAVY = sniper / RPG; SECONDARY = handguns. The exported names are kept for
+// back-compat with existing importers (SECONDARIES == the Heavy pool, SIDEARMS ==
+// the Secondary pool); the loadout screen labels them Primary / Heavy / Secondary.
+export const PRIMARIES = GUNS.filter((g) => g.section === 'primary');
+export const HEAVIES = GUNS.filter((g) => g.section === 'heavy');
+export const SECONDARIES = HEAVIES; // alias: old "secondary" fire-role pool == new Heavy
+export const SIDEARMS = GUNS.filter((g) => g.section === 'secondary');
 
 /** Throwables — one occupies the loadout's throwable slot.
  *  Each detonation can do up to four things: an instant blast (AoE damage), a
@@ -131,6 +197,7 @@ export function throwById(id: string): ThrowDef {
 
 /** STANDARD ISSUE — the weapons every Marine starts with, free from level 1. Every OTHER
  *  gun is LOCKED and bought permanently with AstroDiamonds (after reaching level 5). */
-export const RECRUIT_WEAPONS = new Set(['ar01', 'cb02', 'vx04', 'er08', 'rt06', 'gc03', 'pm09', 'rc12', 'sp01', 'mp05']);
+// The 10 Outlander starters are all immediately available (5 free + 5 premium).
+export const RECRUIT_WEAPONS = new Set(GUNS.map((g) => g.id));
 /** Campaign level a player must have reached before locked guns can be purchased. */
 export const UNLOCK_GATE_LEVEL = 5;

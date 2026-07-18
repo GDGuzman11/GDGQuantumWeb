@@ -13,6 +13,7 @@ import type { RenderTier } from './materials';
 import { buildGun, disposeModel } from './models';
 import { buildEngineeredGun } from './arsenal/partModel';
 import type { EngPart } from './arsenal/parts';
+import { gunById } from './weapons';
 
 // Rest pose + framing — all one-line tunable (bottom-right, barrel angled inward).
 const REST = { x: 0.2, y: -0.17, z: -0.36, ry: 0.16, rx: 0.03, size: 0.52 };
@@ -90,6 +91,10 @@ export class Viewmodel {
     });
     this.bolt = m.getObjectByName('bolt') ?? null;
     this.boltBaseZ = this.bolt ? this.bolt.position.z : 0;
+
+    // Muzzle flash takes the gun's own colour (from the reference sheet) so energy
+    // weapons flash their hue and ballistics flash warm — per Gabe's spec.
+    (this.flash.material as THREE.MeshBasicMaterial).color.setHex(gunById(id).color);
 
     // Park the flash at the muzzle (in holder space, so it tracks the gun pose).
     this.holder.updateWorldMatrix(true, true);

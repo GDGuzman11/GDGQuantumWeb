@@ -105,7 +105,7 @@ export function FpsGame({ initialRun, initialScreen, onRunSave, onRunEnd, onScor
   const [isTouch, setIsTouch] = useState(false);
   const [portrait, setPortrait] = useState(false);
   const [snap, setSnap] = useState<FpsSnapshot | null>(null);
-  const [lastLoadout, setLastLoadout] = useState<Loadout>({ p1: 'ar01', p2: 'rt06', sa: 'sp01', th: 'frag' }); // Standard Issue recruit kit
+  const [lastLoadout, setLastLoadout] = useState<Loadout>({ p1: 'aurora7', p2: 'm57punisher', sa: 'm7defender', th: 'frag' }); // Outlander starter kit
   const [run, setRun] = useState<{ level: number; gold: number; maxHp: number; upgrades: Record<string, Upg>; buffs?: NextBuffs }>({ level: 1, gold: 0, maxHp: 100, upgrades: {} });
   // Buy a shop item: deduct scaled gold, raise armour or arm a next-level buff.
   const buyItem = (id: string) =>

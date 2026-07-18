@@ -164,7 +164,7 @@ export function FpsLoadout({
               ones show 🔒 + a ◈ price and are bought on tap (level 5 + enough AstroDiamonds). */}
           <Picker label="PRIMARY" items={PRIMARIES.filter(offered)} value={p1} focus={focus} onPick={tryPick(setP1)} save={save} astro={astro} gateOpen={gateOpen} />
           <Picker label="HEAVY" items={SECONDARIES.filter(offered)} value={p2} focus={focus} onPick={tryPick(setP2)} save={save} astro={astro} gateOpen={gateOpen} />
-          <Picker label="SIDEARM" items={SIDEARMS.filter(offered)} value={sa} focus={focus} onPick={tryPick(setSa)} save={save} astro={astro} gateOpen={gateOpen} />
+          <Picker label="SECONDARY" items={SIDEARMS.filter(offered)} value={sa} focus={focus} onPick={tryPick(setSa)} save={save} astro={astro} gateOpen={gateOpen} />
           <div>
             <p className="font-pixel text-[7px] text-white/45 sm:text-[8px]">THROWABLE</p>
             <div className="mt-1 flex flex-wrap gap-1.5">
