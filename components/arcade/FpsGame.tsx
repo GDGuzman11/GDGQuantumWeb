@@ -15,6 +15,7 @@ import { FpsArsenal } from './screens/FpsArsenal';
 import { FpsArmory } from './screens/FpsArmory';
 import { FpsDivision } from './screens/FpsDivision';
 import { FpsPremium } from './screens/FpsPremium';
+import { FpsStore } from './screens/FpsStore';
 import { AvatarPanel, LoadoutPanel } from './screens/MenuPanels';
 import { useFpsLoop, type FpsGameState, type FpsSnapshot } from './useFpsLoop';
 import type { Level3D } from './fps/level3d';
@@ -40,7 +41,7 @@ import { milestoneBonus, stageFor } from './fps/arsenal/familiarity';
 import { sfx } from './engine/audio';
 import { THEME_LIST } from './fps/kit/themes';
 
-type Mode = 'title' | 'intro' | 'hangar' | 'menu' | 'loadout' | 'play' | 'shop' | 'complete' | 'customize' | 'editor' | 'capitalgen' | 'arsenal' | 'armory' | 'division' | 'premium';
+type Mode = 'title' | 'intro' | 'hangar' | 'menu' | 'loadout' | 'play' | 'shop' | 'complete' | 'customize' | 'editor' | 'capitalgen' | 'arsenal' | 'armory' | 'division' | 'premium' | 'store';
 type Loadout = { p1: string; p2: string; sa: string; th: string };
 
 // Final gauntlet: the 5 TOUGHEST bosses (by HP), one per round, ordered hardest-last.
@@ -866,8 +867,8 @@ export function FpsGame({ initialRun, initialScreen, onRunSave, onRunEnd, onScor
               <button type="button" onClick={() => setMode('division')} className="min-h-[44px] min-w-[130px] flex-1 rounded-md border border-[#c8a8ff]/45 bg-[#c8a8ff]/10 px-4 font-pixel text-[10px] uppercase tracking-[0.12em] text-[#c8a8ff] transition-colors hover:bg-[#c8a8ff]/20">
                 ⬢ Division
               </button>
-              <button type="button" onClick={() => setMode('arsenal')} className="min-h-[44px] min-w-[130px] flex-1 rounded-md border border-[#7fdfff]/45 bg-[#7fdfff]/10 px-4 font-pixel text-[10px] uppercase tracking-[0.12em] text-[#7fdfff] transition-colors hover:bg-[#7fdfff]/20">
-                ⚙ Arsenal
+              <button type="button" onClick={() => setMode('store')} className="min-h-[44px] min-w-[130px] flex-1 rounded-md border border-[#7fdfff]/45 bg-[#7fdfff]/10 px-4 font-pixel text-[10px] uppercase tracking-[0.12em] text-[#7fdfff] transition-colors hover:bg-[#7fdfff]/20">
+                ⛁ Store
               </button>
               <button type="button" onClick={() => setMode('premium')} className="min-h-[44px] min-w-[130px] flex-1 rounded-md border border-[#ffd27a]/45 bg-[#ffd27a]/10 px-4 font-pixel text-[10px] uppercase tracking-[0.12em] text-[#ffd27a] transition-colors hover:bg-[#ffd27a]/20">
                 ✦ Premium
@@ -1123,6 +1124,8 @@ export function FpsGame({ initialRun, initialScreen, onRunSave, onRunEnd, onScor
         {mode === 'editor' && <LevelEditor onPlay={playLayout} onBack={() => setMode('menu')} />}
 
         {mode === 'capitalgen' && <CapitalGenerator onBack={() => setMode('menu')} />}
+
+        {mode === 'store' && <FpsStore gold={goldBank} astro={astro} onSpendGold={spendGold} onSpendAstro={spendAstro} onBack={() => setMode('hangar')} />}
 
         {mode === 'arsenal' && <FpsArsenal astro={astro} onSpend={spendAstro} onBack={() => setMode('hangar')} />}
 
