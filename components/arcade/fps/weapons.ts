@@ -161,6 +161,9 @@ function sniperGun(id: string, name: string, color: number, caliber: string, tag
 function rpgGun(id: string, name: string, color: number, caliber: string, tagline: string, dmg = 200, splash = 6): GunDef {
   return starter({ id, name, category: 'rpg', tier: 'free', dmg, rate: 1.4, mag: 4, reserve: 16, reload: 2.7, auto: false, hipFov: 78, adsFov: 60, color, caliber, tagline, splash });
 }
+function alienGun(id: string, name: string, color: number, tagline: string, dmg = 38, rate = 0.11): GunDef {
+  return starter({ id, name, category: 'alienAssault', tier: 'free', dmg, rate, mag: 32, reserve: 224, reload: 1.7, auto: true, hipFov: 78, adsFov: 56, color, caliber: 'Xeno-tech', tagline });
+}
 
 export const STORE_GUNS: GunDef[] = [
   // FREE ASSAULT RIFLES — "20 Space Assault Rifles // Human Design" sheet (02-20; AURORA-7 is a starter).
@@ -244,6 +247,27 @@ export const STORE_GUNS: GunDef[] = [
   rpgGun('predatorpr5', 'PREDATOR PR-5', 0xff9a3a, '85mm HEAT', 'Hunt. Lock. Erase.', 235, 6),
   rpgGun('titanbreakerrpg', 'TITAN BREAKER', 0x7fdfff, '120mm HE', 'For the giants.', 270, 8),
   rpgGun('blackstarbs2', 'BLACKSTAR BS-2', 0x9a7cff, '75mm Smart', 'It chooses its target.', 225, 6.5),
+  // FREE ALIEN ASSAULT RIFLES — "20 Alien Assault Rifles" sheet 1 (Primary section).
+  alienGun('xiltharbladecarbine', 'XILTHAR BLADECARBINE', 0x49a6ff, 'Bio-electric discharge.', 36, 0.1),
+  alienGun('vorlaxincisor', 'VORLAX INCISOR', 0xb15cff, 'Acidic payload. Life sever.', 40, 0.12),
+  alienGun('zyrethpulser', 'ZYRETH PULSER', 0x6fd0ff, 'Phase disruptor. Shield breaker.', 34, 0.09),
+  alienGun('korvaxseeker', 'KORVAX SEEKER', 0xffb347, 'Auto-aim swarm rounds.', 32, 0.08),
+  alienGun('nergalharbinger', 'NERGAL HARBINGER', 0xff3a48, 'Spore infestation launcher.', 42, 0.13),
+  alienGun('qorathdevourer', 'QORATH DEVOURER', 0xff6a3a, 'Feeds on the target it kills.', 44, 0.13),
+  alienGun('elysianchorus', 'ELYSIAN CHORUS', 0x63ff84, 'Sonic tremors. Radius kills.', 35, 0.1),
+  alienGun('thalixshredder', 'THALIX SHREDDER', 0x6ff0a0, 'Neural overload. Mind break.', 38, 0.11),
+  alienGun('maevrisynapse', 'MAEVRI SYNAPSE', 0xb15cff, 'Neural overload. Mind break.', 37, 0.1),
+  alienGun('drachonriftmaw', 'DRACHON RIFTMAW', 0xff9a3a, 'Tears through armor and flesh.', 43, 0.12),
+  alienGun('solenaestarforge', 'SOLENAE STARFORGE', 0xffd27a, 'Stellar plasma. Infinite pierce.', 39, 0.11),
+  alienGun('vaskaobsidian', 'VASKA OBSIDIAN', 0x9a7cff, 'Void-etched. Infinite pierce.', 40, 0.12),
+  alienGun('ghorixmauler', 'GHORIX MAULER', 0xff3a48, 'Toxic assault. Armor melt.', 42, 0.13),
+  alienGun('illitharlament', 'ILLITHAR LAMENT', 0x7fdfff, 'Memory bane. Sanity fade.', 35, 0.1),
+  alienGun('varuunjudicator', "VA'RUUN JUDICATOR", 0x63ff84, 'Extends the eternal law.', 38, 0.11),
+  alienGun('uultakcarver', "UUL'TAK CARVER", 0x6ff0a0, 'Bone shatter. No escape.', 41, 0.12),
+  alienGun('sarnixobliterator', 'SARNIX OBLITERATOR', 0xff6a3a, 'Nanite swarm. Total erasure.', 43, 0.13),
+  alienGun('ryvnnphantom', 'RYVNN PHANTOM', 0x9a7cff, 'Hits without warning.', 36, 0.1),
+  alienGun('kerzulannihilator', 'KERZUL ANNIHILATOR', 0xb15cff, 'Pure destruction, weaponized.', 44, 0.13),
+  alienGun('omeganullifier', 'OMEGA NULLIFIER', 0x7fb8ff, 'Cosmic collapse. Total end.', 40, 0.12),
 ];
 
 /** Every buildable/equippable gun: the 10 owned starters + the (buyable) store roster. */
