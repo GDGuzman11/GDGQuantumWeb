@@ -164,6 +164,9 @@ function rpgGun(id: string, name: string, color: number, caliber: string, taglin
 function alienGun(id: string, name: string, color: number, tagline: string, dmg = 38, rate = 0.11): GunDef {
   return starter({ id, name, category: 'alienAssault', tier: 'free', dmg, rate, mag: 32, reserve: 224, reload: 1.7, auto: true, hipFov: 78, adsFov: 56, color, caliber: 'Xeno-tech', tagline });
 }
+function handgunGun(id: string, name: string, color: number, caliber: string, tagline: string, dmg = 40, rate = 0.2, mag = 15, auto = false): GunDef {
+  return starter({ id, name, category: 'handgun', tier: 'free', dmg, rate, mag, reserve: mag * 7, reload: 1.2, auto, hipFov: 78, adsFov: 60, color, caliber, tagline });
+}
 
 export const STORE_GUNS: GunDef[] = [
   // FREE ASSAULT RIFLES — "20 Space Assault Rifles // Human Design" sheet (02-20; AURORA-7 is a starter).
@@ -268,6 +271,25 @@ export const STORE_GUNS: GunDef[] = [
   alienGun('ryvnnphantom', 'RYVNN PHANTOM', 0x9a7cff, 'Hits without warning.', 36, 0.1),
   alienGun('kerzulannihilator', 'KERZUL ANNIHILATOR', 0xb15cff, 'Pure destruction, weaponized.', 44, 0.13),
   alienGun('omeganullifier', 'OMEGA NULLIFIER', 0x7fb8ff, 'Cosmic collapse. Total end.', 40, 0.12),
+  // FREE HANDGUNS — "20 Handguns" sheet (02-20; M-7 DEFENDER + PULSEFIRE M9 are starters). Secondary section.
+  handgunGun('orion11c', 'ORION-11C', 0xff9a3a, '10mm Auto', 'Fast trigger. Faster exit.', 42, 0.16, 15),
+  handgunGun('novacustom', 'NOVA CUSTOM', 0x7fdfff, '9.5mm Caseless', 'No brass. No trace.', 38, 0.14, 18),
+  handgunGun('vanguard2', 'VANGUARD-2', 0xff3a48, '.45 ACP', 'Heavy hitter. Old faithful.', 55, 0.28, 12),
+  handgunGun('rift22', 'RIFT-22', 0x6ff0a0, '7.62×25mm', 'Punches above its class.', 44, 0.18, 14),
+  handgunGun('kraken13', 'KRAKEN-13', 0xffb347, '.50 AE', 'One hand. All the power.', 72, 0.5, 7),
+  handgunGun('specter9', 'SPECTER-9', 0x9ec8ff, '9mm Subsonic', 'Quiet. Clean. Gone.', 40, 0.2, 15),
+  handgunGun('helix01', 'HELIX-01', 0x63ff84, '5.7×28mm', 'Armor means nothing.', 36, 0.13, 20),
+  handgunGun('ravager3', 'RAVAGER-3', 0xff7a3a, '12.7mm Pistol', 'A cannon in your palm.', 68, 0.46, 7),
+  handgunGun('dusk7', 'DUSK-7', 0x9a7cff, '.44 Magnum', 'Do you feel lucky.', 66, 0.42, 6),
+  handgunGun('ionix77', 'IONIX-77', 0x7fdfff, 'Energy Cell', 'Never runs dry.', 34, 0.12, 24, true),
+  handgunGun('striker45', 'STRIKER-45', 0xff9a3a, '.45 AP', 'Through armor. Through cover.', 58, 0.3, 12),
+  handgunGun('cyclone9', 'CYCLONE-9', 0x6fd0ff, '9mm Gyrojet', 'Rockets in a pistol.', 46, 0.2, 15),
+  handgunGun('wraith5', 'WRAITH-5', 0xb15cff, '8.6mm Blackout', 'From the shadows.', 48, 0.24, 12),
+  handgunGun('bolt10', 'BOLT-10', 0x6ff0a0, '10mm Auto', 'Snap. Snap. Snap.', 42, 0.16, 16),
+  handgunGun('eclipse9pistol', 'ECLIPSE-9', 0xff5a2a, '9mm Solar', 'Bottled sunlight.', 40, 0.15, 18),
+  handgunGun('talon22', 'TALON-22', 0x7fb8ff, '.22 LR', 'Small bite. Fast bite.', 28, 0.1, 24, true),
+  handgunGun('ghost6', 'GHOST-6', 0xbfe0ff, '300 BLK', 'They never see it.', 52, 0.26, 12),
+  handgunGun('hawker4', 'HAWKER-4', 0x9af0ff, '9mm EMP', 'Short out the fight.', 38, 0.18, 15),
 ];
 
 /** Every buildable/equippable gun: the 10 owned starters + the (buyable) store roster. */
