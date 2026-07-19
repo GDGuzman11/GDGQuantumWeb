@@ -139,6 +139,10 @@ function assaultGun(id: string, name: string, color: number, caliber: string, ta
 function mgGun(id: string, name: string, color: number, caliber: string, tagline: string, dmg = 24, rate = 0.07, mag = 60): GunDef {
   return starter({ id, name, category: 'mg', tier: 'free', dmg, rate, mag, reserve: mag * 6, reload: 2.4, auto: true, hipFov: 82, adsFov: 66, color, caliber, tagline });
 }
+function sniperGun(id: string, name: string, color: number, caliber: string, tagline: string, dmg = 200, rate = 1.4): GunDef {
+  // Bolt-action: single click + a 1.3-1.6s cycle, no hold-to-charge.
+  return starter({ id, name, category: 'sniper', tier: 'free', dmg, rate, mag: 6, reserve: 36, reload: 2.5, auto: false, hipFov: 78, adsFov: 24, color, caliber, tagline });
+}
 
 export const STORE_GUNS: GunDef[] = [
   // FREE ASSAULT RIFLES — "20 Space Assault Rifles // Human Design" sheet (02-20; AURORA-7 is a starter).
@@ -182,6 +186,26 @@ export const STORE_GUNS: GunDef[] = [
   mgGun('omegaresetter', 'OMEGA RESETTER', 0xff4a4a, '7.62mm', 'Erase. Rewrite. Repeat.', 24, 0.05, 110),
   mgGun('polarisrotor', 'POLARIS ROTOR', 0x6fb0ff, '5.56mm', 'Freeze them in their tracks.', 20, 0.05, 100),
   mgGun('dragonfirex6', 'DRAGONFIRE X6', 0xff6a3a, '7.62mm', 'Burn everything.', 22, 0.05, 110),
+  // FREE SNIPER RIFLES — "20 Space Sniper Rifles" sheet 1 (02-20; VANGUARD SR-1 is a starter).
+  sniperGun('lonestarmt7', 'LONESTAR MT7', 0x9ec8ff, '7.62×61mm', 'High velocity. Pinpoint accuracy.', 230, 1.5),
+  sniperGun('eclipserift', 'ECLIPSE RIFT', 0xb15cff, '.408 CheyTac', 'Cold forged. Silent operator.', 250, 1.6),
+  sniperGun('polarislance', 'POLARIS LANCE', 0x7fb8ff, '.50 BMG', 'Guided by the north star.', 260, 1.6),
+  sniperGun('novaspecter', 'NOVA SPECTER', 0x63ff84, '.338 Lapua', 'Strike from shadow.', 210, 1.4),
+  sniperGun('orionr9', 'ORION R-9', 0xff9a3a, '.300 WM', 'Electromagnetic stabilized.', 235, 1.5),
+  sniperGun('celestialmarksman', 'CELESTIAL MARKSMAN', 0xbfe0ff, '.408 CheyTac', 'Engineered for orbital drop.', 240, 1.5),
+  sniperGun('voidlineage', 'VOID LINEAGE', 0x9a7cff, '.375 CT', 'Ghost rounds. Silent kills.', 245, 1.55),
+  sniperGun('silenthorizon', 'SILENT HORIZON', 0x7fdfff, '.338 Lapua', 'Lightweight frame. Heavy impact.', 215, 1.4),
+  sniperGun('starfallx1', 'STARFALL X1', 0x6fd0ff, '.50 BMG', 'Anti-material capable.', 260, 1.6),
+  sniperGun('quasarprime', 'QUASAR PRIME', 0x9a7cff, '.338 Lapua', 'Reality bends. Dark hour weapon.', 240, 1.5),
+  sniperGun('phantomdistance', 'PHANTOM DISTANCE', 0x8fbaff, '.408 CheyTac', 'Ghost round. Guardian series.', 235, 1.5),
+  sniperGun('aegislongshot', 'AEGIS LONGSHOT', 0x6ff0a0, '12.7×108mm', 'Shield breaker. Guardian tanks.', 255, 1.6),
+  sniperGun('zenith7', 'ZENITH-7', 0x7fb8ff, '.338 Lapua', 'Classic build. Modern response.', 225, 1.45),
+  sniperGun('nebulawraith', 'NEBULA WRAITH', 0xb15cff, '.408 CheyTac', 'Clean. Fast. Lethal.', 240, 1.5),
+  sniperGun('solarissrx', 'SOLARIS SRX', 0xff7a3a, '.50 BMG', 'Built to end worlds.', 260, 1.65),
+  sniperGun('glacieredge', 'GLACIER EDGE', 0xbfe0ff, '.338 Lapua', 'From the void.', 235, 1.5),
+  sniperGun('oblivionguard', 'OBLIVION GUARD', 0x9a7cff, '.408 CheyTac', 'Extreme cold. Extreme precision.', 245, 1.55),
+  sniperGun('hyperionstrike', 'HYPERION STRIKE', 0xffb347, '.300 WM', 'Speed. Power. Precision.', 220, 1.4),
+  sniperGun('duskhunter', 'DUSK HUNTER', 0xff6a3a, '.338 Lapua', 'For the mysteries. By the stars.', 230, 1.5),
 ];
 
 /** Every buildable/equippable gun: the 10 owned starters + the (buyable) store roster. */
