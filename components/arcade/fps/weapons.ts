@@ -171,6 +171,15 @@ function handgunGun(id: string, name: string, color: number, caliber: string, ta
 function premAssault(id: string, name: string, color: number, tagline: string, dmg = 44, rate = 0.1): GunDef {
   return starter({ id, name, category: 'assault', tier: 'premium', dmg, rate, mag: 36, reserve: 252, reload: 1.5, auto: true, hipFov: 78, adsFov: 55, color, caliber: '6.8mm', tagline });
 }
+function premSniper(id: string, name: string, color: number, tagline: string, dmg = 300, rate = 1.4): GunDef {
+  return starter({ id, name, category: 'sniper', tier: 'premium', dmg, rate, mag: 5, reserve: 35, reload: 2.5, auto: false, hipFov: 78, adsFov: 22, color, caliber: 'Energy Core', tagline });
+}
+function premRPG(id: string, name: string, color: number, tagline: string, dmg = 300, splash = 7.5): GunDef {
+  return starter({ id, name, category: 'rpg', tier: 'premium', dmg, rate: 1.6, mag: 3, reserve: 12, reload: 2.9, auto: false, hipFov: 78, adsFov: 58, color, caliber: 'Prime', tagline, splash });
+}
+function premAlien(id: string, name: string, color: number, tagline: string, dmg = 46, rate = 0.1): GunDef {
+  return starter({ id, name, category: 'alienAssault', tier: 'premium', dmg, rate, mag: 36, reserve: 252, reload: 1.6, auto: true, hipFov: 78, adsFov: 55, color, caliber: 'Xeno-Prime', tagline });
+}
 
 export const STORE_GUNS: GunDef[] = [
   // FREE ASSAULT RIFLES — "20 Space Assault Rifles // Human Design" sheet (02-20; AURORA-7 is a starter).
@@ -314,6 +323,67 @@ export const STORE_GUNS: GunDef[] = [
   premAssault('radiantoathar', 'RADIANT OATH', 0xffd27a, 'Light be your weapon.', 44, 0.1),
   premAssault('abyssalredeemer', 'ABYSSAL REDEEMER', 0x6fd0ff, 'Even darkness bows.', 46, 0.11),
   premAssault('infinityguard', 'INFINITY GUARD', 0xbfe0ff, 'Power beyond limits.', 47, 0.11),
+  // PREMIUM SNIPER RIFLES — "20 Premium Sniper Rifles" sheet 1 (CELESTIAL LANCE is a starter).
+  premSniper('voidedge', 'VOID EDGE', 0x9a7cff, 'Made of nothing.', 320, 1.4),
+  premSniper('stellarphantom', 'STELLAR PHANTOM', 0x7fdfff, 'Wide like the stars.', 315, 1.35),
+  premSniper('eclipseprime', 'ECLIPSE PRIME', 0xb15cff, 'In the dark, we rule.', 325, 1.45),
+  premSniper('novabreaker', 'NOVA BREAKER', 0xff3a48, 'Erupt. Obliterate.', 330, 1.5),
+  premSniper('hyperionsentinel', 'HYPERION SENTINEL', 0x7fb8ff, 'Beyond the horizon.', 310, 1.35),
+  premSniper('solsticewhisper', 'SOLSTICE WHISPER', 0xffd27a, 'Silent. Deadly. Divine.', 315, 1.4),
+  premSniper('galacticharbinger', 'GALACTIC HARBINGER', 0x63ff84, 'Messenger of doom.', 320, 1.4),
+  premSniper('aurorahunter', 'AURORA HUNTER', 0x6fd0ff, 'Chase the light.', 315, 1.4),
+  premSniper('omegareach', 'OMEGA REACH', 0xff9a3a, 'The last thing they see.', 335, 1.5),
+  premSniper('quantumlongshot', 'QUANTUM LONGSHOT', 0xb15cff, 'Reality, divided.', 320, 1.4),
+  premSniper('dragonflightsr', 'DRAGONFLIGHT SR', 0xff6a3a, 'Swift. Precise. Relentless.', 325, 1.45),
+  premSniper('lunarghost', 'LUNAR GHOST', 0xbfe0ff, 'Fade and unseen.', 315, 1.4),
+  premSniper('titansbane', "TITAN'S BANE", 0x9ec8ff, 'Built to end gods.', 340, 1.55),
+  premSniper('nebulastrike', 'NEBULA STRIKE', 0xb15cff, 'Born from stardust.', 320, 1.4),
+  premSniper('polarisexecutioner', 'POLARIS EXECUTIONER', 0x7fb8ff, 'Guided by the north star.', 325, 1.45),
+  premSniper('starfallsr7', 'STARFALL SR-7', 0x6fd0ff, 'When stars collide.', 320, 1.4),
+  premSniper('vortexfury', 'VORTEX FURY', 0x9a7cff, 'Pull, and destroy.', 330, 1.5),
+  premSniper('chronosriflesr', 'CHRONOS RIFLE', 0x7fdfff, 'Time is on your side.', 315, 1.4),
+  premSniper('obscureraven', 'OBSCURE RAVEN', 0x9a7cff, 'Shadows never miss.', 325, 1.45),
+  // PREMIUM RPGs — "Premium Arsenal Heavy" sheet 1 (VOIDSTORM M-10 is a starter).
+  premRPG('atlasrl97', 'ATLAS RL-97', 0x7fb8ff, 'Anti-armor. Anti-everything.', 300, 7),
+  premRPG('ironcladm5', 'IRONCLAD M-5', 0x9ec8ff, 'Heavy impact. Total collapse.', 310, 7.5),
+  premRPG('starfalls3', 'STARFALL S-3', 0x7fdfff, 'Precision rocket launcher.', 290, 7),
+  premRPG('dragonbreathr6', 'DRAGONBREATH R-6', 0xff3a48, 'Thermobaric hellfire.', 320, 8),
+  premRPG('cryobreakercb9', 'CRYO BREAKER CB-9', 0x7fdfff, 'The cold that ends worlds.', 285, 7),
+  premRPG('thunderbolttb7', 'THUNDERBOLT TB-7', 0x9af0ff, 'Electro-magnetic ruin.', 300, 7),
+  premRPG('helixr12', 'HELIX R-12', 0x6ff0a0, 'Smart-lock. No escape.', 295, 7),
+  premRPG('novaeruptorn8', 'NOVA ERUPTOR N-8', 0xff9a3a, 'High-explosive supernova.', 315, 7.5),
+  premRPG('sabersr7', 'SABER SR-7', 0x9ec8ff, 'Kinetic. Precise. Lethal.', 300, 7),
+  premRPG('phoenixrla1', 'PHOENIX RLA-1', 0xff5a2a, 'Rise from their ashes.', 320, 8),
+  premRPG('predatorpr3', 'PREDATOR PR-3', 0xff9a3a, 'Top-attack devastation.', 310, 7),
+  premRPG('blackstarb9', 'BLACKSTAR B-9', 0x9a7cff, 'Gravity, weaponized.', 305, 7.5),
+  premRPG('quasarq2', 'QUASAR Q-2', 0x7fdfff, 'A star in every shell.', 300, 7),
+  premRPG('apocalypsea20', 'APOCALYPSE A-20', 0xffb347, 'Heavy nuclear payload.', 330, 8.5),
+  premRPG('dreadnoughtdn9', 'DREADNOUGHT DN-9', 0x9ec8ff, 'Anti-vehicle supremacy.', 315, 7.5),
+  premRPG('spectersp4', 'SPECTER SP-4', 0x6ff0a0, 'Stealth. Strike. Vanish.', 290, 7),
+  premRPG('hrm23harbinger', 'HRM-23 HARBINGER', 0xff9a3a, 'Multi-purpose annihilation.', 310, 7.5),
+  premRPG('goliathgl1', 'GOLIATH GL-1', 0xff6a3a, 'Super-heavy siege.', 340, 8.5),
+  premRPG('eclipsev9', 'ECLIPSE V-9', 0xb15cff, 'The void collects.', 305, 7.5),
+  // PREMIUM ALIEN ASSAULT RIFLES — "Premium Alien" sheet 1 (Primary section).
+  premAlien('celestialherald', 'CELESTIAL HERALD', 0xffd27a, 'Divine light. Endless glory.', 46, 0.1),
+  premAlien('omegaregulator', 'OMEGA REGULATOR', 0xff3a48, 'Control. Dominate. Desecrate.', 48, 0.12),
+  premAlien('nebulasovereign', 'NEBULA SOVEREIGN', 0xb15cff, 'Made of starlight. Built to rule.', 47, 0.11),
+  premAlien('voideclipse', 'VOID ECLIPSE', 0x9a7cff, 'Erase. Obliterate. Repeat.', 47, 0.11),
+  premAlien('auroraprimealien', 'AURORA PRIME', 0x6fd0ff, 'The light before destruction.', 46, 0.1),
+  premAlien('draconicascent', 'DRACONIC ASCENT', 0xff6a3a, 'Rise of the ancient.', 48, 0.12),
+  premAlien('solarflare', 'SOLAR FLARE', 0xff9a3a, 'Burn brighter than a star.', 47, 0.11),
+  premAlien('lunarphantom', 'LUNAR PHANTOM', 0xbfe0ff, 'Silent as shadow. Deadly as night.', 45, 0.1),
+  premAlien('quantumoverlord', 'QUANTUM OVERLORD', 0x7fdfff, 'Beyond the beyond limits.', 47, 0.11),
+  premAlien('infernochampion', 'INFERNO CHAMPION', 0xff3a48, 'Victory burns.', 48, 0.12),
+  premAlien('stellardestroyer', 'STELLAR DESTROYER', 0x7fb8ff, 'Built to end worlds.', 47, 0.11),
+  premAlien('empyreanwarden', 'EMPYREAN WARDEN', 0xffd27a, "Heaven's wrath unleashed.", 46, 0.1),
+  premAlien('chaosbringer', 'CHAOS BRINGER', 0xb15cff, 'Order fades. Chaos remains.', 47, 0.11),
+  premAlien('hyperionelite', 'HYPERION ELITE', 0x6ff0a0, 'Advanced. Superior. Unstoppable.', 47, 0.11),
+  premAlien('shadowrealm', 'SHADOW REALM', 0x9a7cff, 'Fear the darkness.', 46, 0.1),
+  premAlien('eternalparadoxalien', 'ETERNAL PARADOX', 0x7fdfff, 'Infinite power. Zero mercy.', 48, 0.12),
+  premAlien('crimsonreaper', 'CRIMSON REAPER', 0xff3a48, 'Death walks with you.', 48, 0.12),
+  premAlien('galacticsentinel', 'GALACTIC SENTINEL', 0x63ff84, 'Defender of the cosmos.', 46, 0.1),
+  premAlien('apexpredatoralien', 'APEX PREDATOR', 0x6ff0a0, 'Perfect. Precise. Deadly.', 47, 0.11),
+  premAlien('orionsupremacy', 'ORION SUPREMACY', 0x7fb8ff, 'We are the stars.', 47, 0.11),
 ];
 
 /** Every buildable/equippable gun: the 10 owned starters + the (buyable) store roster. */
