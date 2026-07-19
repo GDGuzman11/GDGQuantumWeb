@@ -136,6 +136,9 @@ const STARTERS: GunDef[] = [
 function assaultGun(id: string, name: string, color: number, caliber: string, tagline: string, dmg = 36, rate = 0.11): GunDef {
   return starter({ id, name, category: 'assault', tier: 'free', dmg, rate, mag: 30, reserve: 210, reload: 1.6, auto: true, hipFov: 78, adsFov: 56, color, caliber, tagline });
 }
+function mgGun(id: string, name: string, color: number, caliber: string, tagline: string, dmg = 24, rate = 0.07, mag = 60): GunDef {
+  return starter({ id, name, category: 'mg', tier: 'free', dmg, rate, mag, reserve: mag * 6, reload: 2.4, auto: true, hipFov: 82, adsFov: 66, color, caliber, tagline });
+}
 
 export const STORE_GUNS: GunDef[] = [
   // FREE ASSAULT RIFLES — "20 Space Assault Rifles // Human Design" sheet (02-20; AURORA-7 is a starter).
@@ -158,6 +161,27 @@ export const STORE_GUNS: GunDef[] = [
   assaultGun('gravitywell', 'GRAVITY WELL', 0x9a7cff, '6.8×43mm SPC', 'Pull them into oblivion.', 40, 0.12),
   assaultGun('solstice9', 'SOLSTICE-9', 0xffd27a, '5.56×45mm', 'Light in the dark.', 37, 0.11),
   assaultGun('apogee33', 'APOGEE 33', 0x6ff0c0, '8.6×43mm', 'Ascend. Conquer. Repeat.', 45, 0.14),
+  // FREE MACHINE GUNS — "20 Space Machine Guns" sheet (skip M-12 VINDICATOR starter + TYPHON MG-3).
+  // Single-barrel (02-10):
+  mgGun('eclipsewraith', 'ECLIPSE WRAITH', 0x6a8cff, '7.62mm', 'Lightweight. Deadly. Silent.', 22, 0.065, 55),
+  mgGun('solarisc97', 'SOLARIS ARMS C-97', 0xff9a3a, '7.62mm', 'Power meets precision.', 26, 0.075, 65),
+  mgGun('auroramg1', 'AURORA MG-1', 0x5fe0b0, '5.56mm', 'Strike with the northern light.', 21, 0.06, 70),
+  mgGun('hyperionguard', 'HYPERION GUARD', 0x7fb8ff, '7.62mm', 'Defend. Deter. Destroy.', 25, 0.07, 60),
+  mgGun('novacarbinex1', 'NOVA CARBINE X1', 0xffb347, '6.8mm', 'Compact fury. Maximum impact.', 23, 0.065, 55),
+  mgGun('orionlmg', 'ORION LMG', 0x6fb0ff, '7.62mm', 'Reach beyond the stars.', 27, 0.08, 75),
+  mgGun('voidstalker', 'VOID STALKER', 0xb15cff, '6.5mm', 'From the void, we reign.', 24, 0.07, 60),
+  mgGun('sentinelm12', 'SENTINEL M12', 0xbfe0ff, '5.56mm', 'Vigilant. Unyielding. Unstoppable.', 22, 0.065, 65),
+  // Gatling-style (11-20) — higher mag, faster spin:
+  mgGun('ga7hurricane', 'GA-7 HURRICANE', 0x6fd0ff, '7.62mm', 'Unleash the storm.', 20, 0.05, 100),
+  mgGun('titanmauler', 'TITAN MAULER', 0xff8a3a, '7.62mm', 'Breaching power. Unmatched.', 24, 0.05, 100),
+  mgGun('vortexr880', 'VORTEX R-880', 0x7fdfff, '5.56mm', 'Spin up. Wipe out.', 19, 0.045, 120),
+  mgGun('celestialspinner', 'CELESTIAL SPINNER', 0xb15cff, '6.5mm', 'A universe of hurt.', 22, 0.05, 100),
+  mgGun('apocalypsegatx', 'APOCALYPSE GAT-X', 0xff3a48, '7.62mm', 'End times, delivered fast.', 23, 0.05, 110),
+  mgGun('chronosminigun', 'CHRONOS MINIGUN', 0xffd27a, '5.56mm', 'Time bends to our firepower.', 18, 0.04, 130),
+  mgGun('nebuladevastator', 'NEBULA DEVASTATOR', 0x9a7cff, '7.62mm', 'From dust to dust.', 25, 0.055, 100),
+  mgGun('omegaresetter', 'OMEGA RESETTER', 0xff4a4a, '7.62mm', 'Erase. Rewrite. Repeat.', 24, 0.05, 110),
+  mgGun('polarisrotor', 'POLARIS ROTOR', 0x6fb0ff, '5.56mm', 'Freeze them in their tracks.', 20, 0.05, 100),
+  mgGun('dragonfirex6', 'DRAGONFIRE X6', 0xff6a3a, '7.62mm', 'Burn everything.', 22, 0.05, 110),
 ];
 
 /** Every buildable/equippable gun: the 10 owned starters + the (buyable) store roster. */
