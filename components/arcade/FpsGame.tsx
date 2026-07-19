@@ -147,6 +147,20 @@ export function FpsGame({ initialRun, initialScreen, onRunSave, onRunEnd, onScor
       return v;
     });
   }, []);
+  // Persistent GOLD wallet — the Store currency for free-tier guns. Unlike per-run
+  // `run.gold` (spent in-mission), this banks across runs: every gold earned accrues
+  // here too, so Gold is a long-term grind toward owning free-tier weapons.
+  const [goldBank, setGoldBank] = useState(0);
+  const saveGold = (v: number) => {
+    try {
+      localStorage.setItem('starshell.gold', String(v));
+    } catch {
+      /* ignore */
+    }
+    return v;
+  };
+  const spendGold = useCallback((n: number) => setGoldBank((g) => saveGold(Math.max(0, g - n))), []);
+  const earnGold = useCallback((n: number) => setGoldBank((g) => saveGold(g + n)), []);
   const [campaignLen, setCampaignLen] = useState(20); // display only; real value read on mount (client)
   const [sensitivity, setSensitivityState] = useState(1.5);
   const [fullscreen, setFullscreen] = useState(false); // real Fullscreen API active
@@ -219,6 +233,7 @@ export function FpsGame({ initialRun, initialScreen, onRunSave, onRunEnd, onScor
     try {
       setBest(Number(localStorage.getItem('starshell.best') || 0));
       setAstro(Number(localStorage.getItem('starshell.astro') || 0));
+      setGoldBank(Number(localStorage.getItem('starshell.gold') || 0));
       const savedLo = localStorage.getItem('starshell.loadout');
       if (savedLo) {
         const lo = JSON.parse(savedLo);
@@ -610,7 +625,11 @@ export function FpsGame({ initialRun, initialScreen, onRunSave, onRunEnd, onScor
     }
     if (snap.status === 'won') {
       const total = campaignTotalLevels();
-      setRun((r) => ({ ...r, gold: r.gold + goldFor(r.level, snap.kills, diff, squads) }));
+      {
+        const earned = goldFor(run.level, snap.kills, diff, squads);
+        setRun((r) => ({ ...r, gold: r.gold + earned }));
+        earnGold(earned); // also bank into the persistent Store wallet
+      }
       if (run.level >= total) {
         // GAUNTLET: advance through the five enhanced bosses with a recovery window.
         if (gauntletRef.current > 0 && gauntletRef.current < GAUNTLET_BOSSES.length) {
@@ -635,7 +654,7 @@ export function FpsGame({ initialRun, initialScreen, onRunSave, onRunEnd, onScor
     }
     // Persist this operation's arsenal/marine/astro/best to the account.
     emitProgressChanged(true);
-  }, [snap, mode, run.level, diff, squads, lastLoadout, runStats, onRunEnd, onScore]);
+  }, [snap, mode, run.level, diff, squads, lastLoadout, runStats, onRunEnd, onScore, earnGold]);
 
   // Auto-dismiss the familiarity toast.
   useEffect(() => {
