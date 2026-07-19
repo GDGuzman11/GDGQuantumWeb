@@ -167,6 +167,10 @@ function alienGun(id: string, name: string, color: number, tagline: string, dmg 
 function handgunGun(id: string, name: string, color: number, caliber: string, tagline: string, dmg = 40, rate = 0.2, mag = 15, auto = false): GunDef {
   return starter({ id, name, category: 'handgun', tier: 'free', dmg, rate, mag, reserve: mag * 7, reload: 1.2, auto, hipFov: 78, adsFov: 60, color, caliber, tagline });
 }
+// PREMIUM helper — tier 'premium' → Astro-priced + auto on-hit trait + rich animated flair.
+function premAssault(id: string, name: string, color: number, tagline: string, dmg = 44, rate = 0.1): GunDef {
+  return starter({ id, name, category: 'assault', tier: 'premium', dmg, rate, mag: 36, reserve: 252, reload: 1.5, auto: true, hipFov: 78, adsFov: 55, color, caliber: '6.8mm', tagline });
+}
 
 export const STORE_GUNS: GunDef[] = [
   // FREE ASSAULT RIFLES — "20 Space Assault Rifles // Human Design" sheet (02-20; AURORA-7 is a starter).
@@ -290,6 +294,26 @@ export const STORE_GUNS: GunDef[] = [
   handgunGun('talon22', 'TALON-22', 0x7fb8ff, '.22 LR', 'Small bite. Fast bite.', 28, 0.1, 24, true),
   handgunGun('ghost6', 'GHOST-6', 0xbfe0ff, '300 BLK', 'They never see it.', 52, 0.26, 12),
   handgunGun('hawker4', 'HAWKER-4', 0x9af0ff, '9mm EMP', 'Short out the fight.', 38, 0.18, 15),
+  // PREMIUM ASSAULT RIFLES — "20 Premium Space Assault Rifles" sheet 1 (Astro-priced; CELESTIAL AEGIS is a starter).
+  premAssault('nebulalux', 'NEBULA LUX', 0x7fdfff, 'Light made deadly.', 44, 0.1),
+  premAssault('solarisprimear', 'SOLARIS PRIME', 0xff9a3a, 'Power of a star.', 46, 0.1),
+  premAssault('voidimperator', 'VOID IMPERATOR', 0x9a7cff, 'Rule the dark.', 45, 0.1),
+  premAssault('eternalparagon', 'ETERNAL PARAGON', 0xffd27a, 'Legends never fall.', 44, 0.1),
+  premAssault('dragonsbreathar', "DRAGON'S BREATH", 0xff3a48, 'Burn worlds.', 47, 0.11),
+  premAssault('stardustmarauder', 'STARDUST MARAUDER', 0x6fd0ff, 'Made of cosmic dust.', 43, 0.09),
+  premAssault('chronosedge', 'CHRONOS EDGE', 0x7fb8ff, 'Time is your weapon.', 44, 0.1),
+  premAssault('galaxyhunter', 'GALAXY HUNTER', 0x6ff0a0, 'No prey escapes.', 45, 0.1),
+  premAssault('auroradisciple', 'AURORA DISCIPLE', 0xff7ac0, 'Beauty. Precision. Death.', 43, 0.09),
+  premAssault('titansfuryar', "TITAN'S FURY", 0xff6a3a, 'Crush. Destroy. Repeat.', 48, 0.12),
+  premAssault('lunareclipsear', 'LUNAR ECLIPSE', 0x9a7cff, 'Shadows align.', 45, 0.1),
+  premAssault('exoduselite', 'EXODUS ELITE', 0xbfe0ff, 'Forged for survival.', 44, 0.1),
+  premAssault('psionicrequiem', 'PSIONIC REQUIEM', 0xb15cff, 'Silence their souls.', 45, 0.1),
+  premAssault('omegaprotocol', 'OMEGA PROTOCOL', 0xffd27a, 'End of all threats.', 46, 0.11),
+  premAssault('empyreanwraithar', 'EMPYREAN WRAITH', 0x7fdfff, 'From heaven, judgment.', 44, 0.1),
+  premAssault('vortexphantomar', 'VORTEX PHANTOM', 0x9a7cff, 'Disappear. Strike. Erase.', 45, 0.1),
+  premAssault('radiantoathar', 'RADIANT OATH', 0xffd27a, 'Light be your weapon.', 44, 0.1),
+  premAssault('abyssalredeemer', 'ABYSSAL REDEEMER', 0x6fd0ff, 'Even darkness bows.', 46, 0.11),
+  premAssault('infinityguard', 'INFINITY GUARD', 0xbfe0ff, 'Power beyond limits.', 47, 0.11),
 ];
 
 /** Every buildable/equippable gun: the 10 owned starters + the (buyable) store roster. */
