@@ -69,6 +69,9 @@ export function FpsLoadout({
   // equip on click; LOCKED guns show with a 🔒 + AstroDiamond price and are BOUGHT on
   // click (see tryPick — needs level 5 + enough ◈). This is the weapon shop.
   const offered = (g: GunDef) => isWeaponForDivision(g.id, marineDiv);
+  // The loadout only shows OWNED guns (starters + guns bought in the Store); locked
+  // store guns are purchased in the Store, not here.
+  const ownedOffered = (g: GunDef) => offered(g) && isWeaponUnlocked(save, g.id);
   const [p1, setP1] = useState(initial.p1);
   const [p2, setP2] = useState(initial.p2);
   const [sa, setSa] = useState(initial.sa);
@@ -162,9 +165,9 @@ export function FpsLoadout({
         <div className="flex min-h-0 flex-1 flex-col gap-2.5 overflow-y-auto pr-1">
           {/* Each pool shows your division's weapons: recruit/owned equip on tap; locked
               ones show 🔒 + a ◈ price and are bought on tap (level 5 + enough AstroDiamonds). */}
-          <Picker label="PRIMARY" items={PRIMARIES.filter(offered)} value={p1} focus={focus} onPick={tryPick(setP1)} save={save} astro={astro} gateOpen={gateOpen} />
-          <Picker label="HEAVY" items={SECONDARIES.filter(offered)} value={p2} focus={focus} onPick={tryPick(setP2)} save={save} astro={astro} gateOpen={gateOpen} />
-          <Picker label="SECONDARY" items={SIDEARMS.filter(offered)} value={sa} focus={focus} onPick={tryPick(setSa)} save={save} astro={astro} gateOpen={gateOpen} />
+          <Picker label="PRIMARY" items={PRIMARIES.filter(ownedOffered)} value={p1} focus={focus} onPick={tryPick(setP1)} save={save} astro={astro} gateOpen={gateOpen} />
+          <Picker label="HEAVY" items={SECONDARIES.filter(ownedOffered)} value={p2} focus={focus} onPick={tryPick(setP2)} save={save} astro={astro} gateOpen={gateOpen} />
+          <Picker label="SECONDARY" items={SIDEARMS.filter(ownedOffered)} value={sa} focus={focus} onPick={tryPick(setSa)} save={save} astro={astro} gateOpen={gateOpen} />
           <div>
             <p className="font-pixel text-[7px] text-white/45 sm:text-[8px]">THROWABLE</p>
             <div className="mt-1 flex flex-wrap gap-1.5">

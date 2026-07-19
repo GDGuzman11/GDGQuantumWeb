@@ -116,7 +116,7 @@ function starter(s: Starter): GunDef {
 
 // ── OUTLANDER STARTERS — 10 weapons available immediately (5 free + 5 premium) ──
 // Colours are pulled from the reference sheets so the muzzle flash + gun lights match.
-export const GUNS: GunDef[] = [
+const STARTERS: GunDef[] = [
   // FREE (5) — a complete loadout on their own: 2 primary, 2 heavy, 1 secondary.
   starter({ id: 'aurora7', name: 'AURORA-7', category: 'assault', tier: 'free', dmg: 34, rate: 0.11, mag: 32, reserve: 224, reload: 1.6, auto: true, hipFov: 78, adsFov: 56, color: 0x8fbaff, caliber: '5.56×45mm', tagline: 'Light. Precise. Deadly.' }),
   starter({ id: 'm12vindicator', name: 'M-12 VINDICATOR', category: 'mg', tier: 'free', dmg: 24, rate: 0.07, mag: 60, reserve: 360, reload: 2.3, auto: true, hipFov: 82, adsFov: 66, color: 0x9fc0e0, caliber: '7.62mm', tagline: 'Reliable. Rugged. Ruthless.' }),
@@ -130,6 +130,38 @@ export const GUNS: GunDef[] = [
   starter({ id: 'voidstormm10', name: 'VOIDSTORM M-10', category: 'rpg', tier: 'premium', dmg: 300, rate: 1.6, mag: 3, reserve: 12, reload: 2.9, auto: false, hipFov: 78, adsFov: 58, color: 0xb15cff, caliber: 'Void Energy', tagline: 'The void answers.', splash: 7.5 }),
   starter({ id: 'pulsefirem9', name: 'PULSEFIRE M9', category: 'handgun', tier: 'premium', dmg: 30, rate: 0.12, mag: 20, reserve: 140, reload: 1.2, auto: true, hipFov: 80, adsFov: 62, color: 0xc08bff, caliber: '9mm Energy', tagline: 'Never cools down.' }),
 ];
+
+// ── STORE ROSTER — buyable weapons beyond the starters (grows toward the full sheets).
+// Free-tier (from the non-premium sheets) → bought with GOLD; premium-tier → AstroDiamonds.
+function assaultGun(id: string, name: string, color: number, caliber: string, tagline: string, dmg = 36, rate = 0.11): GunDef {
+  return starter({ id, name, category: 'assault', tier: 'free', dmg, rate, mag: 30, reserve: 210, reload: 1.6, auto: true, hipFov: 78, adsFov: 56, color, caliber, tagline });
+}
+
+export const STORE_GUNS: GunDef[] = [
+  // FREE ASSAULT RIFLES — "20 Space Assault Rifles // Human Design" sheet (02-20; AURORA-7 is a starter).
+  assaultGun('nebulacarbine', 'NEBULA CARBINE', 0x5fe0d0, '5.56×45mm', 'Adapt. Overcome. Survive.', 34, 0.1),
+  assaultGun('pulsarvx9', 'PULSAR-VX9', 0x9fe8ff, '8.6×43mm SPC', 'Energy conduit. Hyper velocity.', 38, 0.1),
+  assaultGun('orionprime', 'ORION PRIME', 0xff9a3a, '7.62×39mm', 'Built for the frontier.', 42, 0.13),
+  assaultGun('eclipser12', 'ECLIPSE R-12', 0xff4a4a, '6.5×39mm', 'Stalk. Strike. Disappear.', 36, 0.11),
+  assaultGun('helixrifle', 'HELIX RIFLE', 0xbfe0ff, '5.56×45mm', 'Evolved. Superior. Lethal.', 35, 0.1),
+  assaultGun('nova22', 'NOVA-22', 0xffb347, '6.8×43mm SPC', 'Star-born. Battle-proven.', 40, 0.12),
+  assaultGun('quantumedge', 'QUANTUM EDGE', 0x6ff0a0, '6.5×39mm', 'Reality distortion in a barrel.', 37, 0.1),
+  assaultGun('voidhunter', 'VOID HUNTER', 0xb15cff, '6.5 Grendel', 'No end. No escape.', 39, 0.12),
+  assaultGun('starfall11', 'STARFALL-11', 0x7fdfff, '7.62×51mm', 'From the stars, to the stars.', 44, 0.14),
+  assaultGun('hyperionlegion', 'HYPERION LEGION', 0xff6a3a, '7.62×39mm', 'Loyalty. Honor. Destruction.', 41, 0.12),
+  assaultGun('astra6', 'ASTRA-6', 0x6fb0ff, '5.56×45mm', 'Beyond the limits.', 34, 0.1),
+  assaultGun('titanbreaker', 'TITAN BREAKER', 0xffa838, '8.6×43mm', 'Nothing can stand.', 46, 0.15),
+  assaultGun('vegax1', 'VEGA X-1', 0x6fd0ff, '5.56×39mm', 'Sleek. Deadly. Efficient.', 35, 0.09),
+  assaultGun('chimera9', 'CHIMERA-9', 0x5fe0b0, '6.5 Creedmoor', 'Adapt or die.', 38, 0.11),
+  assaultGun('blackstarfury', 'BLACKSTAR FURY', 0xff3a48, '7.62×39mm', 'Fueled by rage.', 43, 0.13),
+  assaultGun('horizonrifle', 'HORIZON RIFLE', 0x7fb8ff, '5.56×45mm', 'No borders. No mercy.', 36, 0.11),
+  assaultGun('gravitywell', 'GRAVITY WELL', 0x9a7cff, '6.8×43mm SPC', 'Pull them into oblivion.', 40, 0.12),
+  assaultGun('solstice9', 'SOLSTICE-9', 0xffd27a, '5.56×45mm', 'Light in the dark.', 37, 0.11),
+  assaultGun('apogee33', 'APOGEE 33', 0x6ff0c0, '8.6×43mm', 'Ascend. Conquer. Repeat.', 45, 0.14),
+];
+
+/** Every buildable/equippable gun: the 10 owned starters + the (buyable) store roster. */
+export const GUNS: GunDef[] = [...STARTERS, ...STORE_GUNS];
 
 export function gunById(id: string): GunDef {
   return GUNS.find((g) => g.id === id) ?? GUNS[0];
@@ -197,7 +229,7 @@ export function throwById(id: string): ThrowDef {
 
 /** STANDARD ISSUE — the weapons every Marine starts with, free from level 1. Every OTHER
  *  gun is LOCKED and bought permanently with AstroDiamonds (after reaching level 5). */
-// The 10 Outlander starters are all immediately available (5 free + 5 premium).
-export const RECRUIT_WEAPONS = new Set(GUNS.map((g) => g.id));
+// Only the 10 Outlander starters are owned immediately; STORE_GUNS are bought.
+export const RECRUIT_WEAPONS = new Set(STARTERS.map((g) => g.id));
 /** Campaign level a player must have reached before locked guns can be purchased. */
 export const UNLOCK_GATE_LEVEL = 5;
