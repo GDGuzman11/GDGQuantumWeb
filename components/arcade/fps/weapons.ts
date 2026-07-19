@@ -158,6 +158,9 @@ function sniperGun(id: string, name: string, color: number, caliber: string, tag
   // Bolt-action: single click + a 1.3-1.6s cycle, no hold-to-charge.
   return starter({ id, name, category: 'sniper', tier: 'free', dmg, rate, mag: 6, reserve: 36, reload: 2.5, auto: false, hipFov: 78, adsFov: 24, color, caliber, tagline });
 }
+function rpgGun(id: string, name: string, color: number, caliber: string, tagline: string, dmg = 200, splash = 6): GunDef {
+  return starter({ id, name, category: 'rpg', tier: 'free', dmg, rate: 1.4, mag: 4, reserve: 16, reload: 2.7, auto: false, hipFov: 78, adsFov: 60, color, caliber, tagline, splash });
+}
 
 export const STORE_GUNS: GunDef[] = [
   // FREE ASSAULT RIFLES — "20 Space Assault Rifles // Human Design" sheet (02-20; AURORA-7 is a starter).
@@ -221,6 +224,26 @@ export const STORE_GUNS: GunDef[] = [
   sniperGun('oblivionguard', 'OBLIVION GUARD', 0x9a7cff, '.408 CheyTac', 'Extreme cold. Extreme precision.', 245, 1.55),
   sniperGun('hyperionstrike', 'HYPERION STRIKE', 0xffb347, '.300 WM', 'Speed. Power. Precision.', 220, 1.4),
   sniperGun('duskhunter', 'DUSK HUNTER', 0xff6a3a, '.338 Lapua', 'For the mysteries. By the stars.', 230, 1.5),
+  // FREE RPGs — "20 Space RPGs" sheet 1 (02-20; M-57 PUNISHER is a starter).
+  rpgGun('arclightrl7', 'ARCLIGHT RL-7', 0xb15cff, '70mm Plasma', 'Light the way to ruin.', 210, 6.5),
+  rpgGun('starfiresr3', 'STARFIRE SR-3', 0xff7a3a, '100mm Thermobaric', 'A sun in every shell.', 260, 7.5),
+  rpgGun('thunderclap9', 'THUNDERCLAP 9', 0x7fdfff, '120mm HE', 'They hear it before they die.', 240, 7),
+  rpgGun('voidstormv2', 'VOIDSTORM V2', 0x9a7cff, '80mm Void', 'The void takes all.', 230, 7),
+  rpgGun('ironhailm82', 'IRONHAIL M-82', 0xff9a3a, '60mm HEAP', 'Armor is a suggestion.', 200, 5.5),
+  rpgGun('omegadevastator', 'OMEGA DEVASTATOR', 0xffb347, '90mm Cluster', 'Nothing left standing.', 220, 8),
+  rpgGun('frostbitefb8', 'FROSTBITE FB-8', 0x7fdfff, '75mm Cryo', 'The last cold they feel.', 190, 6),
+  rpgGun('scorpionrl1', 'SCORPION RL-1', 0xff7a3a, '65mm HEAT', 'One sting. One kill.', 210, 5.5),
+  rpgGun('heliosh12', 'HELIOS H-12', 0xff5a2a, '100mm Incendiary', 'Burn it to the ground.', 250, 7),
+  rpgGun('ravagerr11', 'RAVAGER R-11', 0x9ec8ff, '80mm Anti-Armor', 'Built to break tanks.', 240, 6),
+  rpgGun('eclipsee6', 'ECLIPSE E-6', 0x9af0ff, '65mm EMP', 'Kill the lights.', 180, 6),
+  rpgGun('bansheeb7', 'BANSHEE B-7', 0xff9a3a, '70mm HE', 'You will hear it coming.', 205, 6),
+  rpgGun('dragonflydf2', 'DRAGONFLY DF-2', 0xff7a3a, '100mm Thermobaric', 'Small wings. Big fire.', 255, 7.5),
+  rpgGun('novaripper', 'NOVA RIPPER', 0xffb347, '65mm Fragmentation', 'Shred the horizon.', 210, 7),
+  rpgGun('wraithw4', 'WRAITH W-4', 0xb15cff, '75mm Guided', 'It finds them.', 220, 6),
+  rpgGun('javelinx15', 'JAVELIN X-15', 0x7fb8ff, '80mm Tandem', 'Twice the punch.', 245, 6.5),
+  rpgGun('predatorpr5', 'PREDATOR PR-5', 0xff9a3a, '85mm HEAT', 'Hunt. Lock. Erase.', 235, 6),
+  rpgGun('titanbreakerrpg', 'TITAN BREAKER', 0x7fdfff, '120mm HE', 'For the giants.', 270, 8),
+  rpgGun('blackstarbs2', 'BLACKSTAR BS-2', 0x9a7cff, '75mm Smart', 'It chooses its target.', 225, 6.5),
 ];
 
 /** Every buildable/equippable gun: the 10 owned starters + the (buyable) store roster. */
