@@ -25,6 +25,7 @@ export function GunPreview({ gunId, equipped, previewPart, onExpand, fireNonce =
   const spinRef = useRef<THREE.Object3D[]>([]);
   const glowRef = useRef<{ mat: THREE.MeshStandardMaterial; base: number }[]>([]);
   const scanRef = useRef<{ o: THREE.Object3D; from: number; to: number; speed: number }[]>([]);
+  const bobRef = useRef<{ o: THREE.Object3D; amp: number; speed: number; base: number }[]>([]);
   const composerRef = useRef<EffectComposer | null>(null);
   const reducedRef = useRef(false);
   // Test-fire animation: a recoil impulse + a muzzle flash at the 'muzzle' marker.
@@ -85,10 +86,18 @@ export function GunPreview({ gunId, equipped, previewPart, onExpand, fireNonce =
       const dt = Math.min(0.05, clock.getDelta());
       const t = clock.elapsedTime;
       if (!reducedRef.current && pivot && !dragRef.current.paused) pivot.rotation.y += dt * 0.5;
-      for (const s of spinRef.current) s.rotation.z += dt * 3.2;
+      for (const s of spinRef.current) {
+        const u = (s.userData.spin ?? {}) as { speed?: number; axis?: 'x' | 'y' | 'z' };
+        const d = (u.speed ?? 3.2) * dt;
+        if (u.axis === 'y') s.rotation.y += d;
+        else if (u.axis === 'x') s.rotation.x += d;
+        else s.rotation.z += d;
+      }
       for (const g of glowRef.current) g.mat.emissiveIntensity = g.base * (0.7 + 0.4 * (0.5 + 0.5 * Math.sin(t * 3)));
       // traveling laser: slide each 'scan' element between from..to along Z
       for (const sc of scanRef.current) sc.o.position.z = sc.from + (sc.to - sc.from) * (0.5 + 0.5 * Math.sin(t * sc.speed));
+      // levitating parts bob on Y
+      for (const b of bobRef.current) b.o.position.y = b.base + b.amp * Math.sin(t * b.speed);
       // recoil kick (decays) — a backward jolt + muzzle rise
       const m = modelRef.current;
       if (m) {
@@ -182,9 +191,11 @@ export function GunPreview({ gunId, equipped, previewPart, onExpand, fireNonce =
     const spins: THREE.Object3D[] = [];
     const glows: { mat: THREE.MeshStandardMaterial; base: number }[] = [];
     const scans: { o: THREE.Object3D; from: number; to: number; speed: number }[] = [];
+    const bobs: { o: THREE.Object3D; amp: number; speed: number; base: number }[] = [];
     m.traverse((o) => {
       if (o.name === 'spin') spins.push(o);
       if (o.name === 'scan' && o.userData.scan) scans.push({ o, ...(o.userData.scan as { from: number; to: number; speed: number }) });
+      if (o.name === 'bob' && o.userData.bob) bobs.push({ o, base: o.position.y, ...(o.userData.bob as { amp: number; speed: number }) });
       if (o.name === 'coil' || o.name === 'glow' || o.name === 'scan') {
         const mat = (o as THREE.Mesh).material as THREE.Material;
         if (mat instanceof THREE.MeshStandardMaterial) glows.push({ mat, base: mat.emissiveIntensity });
@@ -193,6 +204,7 @@ export function GunPreview({ gunId, equipped, previewPart, onExpand, fireNonce =
     spinRef.current = spins;
     glowRef.current = glows;
     scanRef.current = scans;
+    bobRef.current = bobs;
   }, [gunId, equipped, previewPart]);
 
   // Test-fire trigger: bump `fireNonce` to kick recoil + flash the muzzle.

@@ -205,7 +205,7 @@ export function buildGun(id: string, tier: RenderTier): THREE.Group {
   // Any Outlander gun (the 10 starters + the full roster) builds from its category
   // silhouette, tinted to its own colour — no gun falls back to the placeholder box.
   const og = GUNS.find((x) => x.id === id);
-  if (og) return buildOutlanderGun(og.category, og.color, tier, og.id);
+  if (og) return buildOutlanderGun(og.category, og.color, tier, og.id, og.tier === 'premium');
   const g = new THREE.Group();
   g.add(new THREE.Mesh(new THREE.BoxGeometry(0.4, 0.1, 0.1), new THREE.MeshStandardMaterial({ color: 0x555555 })));
   return g;

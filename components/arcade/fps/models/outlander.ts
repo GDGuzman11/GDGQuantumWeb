@@ -222,10 +222,79 @@ const PROFILES: Record<Exclude<WeaponCategory, 'rpg' | 'handgun'>, Profile> = {
   sniper: { len: 0.6, girth: 0.05, scopeChance: 1.0, bodyCol: COL.gunmetal, drum: false, organic: false },
 };
 
-/** Build any Outlander gun, seeded from its id so each is visually distinct. */
-export function buildOutlanderGun(category: WeaponCategory, color: number, tier: RenderTier, id: string): THREE.Group {
+/** A group whose children ORBIT the origin (spin-group with offset children). */
+function orbitGroup(nodes: number, radius: number, mat: THREE.Material, size: number, speed: number, z: number): THREE.Group {
+  const g = new THREE.Group();
+  g.name = 'spin';
+  g.userData.spin = { speed, axis: 'z' };
+  for (let i = 0; i < nodes; i++) {
+    const a = (i / nodes) * Math.PI * 2;
+    const n = box(size, size, size, mat, Math.cos(a) * radius, Math.sin(a) * radius, 0);
+    n.name = 'glow';
+    g.add(n);
+  }
+  g.position.z = z;
+  return g;
+}
+
+/** PREMIUM flair — a SECOND creative animated feature + prestige trim, so premium guns
+ *  always have ≥2 glowing/moving parts working together. Refer to the premium sheets:
+ *  ornate energy cores, orbiting nodes, levitating shards, reactor rings. */
+function addPremiumFlair(parts: THREE.Object3D[], M: Mats, G: number, L: number, r: () => number): void {
+  const pick: Pick = (a) => a[Math.floor(r() * a.length)];
+  // prestige trim: thin glowing edge rails down the receiver (glow via bloom)
+  parts.push(box(0.012, 0.012, L * 0.9, M.hot, G * 1.02, G * 0.9, 0.02));
+  parts.push(box(0.012, 0.012, L * 0.9, M.hot, -G * 1.02, G * 0.9, 0.02));
+
+  const kind = pick(['orbit', 'levitate', 'reactor', 'twinscan']);
+  if (kind === 'orbit') {
+    // energy nodes orbiting the receiver core
+    parts.push(orbitGroup(3, G * 1.7, M.hot, G * 0.55, 2.0 + r(), 0.02));
+    const core = box(G * 0.6, G * 0.6, G * 0.6, M.glow, 0, 0, 0.02);
+    core.name = 'glow';
+    parts.push(core);
+  } else if (kind === 'levitate') {
+    // a crystalline shard floating above the receiver, bobbing (glows via bloom)
+    const shard = new THREE.Mesh(new THREE.OctahedronGeometry(G * 0.8), M.hot);
+    shard.name = 'bob';
+    shard.userData.bob = { amp: G * 0.5, speed: 1.8 + r() };
+    shard.position.set(0, G * 2.4, 0.02);
+    parts.push(shard);
+    parts.push(orbitGroup(2, G * 0.9, M.glow, G * 0.3, 3.0, 0.02)); // tiny orbiters under it
+  } else if (kind === 'reactor') {
+    // a spinning reactor ring around a pulsing core
+    const ring = new THREE.Mesh(new THREE.TorusGeometry(G * 1.4, G * 0.16, 8, 22), M.glow);
+    ring.name = 'spin';
+    ring.userData.spin = { speed: 1.6 + r(), axis: 'z' };
+    ring.position.z = 0.02;
+    parts.push(ring);
+    const core = box(G * 0.7, G * 0.7, G * 0.7, M.hot, 0, 0, 0.02);
+    core.name = 'glow';
+    parts.push(core);
+  } else {
+    // a second scan running the opposite side, phase-offset
+    parts.push(scanBar(M.hot, -G * 1.06, 0, L * 0.3, -L * 0.3, 2.4 + r(), 0.04, G * 0.7));
+    const chamber = box(G * 1.0, G * 0.8, L * 0.25, M.glow, 0, 0, 0.02 + L * 0.1);
+    chamber.name = 'glow';
+    parts.push(chamber);
+  }
+}
+
+/** Build any Outlander gun, seeded from its id so each is visually distinct. Premium guns
+ *  get a second creative animated feature + prestige trim. */
+export function buildOutlanderGun(category: WeaponCategory, color: number, tier: RenderTier, id: string, premium = false): THREE.Group {
   const r = rng(hashId(id) ^ 0x9e3779b9);
-  if (category === 'rpg') return buildRPG(color, tier, r);
-  if (category === 'handgun') return buildHandgun(color, tier, r);
-  return buildFirearm(PROFILES[category], color, tier, r);
+  let g: THREE.Group;
+  const M = mats(color, tier, category === 'rpg' ? COL.olive : category === 'handgun' ? COL.steel : category === 'alienAssault' ? 0x2a2438 : COL.gunmetal);
+  if (category === 'rpg') g = buildRPG(color, tier, r);
+  else if (category === 'handgun') g = buildHandgun(color, tier, r);
+  else g = buildFirearm(PROFILES[category], color, tier, r);
+  if (premium) {
+    const extra: THREE.Object3D[] = [];
+    const G = category === 'rpg' ? 0.07 : category === 'handgun' ? 0.05 : PROFILES[category].girth * 1.1;
+    const L = category === 'rpg' ? 0.4 : category === 'handgun' ? 0.2 : PROFILES[category].len;
+    addPremiumFlair(extra, M, G, L, r);
+    for (const e of extra) g.add(e);
+  }
+  return g;
 }
