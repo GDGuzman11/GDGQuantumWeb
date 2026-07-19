@@ -75,6 +75,28 @@ const OVERHEAT_LOCK = 1.9; // overheat cooldown lockout seconds
 // everything else gets a single ADS zoom. Sidearms (pistols) included = 1.
 const maxZoomFor = (gun: GunDef) => (gun.scoped ? 3 : 1);
 
+/** Apply a premium gun's thematic on-hit effect (so it does what its description says):
+ *  burn = damage-over-time · cryo = slow · shock = brief stun · void = strong drag + light DoT. */
+function applyWeaponTrait(e: Enemy, gun: GunDef): void {
+  switch (gun.trait) {
+    case 'burn':
+      e.burnT = Math.max(e.burnT, 2.5);
+      e.burnDps = Math.max(e.burnDps, gun.dmg * 0.15);
+      break;
+    case 'cryo':
+      e.slowT = Math.max(e.slowT, 2.5);
+      break;
+    case 'shock':
+      e.stunT = Math.max(e.stunT, 0.5);
+      break;
+    case 'void':
+      e.slowT = Math.max(e.slowT, 2.0);
+      e.burnT = Math.max(e.burnT, 1.2);
+      e.burnDps = Math.max(e.burnDps, gun.dmg * 0.08);
+      break;
+  }
+}
+
 export interface FpsGameState {
   level: Level3D;
   player: Player3;
@@ -1066,6 +1088,7 @@ export function useFpsLoop(
                   const wm = e.boss && e.weakUntil && now < e.weakUntil ? 2.5 : 1;
                   const dd = Math.round(gun.dmg * (1 - d / gun.splash) * wm);
                   hurtEnemy(e, dd);
+                  if (gun.trait) applyWeaponTrait(e, gun);
                   g.dmgDealt += dd;
                   e.hitFlash = 0.12;
                   e.alarm = 4;
@@ -1108,6 +1131,7 @@ export function useFpsLoop(
                 const headshot = hitMult >= HEADSHOT_MULT;
                 const dmg = gun.dmg * wm * hitMult;
                 hurtEnemy(hit, dmg);
+                if (gun.trait) applyWeaponTrait(hit, gun);
                 g.dmgDealt += dmg;
                 g.shotsHit++;
                 if (headshot) {

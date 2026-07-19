@@ -25,6 +25,8 @@ export class Viewmodel {
   private model: THREE.Group | null = null;
   private spins: THREE.Object3D[] = [];
   private glows: { mat: THREE.MeshStandardMaterial; base: number }[] = [];
+  private scans: { o: THREE.Object3D; from: number; to: number; speed: number }[] = [];
+  private bobs: { o: THREE.Object3D; amp: number; speed: number; base: number }[] = [];
   private bolt: THREE.Object3D | null = null;
   private boltBaseZ = 0;
   private flash: THREE.Mesh;
@@ -82,9 +84,13 @@ export class Viewmodel {
 
     this.spins = [];
     this.glows = [];
+    this.scans = [];
+    this.bobs = [];
     m.traverse((o) => {
       if (o.name === 'spin') this.spins.push(o);
-      else if (o.name === 'coil' || o.name === 'glow') {
+      if (o.name === 'scan' && o.userData.scan) this.scans.push({ o, ...(o.userData.scan as { from: number; to: number; speed: number }) });
+      if (o.name === 'bob' && o.userData.bob) this.bobs.push({ o, base: o.position.y, ...(o.userData.bob as { amp: number; speed: number }) });
+      if (o.name === 'coil' || o.name === 'glow' || o.name === 'scan') {
         const mat = (o as THREE.Mesh).material;
         if (mat instanceof THREE.MeshStandardMaterial) this.glows.push({ mat, base: mat.emissiveIntensity });
       }
@@ -146,8 +152,13 @@ export class Viewmodel {
     for (const o of this.spins) o.rotation.z += dt * (this.spinV + 0.4);
 
     // Pulsing coils.
-    const t = (typeof performance !== 'undefined' ? performance.now() : 0) * 0.003;
+    const now = typeof performance !== 'undefined' ? performance.now() : 0;
+    const t = now * 0.003;
     for (const g of this.glows) g.mat.emissiveIntensity = g.base * (0.7 + 0.4 * (0.5 + 0.5 * Math.sin(t)));
+    // Traveling laser + levitating parts, so the premium/animated graphics show in-game too.
+    const ts = now / 1000;
+    for (const sc of this.scans) sc.o.position.z = sc.from + (sc.to - sc.from) * (0.5 + 0.5 * Math.sin(ts * sc.speed));
+    for (const b of this.bobs) b.o.position.y = b.base + b.amp * Math.sin(ts * b.speed);
 
     // Bolt cycle on recoil.
     if (this.bolt) this.bolt.position.z = this.boltBaseZ + this.kick * 0.03;

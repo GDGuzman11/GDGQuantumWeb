@@ -11,6 +11,18 @@ export type Family = 'rifle' | 'mg' | 'laser' | 'sniper' | 'pistol' | 'launcher'
 export type WeaponCategory = 'assault' | 'alienAssault' | 'mg' | 'sniper' | 'rpg' | 'handgun';
 export type WeaponSection = 'primary' | 'heavy' | 'secondary';
 export type WeaponTier = 'free' | 'premium';
+// A premium gun's thematic ON-HIT effect, so it does what its name/description says.
+export type WeaponTrait = 'burn' | 'cryo' | 'shock' | 'void';
+
+/** Derive a premium gun's trait from keywords in its name + tagline (free guns get none). */
+export function deriveTrait(name: string, tagline = ''): WeaponTrait | undefined {
+  const s = `${name} ${tagline}`.toLowerCase();
+  if (/burn|fire|inferno|dragon|solar|flare|phoenix|ember|pyre|magma|molten|blaze|scorch|hell/.test(s)) return 'burn';
+  if (/cryo|glacier|frost|\bice\b|frozen|winter|arctic|\bcold\b|glacial/.test(s)) return 'cryo';
+  if (/storm|shock|thunder|tesla|lightning|\bvolt|\bemp\b|electric|arc\b/.test(s)) return 'shock';
+  if (/void|gravity|graviton|singularity|abyss|maelstrom|vortex|black\s?star|oblivion|null/.test(s)) return 'void';
+  return undefined;
+}
 
 /** Which loadout SECTION each category fills. */
 export const CATEGORY_SECTION: Record<WeaponCategory, WeaponSection> = {
@@ -61,6 +73,7 @@ export interface GunDef {
   color: number; // tracer + muzzle-flash + gun-light colour (from the sheet art)
   caliber?: string; // flavour, from the sheet
   tagline?: string; // flavour, from the sheet
+  trait?: WeaponTrait; // premium thematic on-hit effect (burn / cryo / shock / void)
   splash?: number; // explosive AoE radius (launchers); 0/undefined = hitscan single-target
   burst?: number; // fires an N-round burst per trigger pull
   heat?: boolean; // energy weapon: no reload — builds heat + overheats instead
@@ -109,6 +122,8 @@ function starter(s: Starter): GunDef {
     color: s.color,
     caliber: s.caliber,
     tagline: s.tagline,
+    // Premium guns get a thematic on-hit trait so they DO what the description says.
+    ...(s.tier === 'premium' ? { trait: deriveTrait(s.name, s.tagline) } : {}),
     ...(s.splash != null ? { splash: s.splash } : {}),
     ...(s.charge != null ? { charge: s.charge } : {}),
   };
