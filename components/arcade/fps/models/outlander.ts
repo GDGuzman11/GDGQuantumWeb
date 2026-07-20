@@ -12,6 +12,7 @@ import { rng } from '../rand';
 import type { WeaponCategory } from '../weapons';
 import { ARCHETYPES } from './archetypes';
 import { makeKit, type Kit } from './kit';
+import { buildSlotted, hasSlots } from './slots';
 import { COL } from './parts';
 
 function hashId(id: string): number {
@@ -47,9 +48,18 @@ function addPremiumFlair(g: THREE.Group, k: Kit): void {
 /** Build any Outlander gun, seeded from its id → an Apex archetype tinted to its colour. */
 export function buildOutlanderGun(category: WeaponCategory, color: number, tier: RenderTier, id: string, premium = false): THREE.Group {
   const r = rng(hashId(id) ^ 0x9e3779b9);
+  const k = makeKit(color, tier, r, BODY_BY_CATEGORY[category]);
+  // Slot-module system (base gun + 1-3 fit-to-slot engineering replacements) where built;
+  // else the whole-gun archetype fallback for categories not yet slotted.
+  if (hasSlots(category)) {
+    const slotted = buildSlotted(category, k, r, premium);
+    if (slotted) {
+      if (premium) addPremiumFlair(slotted, k);
+      return slotted;
+    }
+  }
   const list = ARCHETYPES[category];
   const arch = list[Math.floor(r() * list.length)] ?? list[0];
-  const k = makeKit(color, tier, r, BODY_BY_CATEGORY[category]);
   const g = arch(k);
   if (premium) addPremiumFlair(g, k);
   return g;
