@@ -3,6 +3,8 @@
 import { useCallback, useEffect, useRef } from 'react';
 import * as THREE from 'three';
 import { buildWorld, type World } from './fps/scene';
+import { animateCapital, buildCapital } from './fps/capital/model';
+import type { CapitalSpec } from './fps/capital/spec';
 import { EYE, MAX_PITCH, launchPlayer, pushPlayer, startGrapple, stepPlayer, type Player3 } from './fps/physics';
 import type { Level3D } from './fps/level3d';
 import { updateEnemies, hurtEnemy, BOSSES, type Difficulty, type Enemy, type Squad, type Smoke } from './fps/enemy';
@@ -99,6 +101,7 @@ function applyWeaponTrait(e: Enemy, gun: GunDef): void {
 
 export interface FpsGameState {
   level: Level3D;
+  capital?: CapitalSpec | null; // Star Destroyer for this level (SD levels only); else null
   player: Player3;
   enemies: Enemy[];
   difficulty: Difficulty;
@@ -347,6 +350,21 @@ export function useFpsLoop(
 
     let world: World | null = null;
     let builtFor: Level3D | null = null;
+    // STAR DESTROYER — the capital ship for SD levels: sits distant during the fight, then
+    // descends to loom overhead once the level is cleared (sdDescent: -1 idle · 0..1 arriving).
+    let sd: THREE.Group | null = null;
+    let sdDescent = -1;
+    const sdDistant = new THREE.Vector3();
+    const sdOverhead = new THREE.Vector3();
+    const SD_FROM = 0.55; // start scale (distant) → end scale (overhead)
+    const SD_TO = 1.15;
+    const disposeSd = (o: THREE.Object3D) => o.traverse((n) => {
+      const m = n as THREE.Mesh;
+      if (m.geometry) m.geometry.dispose();
+      const mat = m.material as THREE.Material | THREE.Material[] | undefined;
+      if (Array.isArray(mat)) mat.forEach((x) => x.dispose());
+      else if (mat) mat.dispose();
+    });
     // Spatial grid over the current level's boxes — narrows collision/LoS queries
     // to local candidates. Rebuilt with the world; identical results, fewer tests.
     let grid: SpatialGrid | null = null;
@@ -466,9 +484,24 @@ export function useFpsLoop(
 
     const buildFor = (g: FpsGameState) => {
       disposeExtras();
+      if (sd) disposeSd(sd);
+      sd = null;
+      sdDescent = -1;
       world?.dispose();
       world = buildWorld(g.level, tier);
       throwFx = new ThrowableFx(world.scene, tier); // handcrafted throwable VFX for this level
+      // STAR DESTROYER placement — build the level's capital ship (if any) and park it
+      // distant on the horizon; the frame tick animates it + descends it when cleared.
+      if (g.capital) {
+        sd = buildCapital(g.capital, tier);
+        const S = g.level.size;
+        sdDistant.set(S * 0.5, S * 1.7, -S * 2.8);
+        sdOverhead.set(0, S * 1.0, -S * 0.55);
+        sd.position.copy(sdDistant);
+        sd.rotation.y = 0.5;
+        sd.scale.setScalar(SD_FROM);
+        world.scene.add(sd);
+      }
       // (Re)build the spatial grid for this level's boxes.
       grid = SpatialGrid.build(g.level.boxes);
       // (Re)build the enemy nav graph for this level (grid-accelerated).
@@ -694,6 +727,17 @@ export function useFpsLoop(
           buildFor(g);
           prevPos.x = g.player.x;
           prevPos.z = g.player.z;
+        }
+        // STAR DESTROYER — idle animation (turrets/reactor/engines) + the post-clear descent
+        // from the horizon to loom overhead (smoothstep over ~5s; the win waits on it).
+        if (sd) {
+          animateCapital(sd, dt, now);
+          if (sdDescent >= 0 && sdDescent < 1) {
+            sdDescent = Math.min(1, sdDescent + dt / 5);
+            const e = sdDescent * sdDescent * (3 - 2 * sdDescent);
+            sd.position.lerpVectors(sdDistant, sdOverhead, e);
+            sd.scale.setScalar(SD_FROM + (SD_TO - SD_FROM) * e);
+          }
         }
         const p = g.player;
         // Loud events (gunfire, explosions, alerting throwables) cue only squads
@@ -1689,7 +1733,13 @@ export function useFpsLoop(
           // Boss levels are won when the BOSS dies (its summoned minions then
           // don't block the clear); normal levels when every enemy is down.
           const hasBoss = g.enemies.some((e) => e.boss);
-          if (hasBoss ? !g.enemies.some((e) => e.boss && e.health > 0) : g.enemies.every((e) => e.health <= 0)) g.status = 'won';
+          const cleared = hasBoss ? !g.enemies.some((e) => e.boss && e.health > 0) : g.enemies.every((e) => e.health <= 0);
+          if (cleared) {
+            // On a Star Destroyer level, hold the win while the SD descends from the horizon
+            // to loom overhead; then the normal level-complete flow proceeds.
+            if (sd && sdDescent < 0) sdDescent = 0;
+            if (!sd || sdDescent >= 1) g.status = 'won';
+          }
         }
         // Kill any sustained loop if we left the playing state (win/lose/pause).
         if (activeLoop && g.status !== 'playing') {

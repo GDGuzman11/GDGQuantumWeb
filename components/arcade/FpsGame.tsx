@@ -18,6 +18,7 @@ import { FpsPremium } from './screens/FpsPremium';
 import { FpsStore } from './screens/FpsStore';
 import { AvatarPanel, LoadoutPanel } from './screens/MenuPanels';
 import { useFpsLoop, type FpsGameState, type FpsSnapshot } from './useFpsLoop';
+import { CAPITAL_CATALOG } from './fps/capital/catalog';
 import type { Level3D } from './fps/level3d';
 import { makeModularArena, buildFromLayout, makeSampleLayout } from './fps/kit/generate';
 import { resolveLevel, buildBossArena, campaignTotalLevels, isBossLevel, isGauntletLevel, bossKindFor, GAUNTLET_ORDER } from './fps/kit/levels';
@@ -381,6 +382,11 @@ export function FpsGame({ initialRun, initialScreen, onRunSave, onRunEnd, onScor
       const total = campaignTotalLevels(); // flexible campaign length (follows authored levels)
       const forcedBoss = bossOverrideRef.current; // dev: warp straight into a specific boss
       const isBoss = forcedBoss != null || isBossLevel(level, total);
+      // STAR DESTROYER — a Capital Ship looms on every 3rd non-boss level (from the 100-ship
+      // catalog, chosen deterministically by level). It sits distant during the fight, then
+      // descends overhead when the level is cleared (placement/arrival; see useFpsLoop).
+      const isSd = !isBoss && level % 3 === 0;
+      const capital = isSd && CAPITAL_CATALOG.length ? CAPITAL_CATALOG[((level * 2654435761) >>> 0) % CAPITAL_CATALOG.length] : null;
       const mapCount = isBoss ? 5 : mapCountFor(squads);
       // Level source: a forced boss (dev) → its arena; then editor sandbox preset; then
       // dev toggles (rotation sample / war-torn city); otherwise the campaign resolver.
@@ -423,6 +429,7 @@ export function FpsGame({ initialRun, initialScreen, onRunSave, onRunEnd, onScor
       if (!isBoss) assignSquadHomes(lvl, squadStates); // spread each squad to its own territory
       gameRef.current = {
         level: lvl,
+        capital,
         player,
         enemies: mobs,
         difficulty: diff,
