@@ -1133,7 +1133,7 @@ export function FpsGame({ initialRun, initialScreen, onRunSave, onRunEnd, onScor
 
         {mode === 'division' && <FpsDivision onBack={() => setMode('hangar')} />}
 
-        {mode === 'premium' && <FpsPremium onBack={() => setMode('hangar')} />}
+        {mode === 'premium' && <FpsPremium astro={astro} onSpend={spendAstro} onBack={() => setMode('hangar')} />}
 
         {mode === 'complete' && (
           <RunStatsCard

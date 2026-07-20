@@ -24,7 +24,9 @@ export function FpsStore({ gold, astro, onSpendGold, onSpendAstro, onBack }: {
   onBack: () => void;
 }) {
   const [save, setSave] = useState<ArsenalSave>(() => loadArsenal());
-  const [focus, setFocus] = useState<string>(GUNS[0]?.id ?? '');
+  // The Store sells the FREE (Gold) roster; premium (AstroDiamond) guns live in the Premium tab.
+  const STORE_GUNS = useMemo(() => GUNS.filter((g) => g.tier === 'free'), []);
+  const [focus, setFocus] = useState<string>(STORE_GUNS[0]?.id ?? GUNS[0]?.id ?? '');
 
   const fg = GUNS.find((g) => g.id === focus) ?? GUNS[0];
   const owned = fg ? isWeaponUnlocked(save, fg.id) : false;
@@ -45,7 +47,7 @@ export function FpsStore({ gold, astro, onSpendGold, onSpendAstro, onBack }: {
   // OWNER → SECTION → CATEGORY → guns.
   const owners = useMemo(() => {
     const byOwner = new Map<string, Map<WeaponSection, Map<WeaponCategory, GunDef[]>>>();
-    for (const g of GUNS) {
+    for (const g of STORE_GUNS) {
       let sec = byOwner.get(g.owner);
       if (!sec) byOwner.set(g.owner, (sec = new Map()));
       let cat = sec.get(g.section);
@@ -55,7 +57,7 @@ export function FpsStore({ gold, astro, onSpendGold, onSpendAstro, onBack }: {
       cat.set(g.category, list);
     }
     return byOwner;
-  }, []);
+  }, [STORE_GUNS]);
 
   const cur = (c: 'gold' | 'astro') => (c === 'gold' ? '⛀' : '◈');
 
