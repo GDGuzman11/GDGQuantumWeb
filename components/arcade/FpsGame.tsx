@@ -210,6 +210,7 @@ export function FpsGame({ initialRun, initialScreen, onRunSave, onRunEnd, onScor
   const [restarts, setRestarts] = useState(0); // per-level death restarts used (max 5)
   const MAX_RESTARTS = 5;
   const [runActive, setRunActive] = useState(false); // a campaign is in progress (menu shows a live tracker instead of the run config)
+  const [devLevel, setDevLevel] = useState(3); // dev level-jump input
   const [gradReady, setGradReady] = useState(false); // Marine hit Level 5 with no division → one-time graduation
 
   // Re-check division-graduation eligibility whenever we return to the menu (a
@@ -562,6 +563,25 @@ export function FpsGame({ initialRun, initialScreen, onRunSave, onRunEnd, onScor
       bossOverrideRef.current = kind; // startLevel reads this synchronously
       startLevel(5, lo, 100, ups);
       bossOverrideRef.current = null; // one-shot: only this warp is forced
+    },
+    [lastLoadout, startLevel, isTouch, fsActive, toggleFullscreen],
+  );
+
+  // DEV: jump straight into any campaign LEVEL (useful for testing Star Destroyer levels).
+  const devWarpLevel = useCallback(
+    (n: number) => {
+      const lvl = Math.max(1, Math.floor(n));
+      const lo = lastLoadout;
+      const ups: Record<string, Upg> = {};
+      for (const id of [lo.p1, lo.p2, lo.sa]) ups[id] = basicUpg();
+      huntMemRef.current = makeHuntMemory();
+      gauntletRef.current = 0;
+      sandboxRef.current = false;
+      setRun({ level: lvl, gold: 0, maxHp: 100, upgrades: ups });
+      setRunStats({ kills: 0, headshots: 0, shots: 0, hits: 0, dmg: 0, startedAt: Date.now(), endedAt: 0 });
+      setRunActive(true);
+      if (isTouch && !fsActive) toggleFullscreen();
+      startLevel(lvl, lo, 100, ups);
     },
     [lastLoadout, startLevel, isTouch, fsActive, toggleFullscreen],
   );
@@ -1018,6 +1038,17 @@ export function FpsGame({ initialRun, initialScreen, onRunSave, onRunEnd, onScor
                       {k}
                     </button>
                   ))}
+                </div>
+                {/* Jump to any level — the ⬢ SD marks Star Destroyer levels (every 3rd non-boss). */}
+                <p className="font-pixel text-[7px] tracking-[0.2em] text-[#7fdfff]/80">⚙ DEV · JUMP TO LEVEL</p>
+                <div className="flex flex-wrap items-center justify-center gap-1">
+                  {[3, 6, 9, 12, 18, 21, 24, 27].map((n) => (
+                    <button key={n} type="button" onClick={() => devWarpLevel(n)} className="min-h-[26px] rounded border border-[#7fdfff]/50 bg-[#7fdfff]/10 px-2 font-pixel text-[7px] uppercase text-[#7fdfff] transition-colors hover:bg-[#7fdfff]/20">
+                      ⬢{n}
+                    </button>
+                  ))}
+                  <input type="number" min={1} value={devLevel} onChange={(e) => setDevLevel(Math.max(1, Number(e.target.value) || 1))} className="w-12 rounded border border-white/15 bg-black/60 px-1 py-1 font-pixel text-[8px] text-white/80" />
+                  <button type="button" onClick={() => devWarpLevel(devLevel)} className="min-h-[26px] rounded border border-[#aef5c8]/50 bg-[#aef5c8]/10 px-3 font-pixel text-[7px] uppercase text-[#aef5c8] transition-colors hover:bg-[#aef5c8]/20">GO</button>
                 </div>
                 <div className="flex gap-2">
                   <button
