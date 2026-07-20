@@ -350,14 +350,38 @@ export function useFpsLoop(
 
     let world: World | null = null;
     let builtFor: Level3D | null = null;
-    // STAR DESTROYER — the capital ship for SD levels: sits distant during the fight, then
-    // descends to loom overhead once the level is cleared (sdDescent: -1 idle · 0..1 arriving).
+    // STAR DESTROYER — the capital ship for SD levels. Hidden during the fight; on clear a
+    // BLACK HOLE ruptures and the ship EMERGES from it (camera pans over), a 3s grace beat lets
+    // you take cover, then it BOMBARDS before departing. Phases: idle → arriving → grace →
+    // combat → depart. Obelisk hulls stand vertically on the ground; the rest loom overhead.
     let sd: THREE.Group | null = null;
-    let sdDescent = -1;
-    const sdDistant = new THREE.Vector3();
-    const sdOverhead = new THREE.Vector3();
-    const SD_FROM = 0.55; // start scale (distant) → end scale (overhead)
-    const SD_TO = 1.15;
+    let sdPhase: 'idle' | 'arriving' | 'grace' | 'combat' | 'depart' = 'idle';
+    let sdT = 0;                // seconds elapsed in the current phase
+    let sdCamPan = 0;           // 0..1 how far the camera is slaved to the ship
+    let sdFireCd = 0;           // bombardment cadence
+    let sdObelisk = false;      // obelisk hulls stand vertically on an open ground spot
+    let sdDone = false;         // the whole arrival→bombardment→depart cinematic has resolved
+    let blackHole: THREE.Group | null = null;
+    let bhRingA: THREE.Mesh | null = null;
+    let bhRingB: THREE.Mesh | null = null;
+    const sdBirth = new THREE.Vector3();  // where the rift opens / the ship first appears
+    const sdFinal = new THREE.Vector3();  // where the ship settles (sky loom or ground stand)
+    const sdSize = { from: 0.02, to: 1.7 }; // emergence scale (to = 1.5× the old 1.15 loom)
+    const SD_ARRIVE = 4.5;     // emergence duration (s)
+    const SD_GRACE = 3;        // take-cover beat (s)
+    const SD_COMBAT = 18;      // bombardment window (s)
+    const SD_DEPART = 3.5;     // exit-through-the-rift duration (s)
+    const makeBlackHole = (accent: number) => {
+      const g0 = new THREE.Group();
+      g0.add(new THREE.Mesh(new THREE.SphereGeometry(1, 24, 16), new THREE.MeshBasicMaterial({ color: 0x000000 })));
+      const ringMat = () => new THREE.MeshBasicMaterial({ color: accent, transparent: true, opacity: 0.9, blending: THREE.AdditiveBlending, side: THREE.DoubleSide, depthWrite: false });
+      const a = new THREE.Mesh(new THREE.TorusGeometry(1.4, 0.13, 12, 48), ringMat());
+      const b = new THREE.Mesh(new THREE.TorusGeometry(1.85, 0.06, 10, 48), ringMat());
+      b.rotation.x = Math.PI / 2.5;
+      g0.add(a, b);
+      bhRingA = a; bhRingB = b;
+      return g0;
+    };
     const disposeSd = (o: THREE.Object3D) => o.traverse((n) => {
       const m = n as THREE.Mesh;
       if (m.geometry) m.geometry.dispose();
@@ -486,20 +510,40 @@ export function useFpsLoop(
       disposeExtras();
       if (sd) disposeSd(sd);
       sd = null;
-      sdDescent = -1;
+      if (blackHole) { disposeSd(blackHole); blackHole = null; bhRingA = null; bhRingB = null; }
+      sdPhase = 'idle';
+      sdT = 0;
+      sdCamPan = 0;
+      sdFireCd = 0;
+      sdDone = false;
       world?.dispose();
       world = buildWorld(g.level, tier);
       throwFx = new ThrowableFx(world.scene, tier); // handcrafted throwable VFX for this level
-      // STAR DESTROYER placement — build the level's capital ship (if any) and park it
-      // distant on the horizon; the frame tick animates it + descends it when cleared.
+      // STAR DESTROYER placement — build the level's capital ship (if any) but keep it HIDDEN
+      // during the fight; it emerges from the rift when the level is cleared. Compute where the
+      // rift opens (birth) and where the ship settles (final): obelisk hulls descend to STAND
+      // on an open ground spot; other hulls loom high overhead, well clear of the buildings.
       if (g.capital) {
         sd = buildCapital(g.capital, tier);
         const S = g.level.size;
-        sdDistant.set(S * 0.5, S * 1.7, -S * 2.8);
-        sdOverhead.set(0, S * 1.0, -S * 0.55);
-        sd.position.copy(sdDistant);
-        sd.rotation.y = 0.5;
-        sd.scale.setScalar(SD_FROM);
+        sdObelisk = g.capital.hull === 'obelisk';
+        sd.rotation.y = sdObelisk ? 0 : 0.35;
+        sd.scale.setScalar(sdSize.to);
+        if (sdObelisk) {
+          // Stand on an open corner far from the player's spawn; sit its base on the ground.
+          const gx = S * 0.34, gz = -S * 0.34;
+          sd.position.set(gx, S * 0.5, gz);
+          const box = new THREE.Box3().setFromObject(sd); // world bounds at this scale
+          const baseGap = box.min.y - sd.position.y; // ship-origin → bottom offset (world units)
+          sdFinal.set(gx, 0.2 - baseGap, gz); // drop so the base rests just above the ground
+          sdBirth.set(gx, S * 1.7, gz); // rift high above the landing spot; descends to land
+        } else {
+          sdFinal.set(0, S * 1.4, -S * 0.55); // loom high overhead (clears buildings)
+          sdBirth.set(0, S * 1.75, -S * 1.1); // rift up and back; flies in
+        }
+        sd.position.copy(sdBirth);
+        sd.scale.setScalar(sdSize.from);
+        sd.visible = false;
         world.scene.add(sd);
       }
       // (Re)build the spatial grid for this level's boxes.
@@ -728,15 +772,64 @@ export function useFpsLoop(
           prevPos.x = g.player.x;
           prevPos.z = g.player.z;
         }
-        // STAR DESTROYER — idle animation (turrets/reactor/engines) + the post-clear descent
-        // from the horizon to loom overhead (smoothstep over ~5s; the win waits on it).
-        if (sd) {
+        // STAR DESTROYER — idle animation (turrets/reactor/engines) + the post-clear arrival
+        // cinematic: rift emergence → grace → bombardment → depart. The win waits on it.
+        if (sd && world) {
           animateCapital(sd, dt, now);
-          if (sdDescent >= 0 && sdDescent < 1) {
-            sdDescent = Math.min(1, sdDescent + dt / 5);
-            const e = sdDescent * sdDescent * (3 - 2 * sdDescent);
-            sd.position.lerpVectors(sdDistant, sdOverhead, e);
-            sd.scale.setScalar(SD_FROM + (SD_TO - SD_FROM) * e);
+          if (bhRingA) bhRingA.rotation.z += dt * 1.4;
+          if (bhRingB) bhRingB.rotation.z -= dt * 1.1;
+          const accent = g.capital?.accent ?? 0xff7a3c;
+          const closeRift = () => {
+            if (blackHole) { world!.scene.remove(blackHole); disposeSd(blackHole); blackHole = null; bhRingA = null; bhRingB = null; }
+          };
+          if (sdPhase === 'arriving') {
+            sdT += dt;
+            const t = Math.min(1, sdT / SD_ARRIVE);
+            const e = t * t * (3 - 2 * t);
+            sd.position.lerpVectors(sdBirth, sdFinal, e);
+            sd.scale.setScalar(sdSize.from + (sdSize.to - sdSize.from) * e);
+            if (blackHole) {
+              const open = t < 0.25 ? t / 0.25 : t > 0.8 ? Math.max(0, (1 - t) / 0.2) : 1; // open, hold, collapse
+              blackHole.scale.setScalar(0.1 + open * sdSize.to * 3.4);
+            }
+            sdCamPan = Math.min(1, sdT / 0.6); // slave the camera onto the emerging ship
+            if (t >= 1) { sdPhase = 'grace'; sdT = 0; closeRift(); }
+          } else if (sdPhase === 'grace') {
+            sdT += dt;
+            sdCamPan = Math.max(0, 1 - sdT / 1); // hand the view back so you can take cover
+            if (sdT >= SD_GRACE) { sdPhase = 'combat'; sdT = 0; sdFireCd = 0.7; }
+          } else if (sdPhase === 'combat') {
+            sdT += dt;
+            sdCamPan = 0;
+            sdFireCd -= dt;
+            if (sdFireCd <= 0) {
+              sdFireCd = 1.1 + Math.random() * 0.7;
+              const pl = g.player;
+              const sx = sdFinal.x + (Math.random() - 0.5) * 12;
+              const sy = sdFinal.y - 3;
+              const sz = sdFinal.z + (Math.random() - 0.5) * 8;
+              const dx = pl.x - sx, dy = pl.y + EYE - sy, dz = pl.z - sz;
+              const dl = Math.hypot(dx, dy, dz) || 1;
+              const sdDir: Vec3 = [dx / dl, dy / dl, dz / dl];
+              projectiles.spawn({ kind: 'rocket', scene: world.scene, x: sx, y: sy, z: sz, dir: sdDir, speed: 44, dmg: 24, color: accent, splash: 3.2, gravity: 0, radius: 0.5 });
+            }
+            if (sdT >= SD_COMBAT) {
+              sdPhase = 'depart'; sdT = 0;
+              blackHole = makeBlackHole(accent);
+              blackHole.position.copy(sdBirth);
+              blackHole.scale.setScalar(0.1);
+              world.scene.add(blackHole);
+            }
+          } else if (sdPhase === 'depart') {
+            sdT += dt;
+            const t = Math.min(1, sdT / SD_DEPART);
+            sd.position.lerpVectors(sdFinal, sdBirth, t * t);
+            sd.scale.setScalar(sdSize.to * (1 - t * 0.98));
+            if (blackHole) {
+              const open = t < 0.3 ? t / 0.3 : Math.max(0, (1 - t) / 0.3);
+              blackHole.scale.setScalar(0.1 + open * sdSize.to * 3.4);
+            }
+            if (t >= 1) { closeRift(); sd.visible = false; sdDone = true; }
           }
         }
         const p = g.player;
@@ -1735,10 +1828,22 @@ export function useFpsLoop(
           const hasBoss = g.enemies.some((e) => e.boss);
           const cleared = hasBoss ? !g.enemies.some((e) => e.boss && e.health > 0) : g.enemies.every((e) => e.health <= 0);
           if (cleared) {
-            // On a Star Destroyer level, hold the win while the SD descends from the horizon
-            // to loom overhead; then the normal level-complete flow proceeds.
-            if (sd && sdDescent < 0) sdDescent = 0;
-            if (!sd || sdDescent >= 1) g.status = 'won';
+            // On a Star Destroyer level, the last-enemy-down cues the rift: open the black hole
+            // and kick off the emergence cinematic; the win is held until the whole arrival →
+            // bombardment → depart sequence resolves (sdDone).
+            if (sd && sdPhase === 'idle' && !sdDone && world) {
+              sdPhase = 'arriving';
+              sdT = 0;
+              sdCamPan = 0;
+              sd.visible = true;
+              sd.position.copy(sdBirth);
+              sd.scale.setScalar(sdSize.from);
+              blackHole = makeBlackHole(g.capital?.accent ?? 0xff7a3c);
+              blackHole.position.copy(sdBirth);
+              blackHole.scale.setScalar(0.1);
+              world.scene.add(blackHole);
+            }
+            if (!sd || sdDone) g.status = 'won';
           }
         }
         // Kill any sustained loop if we left the playing state (win/lose/pause).
@@ -1937,6 +2042,18 @@ export function useFpsLoop(
         camera.position.set(p.x, p.y + EYE - (crouchHeld.current && p.onGround ? 0.55 : 0), p.z);
         camera.rotation.y = p.yaw;
         camera.rotation.x = p.pitch + recoilKick;
+        // During the Star Destroyer's rift emergence, blend the view off the player's aim and
+        // onto the ship so the camera "pans to where it appears from the black hole".
+        if (sd && sdCamPan > 0) {
+          const look = sd.position;
+          const dx = look.x - camera.position.x, dy = look.y - camera.position.y, dz = look.z - camera.position.z;
+          const wantYaw = Math.atan2(dx, -dz); // -Z forward
+          const wantPitch = Math.atan2(dy, Math.hypot(dx, dz));
+          const k = sdCamPan * sdCamPan * (3 - 2 * sdCamPan);
+          const lerpAngle = (a: number, b: number) => a + ((((b - a) % (Math.PI * 2)) + Math.PI * 3) % (Math.PI * 2) - Math.PI) * k;
+          camera.rotation.y = lerpAngle(p.yaw, wantYaw);
+          camera.rotation.x = p.pitch + recoilKick + (wantPitch - (p.pitch + recoilKick)) * k;
+        }
         if (world) {
           if (composer) composer.composer.render(dt);
           else renderer.render(world.scene, camera);
