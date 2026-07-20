@@ -48,6 +48,9 @@ type Loadout = { p1: string; p2: string; sa: string; th: string };
 // Final gauntlet: the 5 TOUGHEST bosses (by HP), one per round, ordered hardest-last.
 const GAUNTLET_BOSSES: BossKind[] = ['leviathan', 'monolith', 'infestor', 'behemoth', 'colossus'];
 const TIERS: Difficulty[] = ['normal', 'hard', 'nightmare'];
+// Dev: every 3rd non-boss level up to 99 is a Star Destroyer level (each draws a different
+// ship from the catalog). Used by the dev "STAR DESTROYERS" warp row.
+const SD_DEV_LEVELS: number[] = Array.from({ length: 33 }, (_, i) => (i + 1) * 3).filter((l) => l % 15 !== 0);
 // Player picks a squad count at the menu; it holds for every non-boss level (the
 // map is huge). Each squad is a 5-man fireteam → soldiers = squads × SQUAD_SIZE.
 const SQUAD_OPTIONS = [2, 4, 6, 8]; // → 10 / 20 / 30 / 40 soldiers
@@ -97,6 +100,7 @@ export function FpsGame({ initialRun, initialScreen, onRunSave, onRunEnd, onScor
   const resolvedRef = useRef(false); // guards one-shot win/lose handling per level
   const sandboxRef = useRef(false); // editor "Play" sandbox → win/lose returns to the editor
   const bossOverrideRef = useRef<BossKind | null>(null); // dev: force a specific boss on warp
+  const sdSkipRef = useRef(false); // dev: on an SD warp, spawn NO ground enemies → the Star Destroyer arrives at once
   // Squad learning, persisted across a run's levels (reset on a new campaign) so
   // later fights hunt the player smarter. The SAME object feeds every level's squad.
   const huntMemRef = useRef<HuntMemory | null>(null);
@@ -420,7 +424,12 @@ export function FpsGame({ initialRun, initialScreen, onRunSave, onRunEnd, onScor
       const gauntlet = forcedBoss == null && isGauntletLevel(level, total);
       const round = gauntlet ? gauntletRef.current || 1 : 0;
       const bossKinds: BossKind[] = forcedBoss ? [forcedBoss] : gauntlet ? [GAUNTLET_BOSSES[round - 1]] : [bossKindFor(level)];
-      const mobs = isBoss ? spawnBosses(lvl, bossKinds, Math.random, gauntlet) : spawnEnemies(lvl, squads, level, diff, Math.random);
+      // Dev SD warp: skip the ground fight entirely so the Star Destroyer arrives immediately.
+      const mobs = isBoss
+        ? spawnBosses(lvl, bossKinds, Math.random, gauntlet)
+        : sdSkipRef.current && isSd
+          ? []
+          : spawnEnemies(lvl, squads, level, diff, Math.random);
       // Boss encounters bring a themed minion squad.
       if (isBoss) for (const k of bossKinds) mobs.push(...spawnBossMinions(lvl, k, Math.random));
       // One shared-intel object per fireteam (boss levels are a single squad); the count
@@ -584,6 +593,18 @@ export function FpsGame({ initialRun, initialScreen, onRunSave, onRunEnd, onScor
       startLevel(lvl, lo, 100, ups);
     },
     [lastLoadout, startLevel, isTouch, fsActive, toggleFullscreen],
+  );
+
+  // DEV: warp to a Star Destroyer level and SKIP straight to the SD encounter (no ground
+  // fight). Each SD level draws a different ship from the 100-ship catalog, so stepping
+  // through the SD levels showcases the fleet + the arrival cinematic / dogfight.
+  const devWarpSd = useCallback(
+    (n: number) => {
+      sdSkipRef.current = true; // startLevel (called synchronously below) reads this
+      devWarpLevel(n);
+      sdSkipRef.current = false; // one-shot: only this warp skips the ground fight
+    },
+    [devWarpLevel],
   );
 
   const buyUpgrade = useCallback((gunId: string, key: UpgradeKey) => {
@@ -1049,6 +1070,22 @@ export function FpsGame({ initialRun, initialScreen, onRunSave, onRunEnd, onScor
                   ))}
                   <input type="number" min={1} value={devLevel} onChange={(e) => setDevLevel(Math.max(1, Number(e.target.value) || 1))} className="w-12 rounded border border-white/15 bg-black/60 px-1 py-1 font-pixel text-[8px] text-white/80" />
                   <button type="button" onClick={() => devWarpLevel(devLevel)} className="min-h-[26px] rounded border border-[#aef5c8]/50 bg-[#aef5c8]/10 px-3 font-pixel text-[7px] uppercase text-[#aef5c8] transition-colors hover:bg-[#aef5c8]/20">GO</button>
+                </div>
+                {/* Skip straight to the Star Destroyer encounter (no ground fight) — each SD level draws a different ship. */}
+                <p className="font-pixel text-[7px] tracking-[0.2em] text-[#c8a8ff]/80">⚙ DEV · STAR DESTROYERS · skip to ship</p>
+                <div className="flex flex-wrap items-center justify-center gap-1">
+                  {SD_DEV_LEVELS.map((n) => (
+                    <button
+                      key={n}
+                      type="button"
+                      title={CAPITAL_CATALOG.length ? CAPITAL_CATALOG[((n * 2654435761) >>> 0) % CAPITAL_CATALOG.length].name : undefined}
+                      onClick={() => devWarpSd(n)}
+                      className="min-h-[26px] rounded border border-[#c8a8ff]/50 bg-[#c8a8ff]/10 px-2 font-pixel text-[7px] uppercase text-[#c8a8ff] transition-colors hover:bg-[#c8a8ff]/20"
+                    >
+                      ◈{n}
+                    </button>
+                  ))}
+                  <button type="button" onClick={() => devWarpSd(devLevel % 3 === 0 && devLevel % 15 !== 0 ? devLevel : 3)} className="min-h-[26px] rounded border border-[#c8a8ff]/50 bg-[#c8a8ff]/10 px-3 font-pixel text-[7px] uppercase text-[#c8a8ff] transition-colors hover:bg-[#c8a8ff]/20">GO</button>
                 </div>
                 <div className="flex gap-2">
                   <button
