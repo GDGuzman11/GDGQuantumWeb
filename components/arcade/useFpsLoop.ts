@@ -4,6 +4,7 @@ import { useCallback, useEffect, useRef } from 'react';
 import * as THREE from 'three';
 import { buildWorld, type World } from './fps/scene';
 import { animateCapital, buildCapital } from './fps/capital/model';
+import { animateFighter, buildFighter } from './fps/capital/fighter';
 import type { CapitalSpec } from './fps/capital/spec';
 import { EYE, MAX_PITCH, launchPlayer, pushPlayer, startGrapple, stepPlayer, type Player3 } from './fps/physics';
 import type { Level3D } from './fps/level3d';
@@ -27,6 +28,21 @@ import { buildNavGraph, type NavGraph } from './fps/level/nav';
 import { ProjectileSystem } from './fps/projectiles';
 import { TelegraphSystem } from './fps/telegraph';
 import { ThrowableFx } from './fps/fx/throwableFx';
+
+// A void fighter launched by the Star Destroyer — a free-flying strike craft with its own
+// 3D flight AI (steer/dodge/hover/strafe), managed as a dedicated array (NOT a g.enemies row).
+interface Fighter {
+  x: number; y: number; z: number;      // position
+  vx: number; vy: number; vz: number;   // velocity
+  health: number; maxHealth: number;
+  model: THREE.Group;
+  fireCd: number;                        // seconds until it may fire again
+  mode: 'ingress' | 'strafe' | 'bank' | 'reposition';
+  modeT: number;                         // seconds left in the current mode
+  goal: THREE.Vector3;                   // steering target
+  bank: number;                          // current roll (rad), eased toward the turn
+  hitFlash: number;                      // seconds of hit-flash remaining
+}
 
 const RW = 480;
 const RH = 270;
@@ -361,15 +377,26 @@ export function useFpsLoop(
     let sdFireCd = 0;           // bombardment cadence
     let sdObelisk = false;      // obelisk hulls stand vertically on an open ground spot
     let sdDone = false;         // the whole arrival→bombardment→depart cinematic has resolved
+    let sdHp = 1;               // Star Destroyer hull integrity — the ship is now KILLABLE
+    let sdMax = 1;
+    let sdHitFlash = 0;         // seconds of hull hit-flash remaining
+    let sdRadius = 20;          // bounding radius for shoot hit-tests (measured from the model)
+    let sdCrippled = false;     // hull at 0 → rolling secondary detonations until the encounter ends
     let blackHole: THREE.Group | null = null;
     let bhRingA: THREE.Mesh | null = null;
     let bhRingB: THREE.Mesh | null = null;
+    // The launched strike-craft squadron (waves of 3, cap 6). A dedicated array — never
+    // g.enemies — so the free-flight AI + models stay isolated from the ground-enemy system.
+    let fighters: Fighter[] = [];
+    let fightersSpawned = 0;
+    let fighterWaveCd = 0;      // delay before the next wave deploys
+    const FIGHTER_CAP = 6;
+    const FIGHTER_WAVE = 3;
     const sdBirth = new THREE.Vector3();  // where the rift opens / the ship first appears
     const sdFinal = new THREE.Vector3();  // where the ship settles (sky loom or ground stand)
     const sdSize = { from: 0.02, to: 1.7 }; // emergence scale (to = 1.5× the old 1.15 loom)
     const SD_ARRIVE = 4.5;     // emergence duration (s)
     const SD_GRACE = 3;        // take-cover beat (s)
-    const SD_COMBAT = 18;      // bombardment window (s)
     const SD_DEPART = 3.5;     // exit-through-the-rift duration (s)
     const makeBlackHole = (accent: number) => {
       const g0 = new THREE.Group();
@@ -420,6 +447,150 @@ export function useFpsLoop(
     const smokes: SmokeFx[] = [];
     const flashes: Flash[] = [];
     const zones: Zone[] = [];
+
+    // ── VOID-FIGHTER squadron (SD dogfight) ──────────────────────────────────────
+    const disposeCraft = (o: THREE.Object3D) => o.traverse((n) => {
+      const m = n as THREE.Mesh;
+      if (m.geometry) m.geometry.dispose();
+      const mat = m.material as THREE.Material | THREE.Material[] | undefined;
+      if (Array.isArray(mat)) mat.forEach((x) => x.dispose());
+      else if (mat) mat.dispose();
+    });
+    const explodeAt = (x: number, y: number, z: number, color: number, r: number, now: number) => {
+      if (!world) return;
+      const fm = new THREE.Mesh(ballGeo, new THREE.MeshBasicMaterial({ color, transparent: true, blending: THREE.AdditiveBlending }));
+      fm.position.set(x, y, z);
+      world.scene.add(fm);
+      flashes.push({ mesh: fm, born: now, r });
+    };
+    const disposeFighters = () => {
+      for (const f of fighters) { world?.scene.remove(f.model); disposeCraft(f.model); }
+      fighters = [];
+      fightersSpawned = 0;
+      fighterWaveCd = 0;
+    };
+    const spawnFighterWave = (accent: number, count: number) => {
+      if (!world) return;
+      for (let i = 0; i < count && fightersSpawned < FIGHTER_CAP; i++) {
+        const model = buildFighter(tier, accent);
+        const fx = sdFinal.x + (Math.random() - 0.5) * 14;
+        const fy = Math.max(8, sdFinal.y - 4);
+        const fz = sdFinal.z + (Math.random() - 0.5) * 8;
+        model.position.set(fx, fy, fz);
+        world.scene.add(model);
+        fighters.push({ x: fx, y: fy, z: fz, vx: 0, vy: 0, vz: 0, health: 70, maxHealth: 70, model, fireCd: 1.4 + Math.random() * 1.6, mode: 'ingress', modeT: 1 + Math.random(), goal: new THREE.Vector3(fx, fy, fz), bank: 0, hitFlash: 0 });
+        fightersSpawned++;
+      }
+    };
+    const damageFighter = (f: Fighter, dmg: number, now: number) => {
+      if (f.health <= 0) return;
+      f.health -= dmg;
+      f.hitFlash = 0.1;
+      if (f.health <= 0) {
+        explodeAt(f.x, f.y, f.z, 0xffb14a, 3.4, now);
+        sfx.explosion();
+        world?.scene.remove(f.model);
+        disposeCraft(f.model);
+      }
+    };
+    const damageSd = (dmg: number) => {
+      if (sdHp <= 0) return;
+      sdHp = Math.max(0, sdHp - dmg);
+      sdHitFlash = 0.08;
+      if (sdHp <= 0) sdCrippled = true;
+    };
+    // Per-frame flight AI for the whole squadron: steer toward a mode goal, dodge buildings,
+    // separate from each other, clamp altitude to the airspace between ground and the SD,
+    // run strafing attacks that fire led bolts at the player. Dead craft self-remove.
+    const updateFighters = (dt: number, now: number, pl: Player3, level: Level3D, accent: number) => {
+      if (!fighters.length) return;
+      const eyeY = pl.y + EYE;
+      const CEIL = sdFinal.y - 4;   // stay below the Star Destroyer
+      const FLOOR = 8;              // stay above the buildings
+      const half = level.size / 2 - 4;
+      for (let i = fighters.length - 1; i >= 0; i--) {
+        const f = fighters[i];
+        if (f.health <= 0) { fighters.splice(i, 1); continue; }
+        f.modeT -= dt;
+        f.hitFlash = Math.max(0, f.hitFlash - dt);
+        if (f.modeT <= 0) {
+          if (f.mode === 'strafe') {
+            // peel off after a run: loop out wide, up near the ship
+            f.mode = Math.random() < 0.5 ? 'bank' : 'reposition';
+            f.modeT = 1.6 + Math.random() * 1.4;
+            const ang = Math.random() * Math.PI * 2;
+            const R = 26 + Math.random() * 12;
+            f.goal.set(pl.x + Math.cos(ang) * R, CEIL - Math.random() * 8, pl.z + Math.sin(ang) * R);
+          } else {
+            // commit to a strafing run THROUGH the fight, past the player
+            f.mode = 'strafe';
+            f.modeT = 2.2 + Math.random() * 1.3;
+            const ang = Math.random() * Math.PI * 2;
+            f.goal.set(pl.x + Math.cos(ang) * 9, eyeY + 2 + Math.random() * 7, pl.z + Math.sin(ang) * 9);
+          }
+        }
+        // desired steering direction toward the goal
+        let ax = f.goal.x - f.x, ay = f.goal.y - f.y, az = f.goal.z - f.z;
+        const gl = Math.hypot(ax, ay, az) || 1;
+        ax /= gl; ay /= gl; az /= gl;
+        // building avoidance — probe forward along the current velocity
+        const sp = Math.hypot(f.vx, f.vy, f.vz);
+        if (sp > 0.5) {
+          const dir: Vec3 = [f.vx / sp, f.vy / sp, f.vz / sp];
+          const wb = rayWallBox([f.x, f.y, f.z], dir, level, 12);
+          if (wb.box && wb.t < 10) {
+            const urg = 1 - wb.t / 10;
+            ay += urg * 1.6;              // climb over it
+            ax += -dir[2] * urg * 1.2;    // veer perpendicular
+            az += dir[0] * urg * 1.2;
+          }
+        }
+        // separation from squadmates
+        for (const o of fighters) {
+          if (o === f || o.health <= 0) continue;
+          const dx = f.x - o.x, dy = f.y - o.y, dz = f.z - o.z;
+          const d2 = dx * dx + dy * dy + dz * dz;
+          if (d2 < 49 && d2 > 0.01) { const inv = (1 - Math.sqrt(d2) / 7) * 0.7; ax += dx * inv; ay += dy * inv; az += dz * inv; }
+        }
+        // integrate
+        const maxSp = f.mode === 'strafe' ? 32 : f.mode === 'ingress' ? 24 : 17;
+        const accelR = 28;
+        f.vx += ax * accelR * dt; f.vy += ay * accelR * dt; f.vz += az * accelR * dt;
+        const s2 = Math.hypot(f.vx, f.vy, f.vz);
+        if (s2 > maxSp) { const k = maxSp / s2; f.vx *= k; f.vy *= k; f.vz *= k; }
+        f.x += f.vx * dt; f.y += f.vy * dt; f.z += f.vz * dt;
+        if (f.y < FLOOR) { f.y = FLOOR; if (f.vy < 0) f.vy = 0; }
+        if (f.y > CEIL) { f.y = CEIL; if (f.vy > 0) f.vy = 0; }
+        if (f.x < -half) { f.x = -half; f.vx = Math.abs(f.vx); } else if (f.x > half) { f.x = half; f.vx = -Math.abs(f.vx); }
+        if (f.z < -half) { f.z = -half; f.vz = Math.abs(f.vz); } else if (f.z > half) { f.z = half; f.vz = -Math.abs(f.vz); }
+        // orient: nose (local -Z) faces the flight direction, roll into the turn
+        f.model.position.set(f.x, f.y, f.z);
+        f.model.lookAt(f.x - f.vx, f.y - f.vy, f.z - f.vz);
+        if (sp > 1) {
+          const rgtx = -f.vz / sp, rgtz = f.vx / sp;
+          const lat = ax * rgtx + az * rgtz;
+          const targetBank = Math.max(-0.8, Math.min(0.8, -lat * 0.9));
+          f.bank += (targetBank - f.bank) * Math.min(1, dt * 4);
+        }
+        f.model.rotateZ(f.bank);
+        animateFighter(f.model, now);
+        // fire led bolts at the player when it has a clear line
+        f.fireCd -= dt;
+        if (f.fireCd <= 0 && world) {
+          const dpx = pl.x - f.x, dpy = eyeY - f.y, dpz = pl.z - f.z;
+          const dd = Math.hypot(dpx, dpy, dpz);
+          if (dd < 95 && !segBlocked([f.x, f.y, f.z], [pl.x, eyeY, pl.z], level, grid ?? undefined)) {
+            f.fireCd = 1.3 + Math.random() * 0.9;
+            const dl = dd || 1;
+            const dir: Vec3 = [dpx / dl, dpy / dl, dpz / dl];
+            projectiles.spawn({ kind: 'bolt', scene: world.scene, x: f.x, y: f.y, z: f.z, dir, speed: 62, dmg: 9, color: accent, splash: 0, gravity: 0, radius: 0.28 });
+          } else {
+            f.fireCd = 0.4;
+          }
+        }
+      }
+    };
+
     // Player pickups: enemies drop these; auto-collected on proximity.
     const drops: { x: number; y: number; z: number; kind: 'ammo' | 'shield'; mesh: THREE.Object3D; born: number }[] = [];
     // Placed pickups (from the arena's ammo/shield/health crates): dynamic symbols that
@@ -511,11 +682,14 @@ export function useFpsLoop(
       if (sd) disposeSd(sd);
       sd = null;
       if (blackHole) { disposeSd(blackHole); blackHole = null; bhRingA = null; bhRingB = null; }
+      disposeFighters();
       sdPhase = 'idle';
       sdT = 0;
       sdCamPan = 0;
       sdFireCd = 0;
       sdDone = false;
+      sdHitFlash = 0;
+      sdCrippled = false;
       world?.dispose();
       world = buildWorld(g.level, tier);
       throwFx = new ThrowableFx(world.scene, tier); // handcrafted throwable VFX for this level
@@ -529,6 +703,10 @@ export function useFpsLoop(
         sdObelisk = g.capital.hull === 'obelisk';
         sd.rotation.y = sdObelisk ? 0 : 0.35;
         sd.scale.setScalar(sdSize.to);
+        // Hull integrity (killable) + a bounding radius for shoot hit-tests, measured at loom scale.
+        sdMax = g.difficulty === 'nightmare' ? 3200 : g.difficulty === 'hard' ? 2700 : 2200;
+        sdHp = sdMax;
+        sdRadius = Math.max(8, new THREE.Box3().setFromObject(sd).getBoundingSphere(new THREE.Sphere()).radius * 0.62);
         if (sdObelisk) {
           // Stand on an open corner far from the player's spawn; sit its base on the ground.
           const gx = S * 0.34, gz = -S * 0.34;
@@ -797,40 +975,62 @@ export function useFpsLoop(
           } else if (sdPhase === 'grace') {
             sdT += dt;
             sdCamPan = Math.max(0, 1 - sdT / 1); // hand the view back so you can take cover
-            if (sdT >= SD_GRACE) { sdPhase = 'combat'; sdT = 0; sdFireCd = 0.7; }
+            if (sdT >= SD_GRACE) { sdPhase = 'combat'; sdT = 0; sdFireCd = 0.7; spawnFighterWave(accent, FIGHTER_WAVE); } // wave 1 launches
           } else if (sdPhase === 'combat') {
             sdT += dt;
             sdCamPan = 0;
             sdFireCd -= dt;
-            if (sdFireCd <= 0) {
-              sdFireCd = 1.1 + Math.random() * 0.7;
-              const pl = g.player;
-              const sx = sdFinal.x + (Math.random() - 0.5) * 12;
-              const sy = sdFinal.y - 3;
-              const sz = sdFinal.z + (Math.random() - 0.5) * 8;
-              const dx = pl.x - sx, dy = pl.y + EYE - sy, dz = pl.z - sz;
-              const dl = Math.hypot(dx, dy, dz) || 1;
-              const sdDir: Vec3 = [dx / dl, dy / dl, dz / dl];
-              projectiles.spawn({ kind: 'rocket', scene: world.scene, x: sx, y: sy, z: sz, dir: sdDir, speed: 44, dmg: 24, color: accent, splash: 3.2, gravity: 0, radius: 0.5 });
+            if (!sdCrippled) {
+              // orbital bombardment: splash rockets rain on the player's position
+              if (sdFireCd <= 0) {
+                sdFireCd = 1.1 + Math.random() * 0.7;
+                const pl = g.player;
+                const sx = sdFinal.x + (Math.random() - 0.5) * 12;
+                const sy = sdFinal.y - 3;
+                const sz = sdFinal.z + (Math.random() - 0.5) * 8;
+                const dx = pl.x - sx, dy = pl.y + EYE - sy, dz = pl.z - sz;
+                const dl = Math.hypot(dx, dy, dz) || 1;
+                const sdDir: Vec3 = [dx / dl, dy / dl, dz / dl];
+                projectiles.spawn({ kind: 'rocket', scene: world.scene, x: sx, y: sy, z: sz, dir: sdDir, speed: 44, dmg: 24, color: accent, splash: 3.2, gravity: 0, radius: 0.5 });
+              }
+            } else if (sdFireCd <= 0) {
+              // hull breached: rolling secondary detonations rake the ship
+              sdFireCd = 0.25 + Math.random() * 0.35;
+              explodeAt(sdFinal.x + (Math.random() - 0.5) * sdRadius, sdFinal.y + (Math.random() - 0.5) * sdRadius * 0.5, sdFinal.z + (Math.random() - 0.5) * sdRadius, 0xffb14a, 2 + Math.random() * 2, now);
+              sfx.explosion();
             }
-            if (sdT >= SD_COMBAT) {
+            // deploy the next wave of 3 once the current one is wiped out (cap 6)
+            fighterWaveCd -= dt;
+            if (fighters.length === 0 && fightersSpawned < FIGHTER_CAP && fighterWaveCd <= 0) {
+              spawnFighterWave(accent, FIGHTER_WAVE);
+              fighterWaveCd = 1.5;
+            }
+            // WIN GATE: every fighter destroyed AND the hull dead → death cinematic
+            if (fightersSpawned >= FIGHTER_CAP && fighters.length === 0 && sdHp <= 0) {
               sdPhase = 'depart'; sdT = 0;
               blackHole = makeBlackHole(accent);
-              blackHole.position.copy(sdBirth);
+              blackHole.position.copy(sdFinal);
               blackHole.scale.setScalar(0.1);
               world.scene.add(blackHole);
+              explodeAt(sdFinal.x, sdFinal.y, sdFinal.z, 0xffd27a, sdRadius * 1.4, now); // the killing blast
+              sfx.explosion();
             }
           } else if (sdPhase === 'depart') {
+            // the crippled ship lists, sinks, and implodes into a reopening rift where it died
             sdT += dt;
             const t = Math.min(1, sdT / SD_DEPART);
-            sd.position.lerpVectors(sdFinal, sdBirth, t * t);
-            sd.scale.setScalar(sdSize.to * (1 - t * 0.98));
+            sd.rotation.z = t * 0.5;
+            sd.position.set(sdFinal.x, sdFinal.y - t * 6, sdFinal.z);
+            sd.scale.setScalar(sdSize.to * (1 - t * 0.9));
             if (blackHole) {
               const open = t < 0.3 ? t / 0.3 : Math.max(0, (1 - t) / 0.3);
               blackHole.scale.setScalar(0.1 + open * sdSize.to * 3.4);
             }
+            if (Math.random() < dt * 6) explodeAt(sdFinal.x + (Math.random() - 0.5) * sdRadius, sdFinal.y + (Math.random() - 0.5) * sdRadius, sdFinal.z + (Math.random() - 0.5) * sdRadius, 0xffb14a, 2 + Math.random() * 2, now);
             if (t >= 1) { closeRift(); sd.visible = false; sdDone = true; }
           }
+          // free-flight AI for any launched squadron (self-cleans dead craft)
+          if (fighters.length) updateFighters(dt, now, g.player, g.level, accent);
         }
         const p = g.player;
         // Loud events (gunfire, explosions, alerting throwables) cue only squads
@@ -1184,6 +1384,8 @@ export function useFpsLoop(
             let hitT = wallD;
             let hit: Enemy | null = null;
             let hitMult = 1; // body-zone damage multiplier for the nearest enemy hit
+            let hitShip: Fighter | null = null; // nearest void fighter the ray struck
+            let hitSd = false;                  // the ray struck the Star Destroyer hull
             for (const e of g.enemies) {
               if (e.health <= 0) continue;
               let t: number;
@@ -1205,9 +1407,20 @@ export function useFpsLoop(
                 hitMult = mult;
               }
             }
+            // Star Destroyer squadron: void fighters + the (killable) capital hull are shootable.
+            for (const f of fighters) {
+              if (f.health <= 0) continue;
+              const t = raySphere(eye, sdir, [f.x, f.y, f.z], 1.4);
+              if (t < hitT) { hitT = t; hit = null; hitMult = 1; hitShip = f; hitSd = false; }
+            }
+            if (sd && sdHp > 0 && (sdPhase === 'combat' || sdPhase === 'depart')) {
+              const t = raySphere(eye, sdir, [sdFinal.x, sdFinal.y, sdFinal.z], sdRadius);
+              if (t < hitT) { hitT = t; hit = null; hitMult = 1; hitShip = null; hitSd = true; }
+            }
             addTracer([eye[0] + sfx2 * 0.4, eye[1] - 0.12, eye[2] + sfz2 * 0.4], [eye[0] + sfx2 * hitT, eye[1] + sfy2 * hitT, eye[2] + sfz2 * hitT], gun.color);
-            // Chip the structure the shot hit (if the wall was the nearest thing).
-            if (!hit && wb.box && wallD < RANGE) {
+            // Chip the structure the shot hit (only if the wall was the nearest thing —
+            // not when a fighter or the SD hull is closer).
+            if (!hit && !hitShip && !hitSd && wb.box && wallD < RANGE) {
               damageBox(wb.box, gun.splash ? gun.dmg * 1.4 : gun.dmg, eye[0] + sfx2 * wallD, eye[1] + sfy2 * wallD, eye[2] + sfz2 * wallD, now);
             }
             const zoomBoost = 1 + zoomLevel.current * 0.5; // impacts/explosions read bigger when scoped
@@ -1236,6 +1449,16 @@ export function useFpsLoop(
                   if (e.health <= 0) onEnemyKilled(e);
                 }
               }
+              // Splash also rakes the SD squadron.
+              for (const f of fighters) {
+                if (f.health <= 0) continue;
+                const d = Math.hypot(f.x - ix, f.y - iy, f.z - iz);
+                if (d < gun.splash) { damageFighter(f, Math.round(gun.dmg * (1 - d / gun.splash)), now); anyHit = true; }
+              }
+              if (sd && sdHp > 0 && (sdPhase === 'combat' || sdPhase === 'depart')) {
+                const d = Math.hypot(sdFinal.x - ix, sdFinal.y - iy, sdFinal.z - iz);
+                if (d < gun.splash + sdRadius) { damageSd(Math.round(gun.dmg * 1.2)); anyHit = true; }
+              }
               if (world) {
                 const fm = new THREE.Mesh(ballGeo, new THREE.MeshBasicMaterial({ color: gun.color, transparent: true, blending: THREE.AdditiveBlending }));
                 fm.position.set(ix, iy, iz);
@@ -1259,7 +1482,19 @@ export function useFpsLoop(
                 sfx.playImpact(gun.id, 'enemy');
               }
             } else {
-              if (hit) {
+              if (hitShip) {
+                damageFighter(hitShip, gun.dmg, now);
+                g.dmgDealt += gun.dmg;
+                g.shotsHit++;
+                snap.hitAt = now;
+                sfx.playImpact(gun.id, 'enemy');
+              } else if (hitSd) {
+                damageSd(gun.dmg);
+                g.dmgDealt += gun.dmg;
+                g.shotsHit++;
+                snap.hitAt = now;
+                sfx.playImpact(gun.id, 'enemy');
+              } else if (hit) {
                 // Boss weak-point window (after a missed pounce) = bonus damage.
                 const wm = hit.boss && hit.weakUntil && now < hit.weakUntil ? 2.5 : 1;
                 // Body-zone multiplier (non-boss): head 2.5× · centre-chest 1.25× ·
@@ -1299,8 +1534,9 @@ export function useFpsLoop(
                 const ipx = eye[0] + sfx2 * hitT;
                 const ipy = eye[1] + sfy2 * hitT;
                 const ipz = eye[2] + sfz2 * hitT;
-                const base = (hit ? (gun.family === 'sniper' ? 2.2 : 1.3) : 0.7) * zoomBoost;
-                const fm = new THREE.Mesh(ballGeo, new THREE.MeshBasicMaterial({ color: hit ? gun.color : 0xffe6b0, transparent: true, blending: THREE.AdditiveBlending }));
+                const struck = hit || hitShip || hitSd;
+                const base = (struck ? (gun.family === 'sniper' ? 2.2 : 1.3) : 0.7) * zoomBoost;
+                const fm = new THREE.Mesh(ballGeo, new THREE.MeshBasicMaterial({ color: struck ? gun.color : 0xffe6b0, transparent: true, blending: THREE.AdditiveBlending }));
                 fm.position.set(ipx, ipy, ipz);
                 world.scene.add(fm);
                 flashes.push({ mesh: fm, born: now, r: base });
@@ -2130,6 +2366,19 @@ export function useFpsLoop(
             }
           }
           for (const b of bossList) b.brood = broodCount; // stamp once the count is known
+          // Star Destroyer dogfight: SD as a boss health bar (brood = fighters left) + craft on radar/objective.
+          if (sd && (sdPhase === 'combat' || sdPhase === 'depart')) {
+            const ratio = Math.max(0, sdHp / sdMax);
+            bossList.push({ name: 'STAR DESTROYER', ratio, phase: ratio > 0.5 ? 1 : ratio > 0.2 ? 2 : 3, status: sdCrippled ? 'HULL BREACH' : 'BOMBARDING', brood: fighters.length });
+            const sdx = sdFinal.x - p.x, sdz = sdFinal.z - p.z;
+            radar.push({ x: sdx * cosY - sdz * sinY, z: -sdx * sinY - sdz * cosY, boss: true });
+          }
+          for (const f of fighters) {
+            if (f.health <= 0) continue;
+            aliveLeft++;
+            const dx = f.x - p.x, dz = f.z - p.z;
+            radar.push({ x: dx * cosY - dz * sinY, z: -dx * sinY - dz * cosY, boss: false });
+          }
           snap.bosses = bossList;
           snap.enemiesLeft = aliveLeft;
           snap.radar = radar;
@@ -2166,6 +2415,9 @@ export function useFpsLoop(
       window.visualViewport?.removeEventListener('resize', onViewport);
       document.removeEventListener('visibilitychange', onVisible);
       if (activeLoop) sfx.playWeaponLoopStop(activeLoop);
+      if (sd) disposeSd(sd);
+      if (blackHole) disposeSd(blackHole);
+      disposeFighters();
       world?.dispose();
       ballGeo.dispose();
       projectiles.dispose();
