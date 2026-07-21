@@ -43,6 +43,8 @@ interface Fighter {
   goal: THREE.Vector3;                   // steering target
   bank: number;                          // current roll (rad), eased toward the turn
   hitFlash: number;                      // seconds of hit-flash remaining
+  crashing: boolean;                     // shot down → death-diving at the player, detonates on contact/ground
+  crashT: number;                        // seconds spent crashing (failsafe detonation)
 }
 
 const RW = 480;
@@ -508,21 +510,23 @@ export function useFpsLoop(
         const fz = sdFinal.z + (Math.random() - 0.5) * 8;
         model.position.set(fx, fy, fz);
         world.scene.add(model);
-        fighters.push({ x: fx, y: fy, z: fz, vx: 0, vy: 0, vz: 0, health: hp, maxHealth: hp, shield, maxShield: shield, model, fireCd: 1.4 + Math.random() * 1.6, mode: 'ingress', modeT: 1 + Math.random(), goal: new THREE.Vector3(fx, fy, fz), bank: 0, hitFlash: 0 });
+        fighters.push({ x: fx, y: fy, z: fz, vx: 0, vy: 0, vz: 0, health: hp, maxHealth: hp, shield, maxShield: shield, model, fireCd: 1.4 + Math.random() * 1.6, mode: 'ingress', modeT: 1 + Math.random(), goal: new THREE.Vector3(fx, fy, fz), bank: 0, hitFlash: 0, crashing: false, crashT: 0 });
         fightersSpawned++;
       }
     };
     const damageFighter = (f: Fighter, dmg: number, now: number) => {
-      if (f.health <= 0) return;
+      if (f.health <= 0 || f.crashing) return;
       let rem = dmg;
       if (f.shield > 0) { const a = Math.min(f.shield, rem); f.shield -= a; rem -= a; } // shield first
       f.health -= rem;
       f.hitFlash = 0.1;
       if (f.health <= 0) {
-        explodeAt(f.x, f.y, f.z, 0xffb14a, 3.4, now);
+        // Shot down — don't just pop in the air: go into a death DIVE at the player and
+        // detonate on contact (or crater the ground if it misses). Handled in updateFighters.
+        f.crashing = true;
+        f.crashT = 0;
         sfx.explosion();
-        world?.scene.remove(f.model);
-        disposeCraft(f.model);
+        explodeAt(f.x, f.y, f.z, 0xffd27a, 2, now); // hit-flash spark
       }
     };
     const damageSd = (dmg: number) => {
@@ -536,7 +540,7 @@ export function useFpsLoop(
     // Per-frame flight AI for the whole squadron: steer toward a mode goal, dodge buildings,
     // separate from each other, clamp altitude to the airspace between ground and the SD,
     // run strafing attacks that fire led bolts at the player. Dead craft self-remove.
-    const updateFighters = (dt: number, now: number, pl: Player3, level: Level3D, accent: number) => {
+    const updateFighters = (dt: number, now: number, pl: Player3, level: Level3D, accent: number, hurt: (n: number) => void) => {
       if (!fighters.length) return;
       const eyeY = pl.y + EYE;
       const CEIL = sdFinal.y - 4;   // stay below the Star Destroyer
@@ -544,6 +548,36 @@ export function useFpsLoop(
       const half = level.size / 2 - 4;
       for (let i = fighters.length - 1; i >= 0; i--) {
         const f = fighters[i];
+        // SHOT DOWN → a death dive at the player; detonate on contact, on the ground, or after
+        // a failsafe. If it reaches the player it blows up on them; otherwise it craters the ground.
+        if (f.crashing) {
+          f.crashT += dt;
+          const dpx = pl.x - f.x, dpy = eyeY - f.y, dpz = pl.z - f.z;
+          const dl = Math.hypot(dpx, dpy, dpz) || 1;
+          f.vx += (dpx / dl) * 55 * dt;
+          f.vz += (dpz / dl) * 55 * dt;
+          f.vy += (dpy / dl) * 30 * dt - 26 * dt; // lunge at the player + gravity
+          const sp = Math.hypot(f.vx, f.vy, f.vz);
+          if (sp > 48) { const k = 48 / sp; f.vx *= k; f.vy *= k; f.vz *= k; }
+          f.x += f.vx * dt; f.y += f.vy * dt; f.z += f.vz * dt;
+          f.model.position.set(f.x, f.y, f.z);
+          f.model.rotation.z += dt * 7; // tumble
+          f.model.rotation.x += dt * 5;
+          if (Math.random() < dt * 12) explodeAt(f.x, f.y, f.z, 0x552016, 1.4, now); // smoke trail
+          const pdd = Math.hypot(pl.x - f.x, eyeY - f.y, pl.z - f.z);
+          if (pdd < 2.6 || f.y <= 1.1 || f.crashT > 4) {
+            explodeAt(f.x, Math.max(0.5, f.y), f.z, 0xffb14a, 5.5, now);
+            sfx.explosion();
+            addScar(f.x, f.z, 4);
+            if (pdd < 6) hurt(Math.round(55 * (1 - pdd / 6))); // kamikaze blast
+            const close = Math.max(0, 1 - pdd / 12);
+            if (close > 0) { shakeMag = Math.min(1, Math.max(shakeMag, close)); snap.shakeAt = now; snap.shakeMag = shakeMag; }
+            world?.scene.remove(f.model);
+            disposeCraft(f.model);
+            fighters.splice(i, 1);
+          }
+          continue;
+        }
         if (f.health <= 0) { fighters.splice(i, 1); continue; }
         f.modeT -= dt;
         f.hitFlash = Math.max(0, f.hitFlash - dt);
@@ -1100,8 +1134,6 @@ export function useFpsLoop(
             if (Math.random() < dt * 6) explodeAt(sdFinal.x + (Math.random() - 0.5) * sdRadius, sdFinal.y + (Math.random() - 0.5) * sdRadius, sdFinal.z + (Math.random() - 0.5) * sdRadius, 0xffb14a, 2 + Math.random() * 2, now);
             if (t >= 1) { closeRift(); sd.visible = false; sdDone = true; }
           }
-          // free-flight AI for any launched squadron (self-cleans dead craft)
-          if (fighters.length) updateFighters(dt, now, g.player, g.level, accent);
         }
         const p = g.player;
         const frozen = !!g.cineLock; // boss-opening cinematic: freeze input, enemy AI, the clock
@@ -1144,6 +1176,8 @@ export function useFpsLoop(
             }
           }
         };
+        // Star Destroyer fighter squadron: free-flight AI + shot-down death dives (self-cleans).
+        if (sd && fighters.length) updateFighters(dt, now, p, g.level, g.capital?.accent ?? 0xff7a3c, hurtPlayer);
         // An enemy died → tally the kill and, ~1 in 3 kills, drop ammo or overshield
         // for the player (bosses / deployables never drop). Big fights stay supplied.
         const onEnemyKilled = (e: Enemy) => {
@@ -1453,7 +1487,11 @@ export function useFpsLoop(
             const sfy2 = Math.sin(spitch);
             const sfz2 = -scp * Math.cos(syaw);
             const sdir: Vec3 = [sfx2, sfy2, sfz2];
-            const wb = rayWallBox(eye, sdir, g.level, RANGE);
+            // During a Star Destroyer fight the ship can loom past the normal hitscan range
+            // (unreachable from some spots), so lift the range for the duration — restored once
+            // the SD is destroyed / the fight ends.
+            const shotRange = sd && sdHp > 0 && sdPhase === 'combat' ? 5000 : RANGE;
+            const wb = rayWallBox(eye, sdir, g.level, shotRange);
             const wallD = wb.t;
             let hitT = wallD;
             let hit: Enemy | null = null;
@@ -1494,7 +1532,7 @@ export function useFpsLoop(
             addTracer([eye[0] + sfx2 * 0.4, eye[1] - 0.12, eye[2] + sfz2 * 0.4], [eye[0] + sfx2 * hitT, eye[1] + sfy2 * hitT, eye[2] + sfz2 * hitT], gun.color);
             // Chip the structure the shot hit (only if the wall was the nearest thing —
             // not when a fighter or the SD hull is closer).
-            if (!hit && !hitShip && !hitSd && wb.box && wallD < RANGE) {
+            if (!hit && !hitShip && !hitSd && wb.box && wallD < shotRange) {
               damageBox(wb.box, gun.splash ? gun.dmg * 1.4 : gun.dmg, eye[0] + sfx2 * wallD, eye[1] + sfy2 * wallD, eye[2] + sfz2 * wallD, now);
             }
             const zoomBoost = 1 + zoomLevel.current * 0.5; // impacts/explosions read bigger when scoped
@@ -2524,7 +2562,7 @@ export function useFpsLoop(
           // Star Destroyer dogfight: SD as a boss health bar (brood = fighters left) + craft on radar/objective.
           if (sd && (sdPhase === 'combat' || sdPhase === 'depart')) {
             const ratio = Math.max(0, sdHp / sdMax);
-            bossList.push({ name: 'STAR DESTROYER', ratio, phase: ratio > 0.5 ? 1 : ratio > 0.2 ? 2 : 3, status: sdCrippled ? 'HULL BREACH' : sdShield > 0 ? 'SHIELDED' : 'BOMBARDING', brood: fighters.length, shield: Math.max(0, sdShield / sdShieldMax) });
+            bossList.push({ name: 'STAR DESTROYER', ratio, phase: ratio > 0.5 ? 1 : ratio > 0.2 ? 2 : 3, status: sdCrippled ? 'HULL BREACH' : sdShield > 0 ? 'SHIELDED' : 'BOMBARDING', brood: fighters.reduce((n, f) => n + (f.health > 0 ? 1 : 0), 0), shield: Math.max(0, sdShield / sdShieldMax) });
             const sdx = sdFinal.x - p.x, sdz = sdFinal.z - p.z;
             radar.push({ x: sdx * cosY - sdz * sinY, z: -sdx * sinY - sdz * cosY, boss: true });
           }

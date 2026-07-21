@@ -1,10 +1,10 @@
 'use client';
 
 /**
- * BOSS OVERDRIVE cutscene — the "power up your guns" beat that plays after the boss
- * reveal. Shows all THREE loadout weapons together (built from the same primitives as
- * the loadout preview), a button-press cue, then floods them RED (emissive ignition +
- * bloom + a red flash) before handing back to the fight, where the ×2.5 buff is live.
+ * BOSS OVERDRIVE cutscene — the "power up your gun" beat that plays after the boss
+ * reveal. Shows the WEAPON CURRENTLY IN USE (built from the same primitives as the loadout
+ * preview), a button-press cue, then floods it BRIGHT RED (emissive ignition + bloom) before
+ * handing back to the fight, where the ×2.5 buff is live and every weapon glows red when held.
  * Self-contained Three scene; disposes on unmount. Reduced-motion → quick static beat.
  *
  * Imported only by the /arcade tree.
@@ -16,7 +16,7 @@ import { buildGun, disposeModel } from '../fps/models';
 
 const DUR = 3.6; // total cutscene seconds
 
-export function WeaponOverdrive({ loadout, onDone }: { loadout: { p1: string; p2: string; sa: string }; onDone: () => void }) {
+export function WeaponOverdrive({ gunId, onDone }: { gunId: string; onDone: () => void }) {
   const mountRef = useRef<HTMLDivElement>(null);
   const onDoneRef = useRef(onDone);
   onDoneRef.current = onDone;
@@ -47,22 +47,20 @@ export function WeaponOverdrive({ loadout, onDone }: { loadout: { p1: string; p2
     rim.position.set(-1.5, 0.4, -1.2);
     scene.add(rim);
 
-    // Build the three loadout guns, normalized + spread across the frame.
+    // Build the CURRENTLY EQUIPPED gun, normalized + centred in the frame.
     const guns: THREE.Group[] = [];
     const redMats: { mat: THREE.MeshStandardMaterial; emissive: THREE.Color; intensity: number }[] = [];
-    const xs = [-1.15, 0, 1.15];
-    [loadout.p1, loadout.p2, loadout.sa].forEach((id, i) => {
+    {
       const holder = new THREE.Group();
-      const m = buildGun(id, 'desktop');
+      const m = buildGun(gunId, 'desktop');
       const bbox = new THREE.Box3().setFromObject(m);
       const size = bbox.getSize(new THREE.Vector3());
       const maxDim = Math.max(size.x, size.y, size.z) || 1;
-      const s = 0.95 / maxDim;
+      const s = 1.5 / maxDim;
       const center = bbox.getCenter(new THREE.Vector3());
       m.scale.setScalar(s);
       m.position.set(-center.x * s, -center.y * s, -center.z * s);
       holder.add(m);
-      holder.position.set(xs[i], 0, 0);
       holder.rotation.y = -Math.PI / 2; // side profile (best silhouette)
       scene.add(holder);
       guns.push(holder);
@@ -77,14 +75,14 @@ export function WeaponOverdrive({ loadout, onDone }: { loadout: { p1: string; p2
           }
         }
       });
-    });
+    }
 
     const composer = new EffectComposer(renderer);
     composer.addPass(new RenderPass(scene, camera));
     const bloom = new BloomEffect({ intensity: 1.9, luminanceThreshold: 0.15, luminanceSmoothing: 0.3, mipmapBlur: true });
     composer.addPass(new EffectPass(camera, bloom));
 
-    const RED = new THREE.Color(0xff2a2a);
+    const RED = new THREE.Color(0xff0808); // bright red ignition
     const start = performance.now();
     let raf = 0;
     const tick = () => {
@@ -99,9 +97,9 @@ export function WeaponOverdrive({ loadout, onDone }: { loadout: { p1: string; p2
       }
       for (const r of redMats) {
         r.mat.emissive.copy(r.emissive).lerp(RED, red);
-        r.mat.emissiveIntensity = r.intensity + red * (1.4 + 0.5 * Math.sin(t * 9));
+        r.mat.emissiveIntensity = r.intensity + red * (3.2 + 0.8 * Math.sin(t * 9)); // bright, pulsing
       }
-      bloom.intensity = 1.9 + red * 1.6;
+      bloom.intensity = 1.9 + red * 2.2;
       composer.render();
     };
     tick();
@@ -125,13 +123,11 @@ export function WeaponOverdrive({ loadout, onDone }: { loadout: { p1: string; p2
       renderer.dispose();
       renderer.domElement.remove();
     };
-  }, [loadout.p1, loadout.p2, loadout.sa]);
+  }, [gunId]);
 
   return (
     <div className="absolute inset-0 z-[46] flex flex-col items-center justify-center overflow-hidden bg-[#07070c]/92 font-pixel [animation:gdg-fade-in_0.35s_ease-out]">
       <div ref={mountRef} className="absolute inset-0" />
-      {/* red ignition flash */}
-      {phase === 2 && <div aria-hidden className="absolute inset-0 [animation:gdg-fade-in_0.4s_ease-out]" style={{ boxShadow: 'inset 0 0 160px 40px rgba(255,40,40,0.35)' }} />}
       <div className="relative z-10 flex flex-col items-center">
         {phase < 2 ? (
           <>

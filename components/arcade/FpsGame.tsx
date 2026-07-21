@@ -895,7 +895,7 @@ export function FpsGame({ initialRun, initialScreen, onRunSave, onRunEnd, onScor
         )}
 
         {mode === 'play' && intro && <MatchIntro key={intro.level} level={intro.level} boss={intro.boss} onDone={() => { if (intro.boss) startBossOpening(); else setIntro(null); }} />}
-        {mode === 'play' && overdrive && <WeaponOverdrive loadout={lastLoadout} onDone={finishOverdrive} />}
+        {mode === 'play' && overdrive && <WeaponOverdrive gunId={gameRef.current?.guns[gameRef.current.active]?.id ?? lastLoadout.p1} onDone={finishOverdrive} />}
 
         {mode === 'play' && recovery != null && (
           <RecoveryOverlay key={recovery} round={recovery} onDone={() => { setRecovery(null); startLevel(campaignTotalLevels(), lastLoadout, run.maxHp, run.upgrades); }} />

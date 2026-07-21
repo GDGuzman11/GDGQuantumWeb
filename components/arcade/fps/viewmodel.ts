@@ -138,8 +138,8 @@ export class Viewmodel {
         if (m instanceof THREE.MeshStandardMaterial && !seen.has(m)) {
           seen.add(m);
           this.redMats.push({ mat: m, emissive: m.emissive.getHex(), intensity: m.emissiveIntensity });
-          m.emissive.setHex(0xff2a2a);
-          m.emissiveIntensity = Math.max(m.emissiveIntensity, 0.9);
+          m.emissive.setHex(0xff0808); // bright red
+          m.emissiveIntensity = Math.max(m.emissiveIntensity, 2.2);
         }
       }
     });
