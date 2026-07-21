@@ -176,6 +176,13 @@ export function FpsHud({ snap, level, gold, astro, isTouch }: { snap: FpsSnapsho
         </div>
       )}
 
+      {/* Boss OVERDRIVE: weapons empowered ×2.5 for the fight */}
+      {snap.overdrive && (
+        <div className="absolute bottom-24 left-1/2 z-30 -translate-x-1/2 rounded border border-[#ff3a3a]/60 bg-[#ff2a2a]/15 px-3 py-1 text-[8px] tracking-[0.25em] text-[#ff8a8a] sm:text-[10px]" style={{ textShadow: '0 0 8px rgba(255,50,50,0.7)' }}>
+          ⚡ OVERDRIVE ×2.5
+        </div>
+      )}
+
       {/* health + overshield (glass) — becomes visually dominant at low HP */}
       <div
         className={`absolute bottom-4 left-4 rounded-lg border px-2.5 py-1.5 backdrop-blur-sm transition-all duration-200 ${hud.lowHealth ? 'origin-bottom-left scale-110 border-[#ff5d6e] bg-[#ff5d6e]/15' : pickup ? 'border-[#aef5c8]/70 bg-[#aef5c8]/10' : 'border-white/10 bg-black/40'}`}

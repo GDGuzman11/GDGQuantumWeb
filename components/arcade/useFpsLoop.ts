@@ -161,6 +161,11 @@ export interface FpsGameState {
   lastHitT?: number; // ms timestamp of the last damage taken
   shieldRecharges?: number; // full recharges used this level
   shieldOverloaded?: boolean; // overshield burnt out until re-enabled by a shield pickup
+  // Boss-fight OVERDRIVE: a cinematic opening (boss reveal → gun empowerment) that grants a
+  // damage buff for that boss fight only. Set by FpsGame on the shared game state.
+  weaponBuff?: number; // player damage multiplier (2.5 after the empowerment; 1/undefined otherwise)
+  cineLock?: boolean; // freeze player input + enemy AI + the level clock during the opening cinematic
+  bossCine?: 'reveal' | 'empower' | null; // active cinematic beat (drives the boss-reveal camera)
 }
 
 export interface FpsSnapshot {
@@ -204,6 +209,7 @@ export interface FpsSnapshot {
   radar: { x: number; z: number; boss: boolean; kind?: 'ammo' | 'shield' | 'health' }[]; // enemies + pickups, player-relative
   shakeAt: number;  // timestamp of the last blast shake (drives the HUD shake)
   shakeMag: number; // 0..1 shake intensity for that blast
+  overdrive?: boolean; // boss OVERDRIVE ×2.5 buff active
 }
 
 interface Grenade { x: number; y: number; z: number; vx: number; vy: number; vz: number; fuse: number; mesh: THREE.Mesh; landed?: boolean; age?: number }
@@ -340,6 +346,7 @@ export function useFpsLoop(
     let composer: ReturnType<typeof makeComposer> | null = null;
     // 3D first-person viewmodel (the selected gun), drawn over the world frame.
     let viewmodel: Viewmodel | null = null;
+    let vmEmpowered = false; // last-applied OVERDRIVE red state (toggle on change only)
     // Handcrafted throwable VFX (trails, detonations, lingering). Rebuilt per level
     // with the world's scene; cosmetic only (gameplay resolves separately).
     let throwFx: ThrowableFx | null = null;
@@ -463,6 +470,7 @@ export function useFpsLoop(
     const bossHazards: { x: number; z: number; r: number; until: number; dps: number; mesh: THREE.Mesh; pull?: number }[] = []; // acid puddles / pull vortices
     let recoilKick = 0; // current view recoil (radians), decays to 0
     let shakeMag = 0;   // 0..1 screen-shake trauma from nearby blasts (camera + HUD), decays
+    let bossCamK = 0;   // 0..1 boss-reveal camera pan (ramps during the boss-opening cinematic)
     const grenades: Grenade[] = [];
     const smokes: SmokeFx[] = [];
     const flashes: Flash[] = [];
@@ -783,8 +791,11 @@ export function useFpsLoop(
       // Repoint the enemy-outline effect at the new scene (its internal depth/mask
       // passes hold their own scene ref, so a level rebuild must update it).
       if (composer.outline) composer.outline.mainScene = world.scene;
-      // Build the viewmodel once; (re)load the active gun for this level.
+      // Build the viewmodel once; (re)load the active gun for this level. Clear any prior
+      // OVERDRIVE red tint (a boss buff never carries into the next level).
       if (!viewmodel) viewmodel = new Viewmodel(tier, RW / RH);
+      viewmodel.setEmpowered(false);
+      vmEmpowered = false;
       viewmodel.setGun(g.guns[g.active].id, g.gunParts?.[g.active]);
       resize(); // size the new composer/viewmodel to the live canvas
       const mk = (canvas2: HTMLCanvasElement) => {
@@ -1093,6 +1104,7 @@ export function useFpsLoop(
           if (fighters.length) updateFighters(dt, now, g.player, g.level, accent);
         }
         const p = g.player;
+        const frozen = !!g.cineLock; // boss-opening cinematic: freeze input, enemy AI, the clock
         // Loud events (gunfire, explosions, alerting throwables) cue only squads
         // with a living member within earshot — distant squads stay unaware, so
         // each squad keeps its own independent picture of where the player is.
@@ -1170,16 +1182,17 @@ export function useFpsLoop(
         }
         const hadLook = lookDX.current !== 0 || lookDY.current !== 0;
         const aimSlow = assist ? 0.62 : 1; // ease the turn near a target
-        if (lookDX.current !== 0) {
+        if (frozen) { lookDX.current = 0; lookDY.current = 0; } // camera is scripted during the cinematic
+        if (!frozen && lookDX.current !== 0) {
           p.yaw -= lookDX.current * ls * aimSlow;
           lookDX.current = 0;
         }
-        if (lookDY.current !== 0) {
+        if (!frozen && lookDY.current !== 0) {
           const iy = invertY.current ? -1 : 1;
           p.pitch = Math.max(-MAX_PITCH, Math.min(MAX_PITCH, p.pitch - lookDY.current * ls * aimSlow * iy));
           lookDY.current = 0;
         }
-        if (assist && hadLook) {
+        if (!frozen && assist && hadLook) {
           const pull = 0.05 * Math.min(1, (assist.dot - 0.95) / 0.05); // gentle, stronger nearer centre
           let dYaw = Math.atan2(-assist.ex, -assist.ez) - p.yaw;
           dYaw = Math.atan2(Math.sin(dYaw), Math.cos(dYaw));
@@ -1193,9 +1206,10 @@ export function useFpsLoop(
         if (keys.current.has('s') || keys.current.has('arrowdown')) fwd -= 1;
         if (keys.current.has('d') || keys.current.has('arrowright')) strafe += 1;
         if (keys.current.has('a') || keys.current.has('arrowleft')) strafe -= 1;
+        if (frozen) { fwd = 0; strafe = 0; } // no movement during the cinematic
 
         if (g.status === 'playing') {
-          g.elapsed += dt; // level clock for the start-of-match combat lock + boss grace
+          if (!frozen) g.elapsed += dt; // level clock for the start-of-match combat lock + boss grace
           if (switchReq.current !== null) {
             const n = g.guns.length;
             const req = switchReq.current;
@@ -1355,7 +1369,7 @@ export function useFpsLoop(
           const fireInput = manualFire || autoFire;
           // COMBAT LOCK: no shooting (either side) until the match-intro countdown
           // finishes (~2.8 s). Movement is free; firing is held.
-          const locked = g.elapsed < 2.8;
+          const locked = g.elapsed < 2.8 || frozen; // + the boss-opening cinematic freeze
           // Semi-auto fires on the rising edge of EITHER source tracked SEPARATELY, so a
           // manual trigger pull ALWAYS registers even while auto-fire is already holding
           // the input (auto-fire never blocks the manual fire button).
@@ -1496,7 +1510,7 @@ export function useFpsLoop(
                 const d = Math.hypot(e.x - ix, e.y + 1 - iy, e.z - iz);
                 if (d < gun.splash) {
                   const wm = e.boss && e.weakUntil && now < e.weakUntil ? 2.5 : 1;
-                  const dd = Math.round(gun.dmg * (1 - d / gun.splash) * wm);
+                  const dd = Math.round(gun.dmg * (1 - d / gun.splash) * wm * (g.weaponBuff ?? 1)); // OVERDRIVE ×2.5
                   hurtEnemy(e, dd);
                   if (gun.trait) applyWeaponTrait(e, gun);
                   g.dmgDealt += dd;
@@ -1561,7 +1575,7 @@ export function useFpsLoop(
                 // torso 1× · limbs 0.75×. Bosses/deployables have hitMult = 1 (they use
                 // the weak-point window instead). A head-zone hit still counts as a headshot.
                 const headshot = hitMult >= HEADSHOT_MULT;
-                const dmg = gun.dmg * wm * hitMult;
+                const dmg = gun.dmg * wm * hitMult * (g.weaponBuff ?? 1); // OVERDRIVE ×2.5
                 hurtEnemy(hit, dmg);
                 if (gun.trait) applyWeaponTrait(hit, gun);
                 g.dmgDealt += dmg;
@@ -1869,6 +1883,15 @@ export function useFpsLoop(
           }
           // Boss/minion projectiles: advance + resolve impacts (P0 system, fired in P1).
           if (projectiles.count > 0) {
+            // Find the (breakable) building box a Star Destroyer round landed on, if any.
+            const boxAt = (bx: number, by: number, bz: number): Box | null => {
+              const boxes = grid ? grid.queryAABB(bx - 0.3, bz - 0.3, bx + 0.3, bz + 0.3) : g.level.boxes;
+              for (const b of boxes) {
+                if (b.dead || b.indestructible) continue;
+                if (Math.abs(bx - b.x) <= b.sx / 2 + 0.3 && Math.abs(by - b.y) <= b.sy / 2 + 0.3 && Math.abs(bz - b.z) <= b.sz / 2 + 0.3) return b;
+              }
+              return null;
+            };
             for (const im of projectiles.update(dt, p, g.level, grid ?? undefined)) {
               const isSd = im.kind === 'sdmg' || im.kind === 'sdrocket' || im.kind === 'sdmega';
               const heavy = im.kind === 'sdrocket' || im.kind === 'sdmega';
@@ -1877,11 +1900,19 @@ export function useFpsLoop(
                 recoilKick = Math.min(0.3, recoilKick + (im.kind === 'sdmega' ? 0.2 : heavy ? 0.1 : 0.03)); // impact shake
                 sfx.hurt();
               }
-              // Screen/HUD shake: from a direct hit, or from being caught near a heavy SD blast.
+              // A MISSED Star Destroyer round either chews through the building it hit (4 hits
+              // break the part) or craters the open ground with a big ~4× frag blast.
+              let sdCrater = false;
+              if (isSd && im.dmg === 0) {
+                const bx = boxAt(im.x, im.y, im.z);
+                if (bx) damageBox(bx, boxMaxHp(bx) / 4 + 1, im.x, im.y, im.z, now); // 4 SD hits destroy it
+                else sdCrater = true;
+              }
+              // Screen/HUD shake: from a direct hit, near a heavy SD blast, or from a ground crater.
               {
-                const weight = im.kind === 'sdmega' ? 1 : im.kind === 'sdrocket' ? 0.6 : im.kind === 'sdmg' ? 0.22 : im.dmg > 0 ? 0.4 : 0;
+                const weight = sdCrater ? (im.kind === 'sdmega' ? 1 : im.kind === 'sdrocket' ? 0.7 : 0.4) : im.kind === 'sdmega' ? 1 : im.kind === 'sdrocket' ? 0.6 : im.kind === 'sdmg' ? 0.22 : im.dmg > 0 ? 0.4 : 0;
                 if (weight > 0) {
-                  const reach = (im.splash || 1.5) * 2 + 6;
+                  const reach = (sdCrater ? (im.kind === 'sdmega' ? 16 : im.kind === 'sdrocket' ? 12 : 7) : (im.splash || 1.5) * 2) + 6;
                   const pd = Math.hypot(p.x - im.x, p.y + EYE - im.y, p.z - im.z);
                   const close = im.dmg > 0 ? 1 : Math.max(0, 1 - pd / reach);
                   if (close > 0) { shakeMag = Math.min(1, Math.max(shakeMag, close * weight)); snap.shakeAt = now; snap.shakeMag = shakeMag; }
@@ -1892,8 +1923,22 @@ export function useFpsLoop(
                 fm.position.set(im.x, im.y, im.z);
                 world.scene.add(fm);
                 flashes.push({ mesh: fm, born: now, r: Math.max(1.2, (im.splash || 1.2) * (isSd ? 1.5 : 1)) });
-                // Heavy SD blasts throw a big secondary shockwave + scorch the ground.
-                if (heavy) {
+                if (sdCrater) {
+                  // BIG ground crater ~4× the frag grenade (6.5): huge fireball + shockwave +
+                  // scorch, and splash-damage the player if they're caught close.
+                  const vis = im.kind === 'sdmega' ? 26 : im.kind === 'sdrocket' ? 20 : 11; // ≈4× / 3× / smaller
+                  const dmgR = im.kind === 'sdmega' ? 7 : im.kind === 'sdrocket' ? 5.5 : 3;
+                  const dmgAmt = im.kind === 'sdmega' ? 60 : im.kind === 'sdrocket' ? 40 : 16;
+                  const wave = new THREE.Mesh(ballGeo, new THREE.MeshBasicMaterial({ color: 0xffe6b0, transparent: true, blending: THREE.AdditiveBlending }));
+                  wave.position.set(im.x, im.y, im.z);
+                  world.scene.add(wave);
+                  flashes.push({ mesh: wave, born: now, r: vis });
+                  addScar(im.x, im.z, Math.min(9, dmgR * 1.5));
+                  sfx.explosion();
+                  const pdd = Math.hypot(p.x - im.x, p.y + EYE - im.y, p.z - im.z);
+                  if (pdd < dmgR) hurtPlayer(Math.round(dmgAmt * (1 - pdd / dmgR)));
+                } else if (heavy) {
+                  // Heavy SD blast that connected: a big secondary shockwave + scorch.
                   const wave = new THREE.Mesh(ballGeo, new THREE.MeshBasicMaterial({ color: 0xffe6b0, transparent: true, blending: THREE.AdditiveBlending }));
                   wave.position.set(im.x, im.y, im.z);
                   world.scene.add(wave);
@@ -2090,7 +2135,8 @@ export function useFpsLoop(
           // their effects on the player are aggregated. Boss levels are one squad.
           let totalDamage = 0;
           let anySeen = false;
-          for (let s = 0; s < g.squads.length; s++) {
+          // Freeze enemy AI (movement + fire) during the boss-opening cinematic.
+          if (!frozen) for (let s = 0; s < g.squads.length; s++) {
             const group = squadGroups[s];
             if (!group || !group.length) continue;
             const res = updateEnemies(group, p, g.level, g.difficulty, pvx, pvz, dt, now, g.squads[s], smokes, grid ?? undefined, nav ?? undefined, g.elapsed, eyeH);
@@ -2138,6 +2184,9 @@ export function useFpsLoop(
           snap.shieldOverloaded = g.shieldOverloaded ?? false;
           // Drive the 3D viewmodel (bob from movement; recoil/flash/reload poses
           // were triggered by the fire/reload hooks above). Drawn after the world.
+          // OVERDRIVE: tint every held weapon red while the ×2.5 boss buff is active.
+          const wantEmpower = (g.weaponBuff ?? 1) > 1;
+          if (wantEmpower !== vmEmpowered) { vmEmpowered = wantEmpower; viewmodel?.setEmpowered(wantEmpower); }
           viewmodel?.update(dt, Math.hypot(pvx, pvz), g.reloading);
 
           // Boss levels are won when the BOSS dies (its summoned minions then
@@ -2371,6 +2420,22 @@ export function useFpsLoop(
           camera.rotation.y = lerpAngle(p.yaw, wantYaw);
           camera.rotation.x = p.pitch + recoilKick + (wantPitch - (p.pitch + recoilKick)) * k;
         }
+        // Boss-opening cinematic: pan the camera to frame the boss (ramps in during 'reveal',
+        // eases back to the player when the beat ends). Same angle-blend as the SD reveal.
+        bossCamK = Math.max(0, Math.min(1, bossCamK + (g.bossCine === 'reveal' ? dt / 0.8 : -dt / 0.6)));
+        if (bossCamK > 0.001) {
+          const bossE = g.enemies.find((e) => e.boss && e.health > 0);
+          if (bossE && bossE.boss) {
+            const by = bossE.y + BOSSES[bossE.boss].scale;
+            const dx = bossE.x - camera.position.x, dy = by - camera.position.y, dz = bossE.z - camera.position.z;
+            const wantYaw = Math.atan2(dx, -dz);
+            const wantPitch = Math.atan2(dy, Math.hypot(dx, dz));
+            const k = bossCamK * bossCamK * (3 - 2 * bossCamK);
+            const lerpAngle = (a: number, b: number) => a + ((((b - a) % (Math.PI * 2)) + Math.PI * 3) % (Math.PI * 2) - Math.PI) * k;
+            camera.rotation.y = lerpAngle(p.yaw, wantYaw);
+            camera.rotation.x = p.pitch + (wantPitch - p.pitch) * k;
+          }
+        }
         // Blast screen-shake: jitter the camera by the current trauma, then decay it.
         if (shakeMag > 0.001) {
           const s = shakeMag * shakeMag; // ease — small shakes stay subtle
@@ -2473,6 +2538,7 @@ export function useFpsLoop(
           snap.enemiesLeft = aliveLeft;
           snap.radar = radar;
           snap.shakeMag = shakeMag; // reflect the decaying trauma so the HUD shake eases out
+          snap.overdrive = (g.weaponBuff ?? 1) > 1;
           snap.status = g.status;
           snap.kills = g.kills;
           snap.headshots = g.headshots;

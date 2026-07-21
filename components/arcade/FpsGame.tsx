@@ -24,6 +24,7 @@ import { makeModularArena, buildFromLayout, makeSampleLayout } from './fps/kit/g
 import { resolveLevel, buildBossArena, campaignTotalLevels, isBossLevel, isGauntletLevel, bossKindFor, GAUNTLET_ORDER } from './fps/kit/levels';
 import { LevelEditor } from './screens/LevelEditor';
 import { CapitalGenerator } from './screens/CapitalGenerator';
+import { WeaponOverdrive } from './screens/WeaponOverdrive';
 import { TitleScreen } from './screens/TitleScreen';
 import { IntroSlide } from './screens/IntroSlide';
 import type { LevelLayout } from './fps/kit/layout';
@@ -135,6 +136,9 @@ export function FpsGame({ initialRun, initialScreen, onRunSave, onRunEnd, onScor
   const [runStats, setRunStats] = useState({ kills: 0, headshots: 0, shots: 0, hits: 0, dmg: 0, startedAt: 0, endedAt: 0 });
   // Per-level cinematic intro (wave title + countdown), cleared by its own timer.
   const [intro, setIntro] = useState<{ level: number; boss: boolean } | null>(null);
+  // Boss OVERDRIVE opening: after the countdown → camera reveals the boss → the 3-gun
+  // empowerment cutscene → the ×2.5 buff goes live for the fight.
+  const [overdrive, setOverdrive] = useState(false);
   // Gauntlet (lvl 20): current round 1-3, and the between-rounds recovery overlay.
   const gauntletRef = useRef(0);
   const [recovery, setRecovery] = useState<number | null>(null); // upcoming round shown during recovery
@@ -470,6 +474,7 @@ export function FpsGame({ initialRun, initialScreen, onRunSave, onRunEnd, onScor
       };
       setSnap(null);
       setIntro({ level, boss: isBoss });
+      setOverdrive(false); // clear any prior boss-opening cutscene state
       setMode('play');
     },
     [squads, diff],
@@ -606,6 +611,26 @@ export function FpsGame({ initialRun, initialScreen, onRunSave, onRunEnd, onScor
     },
     [devWarpLevel],
   );
+
+  // Boss OVERDRIVE opening (after the countdown): freeze the fight, pan the camera to reveal
+  // the boss, then show the 3-gun empowerment cutscene, which arms the ×2.5 buff.
+  const startBossOpening = useCallback(() => {
+    const g = gameRef.current;
+    if (!g) { setIntro(null); return; }
+    const reduced = typeof window !== 'undefined' && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    g.cineLock = true;
+    g.bossCine = 'reveal';
+    window.setTimeout(() => {
+      if (gameRef.current) gameRef.current.bossCine = 'empower';
+      setOverdrive(true);
+    }, reduced ? 500 : 2500);
+  }, []);
+  const finishOverdrive = useCallback(() => {
+    const g = gameRef.current;
+    if (g) { g.weaponBuff = 2.5; g.cineLock = false; g.bossCine = null; } // buff live for this boss fight
+    setOverdrive(false);
+    setIntro(null);
+  }, []);
 
   const buyUpgrade = useCallback((gunId: string, key: UpgradeKey) => {
     setRun((r) => {
@@ -869,7 +894,8 @@ export function FpsGame({ initialRun, initialScreen, onRunSave, onRunEnd, onScor
           />
         )}
 
-        {mode === 'play' && intro && <MatchIntro key={intro.level} level={intro.level} boss={intro.boss} onDone={() => setIntro(null)} />}
+        {mode === 'play' && intro && <MatchIntro key={intro.level} level={intro.level} boss={intro.boss} onDone={() => { if (intro.boss) startBossOpening(); else setIntro(null); }} />}
+        {mode === 'play' && overdrive && <WeaponOverdrive loadout={lastLoadout} onDone={finishOverdrive} />}
 
         {mode === 'play' && recovery != null && (
           <RecoveryOverlay key={recovery} round={recovery} onDone={() => { setRecovery(null); startLevel(campaignTotalLevels(), lastLoadout, run.maxHp, run.upgrades); }} />

@@ -33,6 +33,8 @@ export class Viewmodel {
   private tier: RenderTier;
   private reduced: boolean;
   private kick = 0; // recoil 1→0
+  private empowered = false; // OVERDRIVE: flood the gun red for the boss fight
+  private redMats: { mat: THREE.MeshStandardMaterial; emissive: number; intensity: number }[] = []; // originals to restore
   private bob = 0; // bob phase
   private reloadDur = 0;
   private flashT = 0;
@@ -67,6 +69,7 @@ export class Viewmodel {
     if (this.model) {
       this.holder.remove(this.model);
       disposeModel(this.model);
+      this.redMats = []; // old materials are gone
     }
     // Build the ENGINEERED model when components are equipped so installed parts are
     // visible first-person (same builder the loadout preview uses); else the base gun.
@@ -112,6 +115,34 @@ export class Viewmodel {
     } else {
       this.flash.position.set(0, 0, -REST.size * 0.6);
     }
+
+    if (this.empowered) this.applyEmpowerTint(); // a weapon switch during OVERDRIVE stays red
+  }
+
+  /** OVERDRIVE red state: flood the gun's materials with a red emissive so every held
+   *  weapon glows red during a boss fight. Toggled by the loop from `g.weaponBuff`. */
+  setEmpowered(on: boolean): void {
+    this.empowered = on;
+    this.applyEmpowerTint();
+  }
+
+  private applyEmpowerTint(): void {
+    for (const r of this.redMats) { r.mat.emissive.setHex(r.emissive); r.mat.emissiveIntensity = r.intensity; } // restore
+    this.redMats = [];
+    if (!this.empowered || !this.model) return;
+    const seen = new Set<THREE.MeshStandardMaterial>();
+    this.model.traverse((o) => {
+      const mat = (o as THREE.Mesh).material;
+      const mats = Array.isArray(mat) ? mat : mat ? [mat] : [];
+      for (const m of mats) {
+        if (m instanceof THREE.MeshStandardMaterial && !seen.has(m)) {
+          seen.add(m);
+          this.redMats.push({ mat: m, emissive: m.emissive.getHex(), intensity: m.emissiveIntensity });
+          m.emissive.setHex(0xff2a2a);
+          m.emissiveIntensity = Math.max(m.emissiveIntensity, 0.9);
+        }
+      }
+    });
   }
 
   fire(): void {
