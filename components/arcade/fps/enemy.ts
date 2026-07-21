@@ -240,7 +240,7 @@ export interface Smoke {
   r: number;
 }
 
-const ENEMY_HP = 500; // 5× tougher
+export const ENEMY_HP = 500; // 5× tougher — also the reference base for capital-ship HP scaling
 
 // The aliens draw from the same weapon families the player does.
 const WEAPONS: Record<WeaponKind, { rate: number; dmg: number; accMod: number; color: number }> = {

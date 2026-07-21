@@ -21,13 +21,17 @@ export function FpsHud({ snap, level, gold, astro, isTouch }: { snap: FpsSnapsho
   const stun = Math.max(0, 1 - (now - snap.stunAt) / 1300); // stun/concussion distortion
   const fog = Math.max(0, 1 - (now - snap.fogAt) / 4500); // Kraken void fog
   const hud = deriveHudState(snap, now); // dynamic combat HUD emphasis
+  const shake = snap.shakeMag > 0 && now - snap.shakeAt < 450 ? snap.shakeMag : 0; // blast HUD shake
 
   // Radar geometry: a circular minimap, player centred, forward = up.
   const RAD = 40; // usable px radius
   const RAD_RANGE = 60; // world units shown to the edge
 
   return (
-    <div className="pointer-events-none absolute inset-0 z-30 font-pixel text-white transition-opacity duration-500" style={{ opacity: hud.inCombat ? 1 : 0.62 }}>
+    <div
+      className={`pointer-events-none absolute inset-0 z-30 font-pixel text-white transition-opacity duration-500 ${shake > 0 ? 'gdg-shake' : ''}`}
+      style={{ opacity: hud.inCombat ? 1 : 0.62, ['--shake' as string]: shake.toFixed(2), animationDuration: `${(0.28 + 0.22 * (1 - shake)).toFixed(2)}s` }}
+    >
       {hurt && (
         <div aria-hidden className="absolute inset-0" style={{ boxShadow: 'inset 0 0 60px 20px rgba(255,40,60,0.55)' }} />
       )}
@@ -154,13 +158,18 @@ export function FpsHud({ snap, level, gold, astro, isTouch }: { snap: FpsSnapsho
                     PHASE {['I', 'II', 'III', 'IV'][b.phase - 1]} · {b.status}
                   </span>
                 </div>
+                {b.shield != null && b.shield > 0 && (
+                  <div className="mb-0.5 h-1 w-full overflow-hidden rounded border border-[#7fdfff]/40 bg-black/50">
+                    <div className="h-full transition-[width] duration-200" style={{ width: `${b.shield * 100}%`, backgroundColor: '#7fdfff' }} />
+                  </div>
+                )}
                 <div className={`h-2 w-full overflow-hidden rounded border bg-black/50 ${vuln ? 'border-[#aef5c8]/70' : 'border-[#ff5d6e]/40'}`}>
                   <div
                     className="h-full transition-[width] duration-200"
                     style={{ width: `${b.ratio * 100}%`, backgroundColor: vuln ? '#aef5c8' : '#ff5d6e' }}
                   />
                 </div>
-                {b.brood > 0 && <div className="text-right text-[6px] tracking-[0.15em] text-[#9cff6a]/70 sm:text-[7px]">BROOD ACTIVE: {b.brood}</div>}
+                {b.brood > 0 && <div className="text-right text-[6px] tracking-[0.15em] text-[#9cff6a]/70 sm:text-[7px]">{b.name === 'STAR DESTROYER' ? 'FIGHTERS' : 'BROOD ACTIVE'}: {b.brood}</div>}
               </div>
             );
           })}
