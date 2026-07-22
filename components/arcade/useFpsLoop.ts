@@ -13,6 +13,7 @@ import { rayWallBox, raySphere, segBlocked, type Vec3 } from './fps/combat';
 import type { Box } from './fps/level3d';
 import { bossTex } from './fps/textures';
 import { buildEnemyModel, disposeEnemyModel } from './fps/enemies/models';
+import { animateMech } from './fps/enemies/models/mech';
 import { poseDeath, poseEnemy } from './fps/enemies/animator';
 import { buildBossModel, buildDestructibleModel } from './fps/boss/models';
 import { poseBossDeath, poseBossModel } from './fps/boss/animator';
@@ -1510,6 +1511,8 @@ export function useFpsLoop(
                 t = raySphere(eye, sdir, [e.x, e.y + BOSSES[e.boss].scale, e.z], BOSSES[e.boss].radius);
               } else if (e.cls === 'artillery') {
                 t = raySphere(eye, sdir, [e.x, e.y + 2.6, e.z], 3.6); // big siege-gun emplacement
+              } else if (e.cls === 'tank') {
+                t = raySphere(eye, sdir, [e.x, e.y + 3.0, e.z], 3.0); // towering siege mech
               } else if (e.destructible) {
                 t = raySphere(eye, sdir, [e.x, e.y + 1.0, e.z], e.destructible === 'shield' ? 3.0 : ENEMY_R); // shield = a wide blocker
               } else {
@@ -2399,7 +2402,8 @@ export function useFpsLoop(
             // 3D model: stand on the ground, face the player, animate, flash on hit.
             s.position.set(e.x, e.y, e.z);
             s.rotation.y = Math.atan2(p.x - e.x, p.z - e.z); // forward +Z → faces player
-            poseEnemy(s, e.cls, moving, e.state === 'alert' || e.muzzle > 0, e.step, e.hitFlash, now, dt, e.muzzle);
+            if (e.cls === 'tank') animateMech(s, dt, moving, e.step, now); // bespoke siege-mech stomp
+            else poseEnemy(s, e.cls, moving, e.state === 'alert' || e.muzzle > 0, e.step, e.hitFlash, now, dt, e.muzzle);
             const hf = e.hitFlash > 0 ? Math.min(1, e.hitFlash / 0.12) : 0;
             // Tank "armor breakaway": glows hotter as it breaks down (exposed reactor).
             const dmg = e.cls === 'tank' ? (1 - e.health / e.maxHealth) * 0.6 : 0;

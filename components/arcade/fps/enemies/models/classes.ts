@@ -43,11 +43,6 @@ export function buildEngineer(tier: RenderTier): THREE.Group {
   return buildHumanoid({ tier, scale: 1.22, girth: 0.9, alien: true, alienHead: 'visor', hunch: 0.22, accent: 0x63ff84, body: 0x25302a, dark: 0x161b17, shoulders: 0.25, weapon: 'welder', organPack: true, drones: 2, seams: 0.6 });
 }
 
-/** TANK — hulking siege-beast (rebuilt as a big mech in P4). Unchanged this pass. */
-export function buildTank(tier: RenderTier): THREE.Group {
-  return buildHumanoid({ tier, alien: true, alienHead: 'pod', scale: 1.5, girth: 2.0, accent: 0xff5a2a, body: 0x44403a, legs: 'piston', shoulders: 0.8, heavyArms: true, weapon: 'cannon', asymShoulder: 'R', skirt: true, spine: true, carapace: 1.2, hunch: 0.22 });
-}
-
 /** ELITE — tan/gold carapace assassin: insect head, digitigrade, bio-metallic carapace. ~2.6 m.
  *  (Weapon becomes dual carapace blades + melee AI in P4; keeps a rifle this pass.) */
 export function buildElite(tier: RenderTier): THREE.Group {
