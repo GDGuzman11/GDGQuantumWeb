@@ -43,16 +43,15 @@ export function buildEngineer(tier: RenderTier): THREE.Group {
   return buildHumanoid({ tier, scale: 1.22, girth: 0.9, alien: true, alienHead: 'visor', hunch: 0.22, accent: 0x63ff84, body: 0x25302a, dark: 0x161b17, shoulders: 0.25, weapon: 'welder', organPack: true, drones: 2, seams: 0.6 });
 }
 
-/** ELITE — tan/gold carapace assassin: insect head, digitigrade, bio-metallic carapace. ~2.6 m.
- *  (Weapon becomes dual carapace blades + melee AI in P4; keeps a rifle this pass.) */
+/** ELITE — tan/gold carapace assassin: insect head, digitigrade, DUAL carapace blades (melee). ~2.6 m. */
 export function buildElite(tier: RenderTier): THREE.Group {
-  return buildHumanoid({ tier, scale: 1.44, girth: 0.95, alien: true, alienHead: 'insect', veins: true, hunch: 0.1, accent: 0xd8b46a, body: 0x8f7c50, dark: 0x40382a, legs: 'digi', shoulders: 0.6, weapon: 'rifle', carapace: 0.7, seams: 0.5 });
+  return buildHumanoid({ tier, scale: 1.44, girth: 0.95, alien: true, alienHead: 'insect', veins: true, hunch: 0.1, accent: 0xd8b46a, body: 0x8f7c50, dark: 0x40382a, legs: 'digi', shoulders: 0.6, weapon: 'blades', carapace: 0.7, seams: 0.5 });
 }
 
-/** COMMANDER — bone-white/gold warlord: crown helm, command mantle + cape, spine array, 3 drones. ~2.5 m.
- *  (Weapon becomes the command scepter in P4; keeps a rifle this pass.) */
+/** COMMANDER — bone-white/gold warlord: crown helm, command mantle + cape, spine array, 3 drones,
+ *  energy command scepter. ~2.5 m. */
 export function buildCommander(tier: RenderTier): THREE.Group {
-  return buildHumanoid({ tier, scale: 1.39, girth: 1.1, alien: true, alienHead: 'crown', hunch: 0, accent: 0xffe08a, body: 0xc9c3b6, dark: 0x5a564d, shoulders: 0.9, weapon: 'rifle', mantle: true, cape: 'command', spine: true, drones: 3, collar: true, seams: 0.6 });
+  return buildHumanoid({ tier, scale: 1.39, girth: 1.1, alien: true, alienHead: 'crown', hunch: 0, accent: 0xffe08a, body: 0xc9c3b6, dark: 0x5a564d, shoulders: 0.9, weapon: 'scepter', mantle: true, cape: 'command', spine: true, drones: 3, collar: true, seams: 0.6 });
 }
 
 /** BERSERKER — red xenotech shock monster: mandible head, hulking hunch, dual laser claws. ~2.7 m. */

@@ -292,6 +292,12 @@ export function buildHumanoid(o: HumanoidOpts): THREE.Group {
     }
   }
   if (wt !== 'none') armR.add(weapon);
+  // Melee classes dual-wield — mirror the blade/claw onto the off-hand.
+  if (wt === 'claws' || wt === 'blades') {
+    const wl = weapon.clone();
+    wl.scale.x = -1;
+    armL.add(wl);
+  }
 
   // ── back-mounted gear ────────────────────────────────────────────────────────
   if (o.organPack) {

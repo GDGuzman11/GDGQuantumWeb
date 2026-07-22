@@ -272,7 +272,7 @@ const CLASS: Record<EnemyClass, ClassDef> = {
   suppressor: { range: 18, angle: 0.25, strafe: 0.25, speedMul: 0.75, hp: 1.8, viewMul: 1.0 }, // pins, holds
   engineer: { range: 22, angle: 0.3, strafe: 0.3, speedMul: 0.9, hp: 1.2, viewMul: 0.9 }, // hangs back (support)
   tank: { range: 6, angle: 0.0, strafe: 0.2, speedMul: 0.6, hp: 3.0, viewMul: 1.0 }, // slow, heavy push
-  elite: { range: 9, angle: 1.1, strafe: 0.7, speedMul: 1.1, hp: 1.5, viewMul: 1.15 }, // fast flank
+  elite: { range: 2.6, angle: 0.9, strafe: 0.6, speedMul: 1.2, hp: 1.5, viewMul: 1.15 }, // agile blade assassin — charges to melee
   commander: { range: 20, angle: 0.2, strafe: 0.3, speedMul: 0.85, hp: 2.0, viewMul: 1.1 }, // stays back, calm
   berserker: { range: 2.5, angle: 0.0, strafe: 0.3, speedMul: 1.3, hp: 1.6, viewMul: 1.0 }, // charges to melee
   artillery: { range: 80, angle: 0.0, strafe: 0.0, speedMul: 0.0, hp: 3.0, viewMul: 1.8 }, // static siege gun, long reach + wide sensor sight (MGs to 40 m), tanky
@@ -1077,6 +1077,17 @@ export function updateEnemies(
       tracers.push({ from: [e.x, e.y + 1, e.z], to: peye, color: 0xff3344 });
       damage += 16;
       return;
+    }
+    // ELITE: dual carapace blades — a pure melee assassin (never fires; darts in, slashes, peels).
+    if (e.cls === 'elite') {
+      if (dist <= 3.0) {
+        e.fireCd = 0.5;
+        e.muzzle = 0.12;
+        e.retreatT = 0.7;
+        tracers.push({ from: [e.x, e.y + 1, e.z], to: peye, color: 0xd8b46a });
+        damage += 13;
+      }
+      return; // otherwise keep closing — no ranged fire
     }
     if (!canSee) {
       // BREAK COVER: a heavy class that KNOWS where you are but can't get a clean shot
