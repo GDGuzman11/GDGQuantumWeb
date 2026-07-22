@@ -35,6 +35,7 @@ export interface Enemy {
   alarm: number; // seconds of "under fire" evasive behaviour after being shot
   weapon: WeaponKind;
   cls: EnemyClass;
+  bodyH?: number; // visual height factor (model scale) — scales hit-zones + health-bar height
   side: 1 | -1; // which way this bot flanks/orbits
   barUntil: number; // show a health bar until this timestamp (set on hit)
   boss: BossKind | null;

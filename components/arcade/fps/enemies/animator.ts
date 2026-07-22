@@ -47,8 +47,9 @@ export function poseEnemy(
   const A = ANIM[cls];
   const hipY = (model.userData.hipY as number) ?? 0.9;
   const wk = (model.userData.weaponKind as string) ?? 'rifle';
-  const melee = wk === 'claws';
-  const armed = wk !== 'none' && !melee; // holds a firearm (two-handed carry → shouldered aim)
+  const melee = wk === 'claws' || wk === 'blades';
+  const armed = wk === 'rifle' || wk === 'long' || wk === 'shotgun' || wk === 'beltfed' || wk === 'cannon'; // two-handed firearm
+  // (welder / scepter / none fall through to the light carry pose)
 
   // Eased weapon RAISE: 0 = carried low, 1 = up at the shoulder aiming. Ramps when the enemy
   // acquires the player, lowers when it loses sight — so the gun visibly comes UP, not snaps.

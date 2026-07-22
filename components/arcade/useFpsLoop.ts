@@ -88,12 +88,15 @@ const ARTY_DMG = 22; // artillery shell base damage (× DMG_MUL)
 /** Ray vs a non-boss enemy's body (legs+torso+head spheres, sized to a ~2 m humanoid).
  *  Returns the nearest entry distance + the zone damage multiplier (Infinity = miss). */
 function bodyHit(eye: Vec3, dir: Vec3, e: Enemy): { t: number; mult: number } {
-  const legs = raySphere(eye, dir, [e.x, e.y + 0.55, e.z], 0.6);
-  const torso = raySphere(eye, dir, [e.x, e.y + 1.25, e.z], 0.55);
-  const head = raySphere(eye, dir, [e.x, e.y + 1.72, e.z], 0.3);
+  // Zones + zone bands scale with the model height so tall Legion units (2.4–3.1 m) are fully
+  // hittable head/chest/legs, not just the lower 1.8 m.
+  const h = e.bodyH ?? 1;
+  const legs = raySphere(eye, dir, [e.x, e.y + 0.55 * h, e.z], 0.6 * h);
+  const torso = raySphere(eye, dir, [e.x, e.y + 1.25 * h, e.z], 0.55 * h);
+  const head = raySphere(eye, dir, [e.x, e.y + 1.72 * h, e.z], 0.3 * h);
   const t = Math.min(legs, torso, head);
   if (!isFinite(t)) return { t: Infinity, mult: 1 };
-  const iy = eye[1] + dir[1] * t - e.y; // impact height above the feet
+  const iy = (eye[1] + dir[1] * t - e.y) / h; // impact height above the feet, normalized to 1.8 m
   const mult = iy > 1.5 ? HEADSHOT_MULT : iy > 1.05 ? CHEST_MULT : iy > 0.7 ? 1 : LIMB_MULT;
   return { t, mult };
 }
@@ -875,6 +878,7 @@ export function useFpsLoop(
         }
         // Regular enemies are 3D models, one per doctrine class.
         const m = buildEnemyModel(e.cls, tier);
+        e.bodyH = ((m.userData.hipY as number) ?? 0.9) / 0.9; // height factor for hit-zones + bar
         world!.scene.add(m);
         return m;
       });
@@ -2418,7 +2422,7 @@ export function useFpsLoop(
 
           if (showBar) {
             const ratio = Math.max(0, e.health / e.maxHealth);
-            const by = e.y + 2.6;
+            const by = e.y + (e.boss ? 2.6 : 2.15 * (e.bodyH ?? 1) + 0.2); // sit just above the (scaled) head
             barBg[i].position.set(e.x, by, e.z);
             barFill[i].position.set(e.x, by, e.z);
             barFill[i].scale.x = 1.4 * ratio;
