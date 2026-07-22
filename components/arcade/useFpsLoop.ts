@@ -2395,7 +2395,7 @@ export function useFpsLoop(
             // 3D model: stand on the ground, face the player, animate, flash on hit.
             s.position.set(e.x, e.y, e.z);
             s.rotation.y = Math.atan2(p.x - e.x, p.z - e.z); // forward +Z → faces player
-            poseEnemy(s, e.cls, moving, e.state === 'alert' || e.muzzle > 0, e.step, e.hitFlash, now);
+            poseEnemy(s, e.cls, moving, e.state === 'alert' || e.muzzle > 0, e.step, e.hitFlash, now, dt, e.muzzle);
             const hf = e.hitFlash > 0 ? Math.min(1, e.hitFlash / 0.12) : 0;
             // Tank "armor breakaway": glows hotter as it breaks down (exposed reactor).
             const dmg = e.cls === 'tank' ? (1 - e.health / e.maxHealth) * 0.6 : 0;

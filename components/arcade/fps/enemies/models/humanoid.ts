@@ -306,5 +306,6 @@ export function buildHumanoid(o: HumanoidOpts): THREE.Group {
   root.userData.parts = parts;
   root.userData.bodyMats = bodyMats;
   root.userData.hipY = hipY; // base torso height (the animator offsets bob from here)
+  root.userData.weaponKind = wt; // 'rifle'|'long'|...|'claws'|'none' — drives the aim/fire pose
   return root;
 }
