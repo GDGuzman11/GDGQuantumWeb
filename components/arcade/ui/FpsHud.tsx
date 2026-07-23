@@ -22,6 +22,7 @@ export function FpsHud({ snap, level, gold, astro, isTouch }: { snap: FpsSnapsho
   const fog = Math.max(0, 1 - (now - snap.fogAt) / 4500); // Kraken void fog
   const hud = deriveHudState(snap, now); // dynamic combat HUD emphasis
   const shake = snap.shakeMag > 0 && now - snap.shakeAt < 450 ? snap.shakeMag : 0; // blast HUD shake
+  const suppress = snap.suppressMag && now - (snap.suppressAt ?? 0) < 220 ? snap.suppressMag : 0; // suppressor pin
 
   // Radar geometry: a circular minimap, player centred, forward = up.
   const RAD = 40; // usable px radius
@@ -34,6 +35,10 @@ export function FpsHud({ snap, level, gold, astro, isTouch }: { snap: FpsSnapsho
     >
       {hurt && (
         <div aria-hidden className="absolute inset-0" style={{ boxShadow: 'inset 0 0 60px 20px rgba(255,40,60,0.55)' }} />
+      )}
+      {/* SUPPRESSED: a Suppressor is raking your position — edges close in, telling you to move/take cover */}
+      {suppress > 0 && (
+        <div aria-hidden className="absolute inset-0" style={{ boxShadow: `inset 0 0 ${(80 + 90 * suppress).toFixed(0)}px ${(24 + 40 * suppress).toFixed(0)}px rgba(255,120,40,${(0.14 + 0.22 * suppress).toFixed(2)})`, backdropFilter: `blur(${(0.6 * suppress).toFixed(2)}px)` }} />
       )}
       {/* boss encounter: a restrained red combat tint */}
       {hud.boss && <div aria-hidden className="absolute inset-0" style={{ boxShadow: 'inset 0 0 100px 26px rgba(255,45,55,0.12)' }} />}

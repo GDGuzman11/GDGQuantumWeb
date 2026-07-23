@@ -1013,7 +1013,7 @@ export function updateEnemies(
   nav?: NavGraph,
   elapsed = 0, // seconds since level start (start-of-match combat lock + boss grace)
   eyeOffset = EYE, // player's CURRENT eye height (drops when crouching) — LoS keys off this
-): { damage: number; tracers: EnemyTracer[]; seen: boolean; bossShots: BossShot[]; bossTelegraphs: BossTelegraph[]; bossFog: boolean; wallHits: WallHit[] } {
+): { damage: number; tracers: EnemyTracer[]; seen: boolean; bossShots: BossShot[]; bossTelegraphs: BossTelegraph[]; bossFog: boolean; wallHits: WallHit[]; suppress: number } {
   const P = PARAMS[diff];
   // Combat lock: nobody fires until the intro countdown ends. Boss grace: on a boss
   // level the player gets 10 s to find cover before anything can SEE them.
@@ -1026,6 +1026,7 @@ export function updateEnemies(
   const pspeed = Math.hypot(pvx, pvz);
   let damage = 0;
   let seen = false;
+  let suppress = 0; // 0..1 how hard a Suppressor is pinning the player this frame (→ screen debuff)
   const tracers: EnemyTracer[] = [];
   const wallHits: WallHit[] = [];
   const bossShots: BossShot[] = [];
@@ -1134,6 +1135,7 @@ export function updateEnemies(
       e.retreatT = 0.9; // back off after the swing
       tracers.push({ from: [e.x, e.y + 1, e.z], to: peye, color: 0xff3344 });
       damage += 16;
+      squad.aggroUntil = Math.max(squad.aggroUntil ?? 0, now + 2500); // FEAR scream → the squad surges
       return;
     }
     // ELITE: dual carapace blades — a pure melee assassin (never fires; darts in, slashes, peels).
@@ -2064,6 +2066,9 @@ export function updateEnemies(
         } else if (sees[i]) {
           const [rx, rz] = wallRepulse(e, lvl, grid); // hold the shot, but don't hug the wall
           if (rx || rz) moveEnemy(e, lvl, rx, rz, P.speed * 0.5 * slow, dt, R, grid);
+          // QUICK REPOSITION: after taking a shot, relocate to a fresh perch so you can't just
+          // peek-counter the same window — the marksman keeps moving between shots.
+          if (e.muzzle > 0 && Math.random() < dt * 0.5) { e.perch = null; e.perchT = 0; }
         }
       } else if (nav) {
         const nf = navFollow(e, nav, lvl, focusS.x, focusS.z, 0, P.speed * role.speedMul * slow, dt, grid);
@@ -2250,5 +2255,12 @@ export function updateEnemies(
       }
     }
   }
-  return { damage, tracers, seen, bossShots, bossTelegraphs, bossFog, wallHits };
+  // SUPPRESSION: a Suppressor with a clean line + in MG range PINS the player — sustained fire
+  // applies a screen debuff (handled in the loop), stacking a little with each suppressor.
+  for (let i = 0; i < enemies.length; i++) {
+    const e = enemies[i];
+    if (e.cls !== 'suppressor' || e.health <= 0 || !sees[i]) continue;
+    if (Math.hypot(player.x - e.x, player.z - e.z) < WEAPON_RANGE.mg + 6) suppress = Math.min(1, suppress + 0.7);
+  }
+  return { damage, tracers, seen, bossShots, bossTelegraphs, bossFog, wallHits, suppress };
 }

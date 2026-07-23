@@ -216,6 +216,8 @@ export interface FpsSnapshot {
   shakeAt: number;  // timestamp of the last blast shake (drives the HUD shake)
   shakeMag: number; // 0..1 shake intensity for that blast
   overdrive?: boolean; // boss OVERDRIVE ×2.5 buff active
+  suppressAt?: number;  // timestamp of the last suppressor pin (drives the suppression vignette)
+  suppressMag?: number; // 0..1 suppression intensity
 }
 
 interface Grenade { x: number; y: number; z: number; vx: number; vy: number; vz: number; fuse: number; mesh: THREE.Mesh; landed?: boolean; age?: number }
@@ -2180,6 +2182,7 @@ export function useFpsLoop(
           // their effects on the player are aggregated. Boss levels are one squad.
           let totalDamage = 0;
           let anySeen = false;
+          let suppress = 0; // strongest Suppressor pin this frame (→ screen debuff)
           // Freeze enemy AI (movement + fire) during the boss-opening cinematic.
           if (!frozen) for (let s = 0; s < g.squads.length; s++) {
             const group = squadGroups[s];
@@ -2203,7 +2206,14 @@ export function useFpsLoop(
               }
             }
             totalDamage += res.damage;
+            if (res.suppress > suppress) suppress = res.suppress;
             if (res.seen) anySeen = true;
+          }
+          // SUPPRESSION: a Suppressor pinning you rattles the screen + edges (a "get to cover" cue).
+          if (suppress > 0.01) {
+            shakeMag = Math.min(1, Math.max(shakeMag, suppress * 0.32));
+            snap.suppressAt = now;
+            snap.suppressMag = suppress;
           }
           // Siege-Tank shield projector: keep nearby allies' shields charged (cross-squad).
           if (!frozen) tankShieldAura(g.enemies, dt);
