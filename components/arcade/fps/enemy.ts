@@ -97,6 +97,23 @@ export function hurtEnemy(e: Enemy, amount: number): void {
   if (amount > 0) e.health -= amount;
 }
 
+/** SIEGE-TANK SHIELD PROJECTOR — the Tank's main job. Every living Tank projects a field that
+ *  keeps nearby allies' energy shields charged (fast refill, ignoring the out-of-combat delay),
+ *  so troopers + healing units sheltering by it are far harder to kill. Drop the Tank and the
+ *  field collapses — the shields deplete normally again. Cross-squad (protects ANY enemy near). */
+export const TANK_AURA_R = 12; // shield projection radius (m)
+export function tankShieldAura(enemies: Enemy[], dt: number): void {
+  for (const t of enemies) {
+    if (t.cls !== 'tank' || t.health <= 0) continue;
+    for (const e of enemies) {
+      if (e === t || e.health <= 0 || e.maxShield <= 0) continue;
+      if (Math.hypot(e.x - t.x, e.z - t.z) > TANK_AURA_R) continue;
+      if (e.shield < e.maxShield) e.shield = Math.min(e.maxShield, e.shield + e.maxShield * 0.5 * dt);
+      e.shieldRegenT = 0; // the projector sustains it even under fire
+    }
+  }
+}
+
 /** The four boss aliens (levels 5/10/15/20). Bigger, faster, smarter; each has
  *  a ranged attack + a melee attack when you get close. */
 export type BossKind = 'xeno' | 'warrior' | 'octopus' | 'archon' | 'behemoth' | 'specter' | 'leviathan' | 'monolith' | 'oblivion' | 'colossus' | 'chimera' | 'oracle' | 'infestor';
@@ -288,7 +305,7 @@ const HEAL_RATE = 55; // HP/s a healer restores to a nearby wounded ally
 /** Heavy-firepower classes that will SHOOT breakable cover to flush the player out when
  *  they know where you are but a wall is in the way. Line units (riflemen/scouts) won't,
  *  so cover still matters most of the time. */
-const BREAKERS = new Set<EnemyClass>(['tank', 'breacher', 'suppressor', 'commander']);
+const BREAKERS = new Set<EnemyClass>(['breacher', 'suppressor', 'commander']); // Tank is now a support anchor, not a cover-breaker
 
 const R = 0.45; // collision radius
 const EYE_H = 1.4;
@@ -409,6 +426,9 @@ function avoidWalls(e: Enemy, lvl: Level3D, dx: number, dz: number, r: number, g
 const GROUND_FOLLOW = 0.55;
 
 function moveEnemy(e: Enemy, lvl: Level3D, wx: number, wz: number, speed: number, dt: number, r = R, grid?: SpatialGrid): void {
+  // The siege Tank is a huge exterior-only anchor: a wide collision radius keeps it in the
+  // open streets — it can't fit through building fronts/interiors, so it never goes inside.
+  if (e.cls === 'tank') r = Math.max(r, 2.7);
   const l = Math.hypot(wx, wz);
   if (l < 0.01) return;
   const [dx, dz] = avoidWalls(e, lvl, wx / l, wz / l, r, grid); // path around walls, not into them

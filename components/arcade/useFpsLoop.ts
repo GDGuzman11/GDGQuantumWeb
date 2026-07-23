@@ -8,7 +8,7 @@ import { animateFighter, buildFighter } from './fps/capital/fighter';
 import type { CapitalSpec } from './fps/capital/spec';
 import { EYE, MAX_PITCH, launchPlayer, pushPlayer, startGrapple, stepPlayer, type Player3 } from './fps/physics';
 import type { Level3D } from './fps/level3d';
-import { updateEnemies, hurtEnemy, BOSSES, ENEMY_HP, SHIELD_FRAC, type Difficulty, type Enemy, type Squad, type Smoke } from './fps/enemy';
+import { updateEnemies, hurtEnemy, tankShieldAura, BOSSES, ENEMY_HP, SHIELD_FRAC, type Difficulty, type Enemy, type Squad, type Smoke } from './fps/enemy';
 import { rayWallBox, raySphere, segBlocked, type Vec3 } from './fps/combat';
 import type { Box } from './fps/level3d';
 import { bossTex } from './fps/textures';
@@ -2205,6 +2205,8 @@ export function useFpsLoop(
             totalDamage += res.damage;
             if (res.seen) anySeen = true;
           }
+          // Siege-Tank shield projector: keep nearby allies' shields charged (cross-squad).
+          if (!frozen) tankShieldAura(g.enemies, dt);
           if (totalDamage > 0) {
             hurtPlayer(totalDamage);
             sfx.hurt();

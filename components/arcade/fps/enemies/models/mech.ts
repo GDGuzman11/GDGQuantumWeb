@@ -83,7 +83,14 @@ export function buildTankMech(tier: RenderTier): THREE.Group {
   g.add(lArm);
 
   g.add(torso);
-  g.userData.mechAnim = { legL: legGroups[0], legR: legGroups[1], torso, torsoY: TORSO_Y, core };
+
+  // ── SHIELD PROJECTOR dome — the Tank's main job: a faint protective field over nearby allies ──
+  const domeMat = new THREE.MeshBasicMaterial({ color: 0x6ab0ff, transparent: true, opacity: 0.1, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide });
+  const dome = new THREE.Mesh(new THREE.SphereGeometry(11, 20, 14), domeMat); // ~= TANK_AURA_R
+  dome.position.y = 2.6;
+  g.add(dome);
+
+  g.userData.mechAnim = { legL: legGroups[0], legR: legGroups[1], torso, torsoY: TORSO_Y, core, dome: domeMat };
   g.userData.bodyMats = bodyMats;
   g.userData.hipY = 2.3; // drives the health-bar height (via bodyH)
   return g;
@@ -94,7 +101,7 @@ export function buildTankMech(tier: RenderTier): THREE.Group {
 export function animateMech(model: THREE.Object3D, dt: number, moving: boolean, step: number, now: number): void {
   void dt;
   const a = model.userData.mechAnim as
-    | { legL: THREE.Object3D; legR: THREE.Object3D; torso: THREE.Object3D; torsoY: number; core?: THREE.MeshStandardMaterial }
+    | { legL: THREE.Object3D; legR: THREE.Object3D; torso: THREE.Object3D; torsoY: number; core?: THREE.MeshStandardMaterial; dome?: THREE.MeshBasicMaterial }
     | undefined;
   if (!a) return;
   const ph = step * 0.9; // slow, heavy gait
@@ -105,4 +112,5 @@ export function animateMech(model: THREE.Object3D, dt: number, moving: boolean, 
   a.torso.position.y = a.torsoY + bob;
   a.torso.rotation.z = moving ? Math.sin(ph) * 0.05 : 0;
   if (a.core) a.core.emissiveIntensity = 1.5 + Math.sin(now * 0.004) * 0.5;
+  if (a.dome) a.dome.opacity = 0.08 + 0.05 * (0.5 + 0.5 * Math.sin(now * 0.003)); // shield field pulse
 }
