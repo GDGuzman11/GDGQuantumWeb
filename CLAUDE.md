@@ -61,11 +61,12 @@ There are **two tracking files**:
 **Status** (PM keeps this current):
 ```
 ═══════════════ STARSHELL — STAR DESTROYER + ENEMY REDESIGN + COMBAT-ARMS AI (2026-07-22, Gabe-driven, main session) ═══════════════
-A long single-session arc on `/arcade`, all committed + pushed to the website repo (GDGQuantumWeb `main`).
-NOTE: the standalone Starshell repo (github.com/GDGuzman11/Starshell) is NOT synced — it has diverged too far
-(its own standalone `FpsGame`/persistence shell + it's behind the whole weapon-teardown → Store/Premium → SD →
-OVERDRIVE → redesign → AI arc; the new screen APIs are incompatible with its old shell), so a safe sync is a
-dedicated migration, not a mirror — flagged as an open item. Every step build-green: `tsc` 0 · `next lint --max-warnings=0` 0 ·
+A long single-session arc on `/arcade`, all committed + pushed to the website repo (GDGQuantumWeb `main`). The
+standalone Starshell repo (github.com/GDGuzman11/Starshell) was MIGRATED current (2026-07-22, `8063be5`): after
+a long divergence, the game engine (`fps/**`, `screens/**`, `ui/**`, `engine/**`, `mobile/**`, `useFpsLoop.ts`)
++ the shared `FpsGame` were re-mirrored (re-adding the standalone prop + web-only Exit-link guards) + the
+`gdg-shake` keyframe, keeping the standalone's own localStorage persistence shell (no accounts) — standalone
+build green (tsc 0, lint 0, `next build` exit 0). Every step build-green: `tsc` 0 · `next lint --max-warnings=0` 0 ·
 `next build` exit 0 · `/` First Load held 94 kB (game code stays code-split to `/arcade`, ~204 kB there). Commit
 hashes are given for traceability.
 1) STAR DESTROYER encounter (Capital Ship, every 3rd non-boss level). Placement 2B → distant then descends on
