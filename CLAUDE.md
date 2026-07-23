@@ -89,9 +89,11 @@ hashes are given for traceability.
    + hardened anti-cluster dispersion (`84866c5`); Phase C — real Suppressor SUPPRESSION (screen debuff + HUD
    vignette) + Berserker fear scream + Marksman reposition (`18fcbce`); Phase D — MULTI-SQUAD pincer (2+ squads
    converge from distinct bearings) + Elite/Berserker LEAP-lunge gap-closers + ADAPT-from-L1 (the Commander
-   folds the learned player-aggression profile into its order) (`6205a99`). Both repos current through Phase D
-   (website + Starshell standalone `a2b1b8c`). REMAINING: engineer repair-shield drone, scout relay, deeper
-   utility "thinking" movement, Phase E (tuning + fairness tells). Plan:
+   folds the learned player-aggression profile into its order) (`6205a99`); Phase 5a — Engineer REPAIR-SHIELD
+   DRONE field (constructor drones top up nearby allies' shields, `ENG_DRONE_R` 8m, on top of the heal-beam) +
+   SCOUT RELAY (a scout spotter keeps squad intel fresh 8.5s vs 5s past LoS break) (`a78d2ce`). Both repos current
+   through Phase 5a (website `b37cd7e` + Starshell standalone `df18aac`). REMAINING: deeper utility "thinking"
+   movement layer, Phase E (harder tuning + fairness tells + playtest). Plan:
    `C:\Users\User\.claude\plans\are-you-familiar-with-drifting-turing.md`.
 ═════════════════════════════════════════════════════════════════════════════════════
 ═══════════════ STARSHELL — FIT-TO-SLOT PARTS + ARMOR OVERHAUL + DEAD-CODE CLEANUP (2026-07-09, Gabe-driven, main session) ═══════════════
