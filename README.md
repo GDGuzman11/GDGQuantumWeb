@@ -89,6 +89,8 @@ lensing, ending at a cinematic singularity where the (real, working) contact for
     Commander and the squad degrades**. Units run **bounding advances** (always covering fire) and **wide
     pincer flanks**, keep **dispersed** (never cluster), the **Suppressor actually pins you** (a screen
     suppression debuff) while flankers move, the **Tank** projects a shield over nearby allies, the
+    **Engineer's drones** run a repair‑shield field (a second protection layer) on top of its heal‑beam, a
+    **Scout** relays your position so the squad keeps tracking you after you break line of sight, the
     **Berserker's fear scream** surges the squad, and the **Marksman repositions** between shots. **2+ squads
     coordinate as a force** — each converges from a **different bearing** (a real pincer, not single‑file) —
     the **Elite/Berserker leap** in fast bursts to close on a kiter, and the squad **adapts from level 1** to
