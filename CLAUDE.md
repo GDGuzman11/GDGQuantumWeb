@@ -60,6 +60,34 @@ There are **two tracking files**:
 
 **Status** (PM keeps this current):
 ```
+═══════════════ STARSHELL — STAR DESTROYER + ENEMY REDESIGN + COMBAT-ARMS AI (2026-07-22, Gabe-driven, main session) ═══════════════
+A long single-session arc on `/arcade`, all on `main` + pushed (website repo GDGQuantumWeb; Starshell standalone
+re-synced from `components/arcade/**`). Every step build-green: `tsc` 0 · `next lint --max-warnings=0` 0 ·
+`next build` exit 0 · `/` First Load held 94 kB (game code stays code-split to `/arcade`, ~204 kB there). Commit
+hashes are given for traceability.
+1) STAR DESTROYER encounter (Capital Ship, every 3rd non-boss level). Placement 2B → distant then descends on
+   clear (`58f5ad2`); dev level jumper (`9f95df9`); arrival cinematic — black-hole rift + camera pan + 3s grace +
+   bombardment (`6cfa6df`); the DOGFIGHT — a killable SD + a void-fighter squadron (`8f54d39`); a dev "skip to
+   ship" warp (`b3999a7`); combat tuning — capital HP/shield, 3-cannon arsenal (MG/rocket/mega), heavier blasts +
+   screen/HUD shake (`82269b8`); SD gunfire craters the ground + destroys buildings after 4 hits, kamikaze
+   fighter crashes, SD range unlock (`315df63`,`293e2ca`).
+2) BOSS OVERDRIVE (`315df63`): boss levels open with a camera reveal → a 3-gun (active weapon) red-ignition
+   cutscene → weapons deal ×2.5 for that fight; the held gun glows bright red; auto-clears next level.
+3) ENEMY REDESIGN to the BLACKSTAR LEGION (9 concept sheets in `Screenshots/*Redesign*.png`), retro low-poly:
+   P1 enemies raise+shoulder the gun with recoil (`cc8d6c8`); P2 the 9 infantry rebuilt to their sheets + heights
+   + per-height hit-zone retune (`5a4f9e7`); P3 enlarged campaign buildings (FLOOR_H 3→4) so the tall units fit
+   (`ea22408`); P4 Tank→white siege MECH (`0d5d2d0`), Elite→dual-blade melee + Commander→scepter + dual-wield
+   (`9b9d94b`), Artillery→white walker-mech (`3220139`). Tank is now an exterior SHIELD-PROJECTOR support anchor
+   (never enters buildings; keeps nearby allies' shields charged) (`be4b0c1`).
+4) COMBINED-ARMS AI overhaul (in progress — Gabe: full overhaul · smarter+harder · active Commander): Phase A —
+   the Commander DICTATES the squad (command aura sharpens aim, target-calls, order FSM advance/hold/flank,
+   degrades on death) (`0fb527b`); Phase B — order-driven manoeuvre (bounding advance / wide pincer flank / hold)
+   + hardened anti-cluster dispersion (`84866c5`); Phase C — real Suppressor SUPPRESSION (screen debuff + HUD
+   vignette) + Berserker fear scream + Marksman reposition (`18fcbce`). REMAINING (paused for a Gabe playtest):
+   Phase C leftovers (elite/berserker leap-lunge, scout relay, engineer drone) + Phase D (utility "thinking"
+   movement + MULTI-SQUAD strategy + player-pattern LEARNING from L1, skipping boss/SD) + Phase E (tuning +
+   fairness tells). Plan: `C:\Users\User\.claude\plans\are-you-familiar-with-drifting-turing.md`.
+═════════════════════════════════════════════════════════════════════════════════════
 ═══════════════ STARSHELL — FIT-TO-SLOT PARTS + ARMOR OVERHAUL + DEAD-CODE CLEANUP (2026-07-09, Gabe-driven, main session) ═══════════════
 Three connected pieces of work shipped since the 2026-06-27 entry (each step QA-green: tsc 0, lint 0, `next build`
 exit 0; `/` First Load held 94 kB; game code stays code-split to `/arcade`). All on `main` (site) + the standalone

@@ -79,22 +79,34 @@ lensing, ending at a cinematic singularity where the (real, working) contact for
     **12 throwables** (each its own 3D model): frag, smoke, molotov, cryo, EMP, flashbang, cluster,
     toxin, singularity, concussion, decoy, plasma — with burn / slow / stun / blind effects and
     lingering fire / gas / cryo / decoy zones.
-  - **Enemies:** **10 low‑poly 3D doctrine classes** — Rifleman, Scout, Breacher, Marksman, Suppressor,
-    Engineer, Tank, Elite, Commander, Berserker — each a distinct silhouette / movement / weapon, built
-    from primitives. They spawn as **doctrine squads** (patrol / assault / defensive / heavy‑push /
-    elite‑strike) by level. **Squad‑coordinated, adaptive AI** (LoS‑gated perception, shared intel,
-    coordinated HUNT, per‑class behaviour, wall discipline, climbing, **zero‑in** aim, cross‑fight
-    learning). The Tank breaks down + detonates on death; the Berserker charges to melee.
-  - **Bosses (every 5th level):** three distinct **3D** boss encounters, each a coordinated command unit
-    with its own themed minions, HP phases, telegraphed attacks, and a status HUD. **Xenomorph** (ranged
-    hive predator — acid spit + puddles, a telegraphed pounce that exposes a weak‑point on a miss, a
-    broodling/spitter/stalker hive). **Warlord** (battlefield commander — suppressive fire, arcing grenade
-    volleys, a destructible Command Beacon + a shot‑blocking Shield Wall, a real doctrine legion).
-    **Kraken** (living arena — tentacle eruptions, slam waves, pull vortices, void fog, a purple abyss
-    swarm). **Level 20 = the GAUNTLET:** all three, ENHANCED, back‑to‑back with recovery windows.
-  - **Progression:** a **20‑level campaign** with a gold armory between levels, a pre‑deploy **loadout**
-    screen, **per‑gun customization** (upgrade damage / fire‑rate / magazine / reload with stage gold),
-    a HUD **radar/minimap**, and a local best‑level in `localStorage`.
+  - **Enemies — the BLACKSTAR LEGION:** the roster is redesigned from concept sheets into a cohesive
+    faction of retro low‑poly units — Rifleman, Scout, Breacher, Marksman (cloaked sniper), Suppressor
+    (3.1 m HMG), Engineer (bio‑tech medic), **Tank** (a white siege **MECH** + exterior shield anchor),
+    **Elite** (dual‑blade melee assassin), **Commander** (crowned, caped, scepter), Berserker (claw
+    monster), plus the **Artillery** walker‑mech. Every unit now **raises + shoulders its gun with recoil**
+    when firing. **Combined‑arms squad AI:** an **active Commander** dictates the squad — a command aura
+    that sharpens everyone's aim, target‑calls, and an order FSM (**advance / hold / flank**); **kill the
+    Commander and the squad degrades**. Units run **bounding advances** (always covering fire) and **wide
+    pincer flanks**, keep **dispersed** (never cluster), the **Suppressor actually pins you** (a screen
+    suppression debuff) while flankers move, the **Tank** projects a shield over nearby allies, the
+    **Berserker's fear scream** surges the squad, and the **Marksman repositions** between shots — all on
+    top of the existing LoS/crouch‑aware perception, shared intel, zero‑in aim, climbing, and cross‑fight
+    learning. *(Deeper "thinking" utility movement + multi‑squad strategy + level‑1 player‑pattern learning
+    are in progress.)*
+  - **Bosses + OVERDRIVE:** distinct **3D** boss encounters (Xenomorph hive predator · Warlord battlefield
+    commander with a Command Beacon + Shield Wall · Kraken living arena · a final **GAUNTLET**), each a
+    coordinated command unit with themed minions, HP phases, telegraphed attacks, and a status HUD. Boss
+    levels open with a cinematic: a camera reveal → a **3‑gun red‑ignition cutscene** → your weapons deal
+    **×2.5** for that fight (the held gun glows red), auto‑clearing next level.
+  - **STAR DESTROYER (every 3rd non‑boss level):** a huge procedural **capital ship** (from a 100‑ship
+    catalog) looms over the fight, then on clear a **black‑hole rift** opens, the camera pans, and it
+    **emerges** for a set‑piece — a **killable** Star Destroyer (hull + shield, a 3‑cannon arsenal:
+    machine‑gun / rocket / telegraphed mega‑cannon) that launches a **void‑fighter squadron**. Its gunfire
+    **craters the ground**, **destroys buildings**, and **shakes your screen**; shot‑down fighters
+    **kamikaze‑crash** at you.
+  - **Progression:** a long **campaign** (bosses every 15th level, Star Destroyers every 3rd) with a gold
+    armory between levels, a pre‑deploy **loadout** screen, weapon **engineering / customization**, a HUD
+    **radar/minimap**, accounts + a server‑wide **daily leaderboard**, and cross‑device saves.
   - **Native‑feel mobile (`/arcade` only):** full‑bleed fullscreen + safe‑area, **landscape‑only** with a
     rotate‑to‑continue gate, **dynamic render resolution** (flexes with device FPS), a **floating
     joystick** + **aim assist** (slowdown + magnetism), big glass action buttons, a **settings** panel
