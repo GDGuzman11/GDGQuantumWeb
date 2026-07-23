@@ -61,8 +61,11 @@ There are **two tracking files**:
 **Status** (PM keeps this current):
 ```
 ═══════════════ STARSHELL — STAR DESTROYER + ENEMY REDESIGN + COMBAT-ARMS AI (2026-07-22, Gabe-driven, main session) ═══════════════
-A long single-session arc on `/arcade`, all on `main` + pushed (website repo GDGQuantumWeb; Starshell standalone
-re-synced from `components/arcade/**`). Every step build-green: `tsc` 0 · `next lint --max-warnings=0` 0 ·
+A long single-session arc on `/arcade`, all committed + pushed to the website repo (GDGQuantumWeb `main`).
+NOTE: the standalone Starshell repo (github.com/GDGuzman11/Starshell) is NOT synced — it has diverged too far
+(its own standalone `FpsGame`/persistence shell + it's behind the whole weapon-teardown → Store/Premium → SD →
+OVERDRIVE → redesign → AI arc; the new screen APIs are incompatible with its old shell), so a safe sync is a
+dedicated migration, not a mirror — flagged as an open item. Every step build-green: `tsc` 0 · `next lint --max-warnings=0` 0 ·
 `next build` exit 0 · `/` First Load held 94 kB (game code stays code-split to `/arcade`, ~204 kB there). Commit
 hashes are given for traceability.
 1) STAR DESTROYER encounter (Capital Ship, every 3rd non-boss level). Placement 2B → distant then descends on
