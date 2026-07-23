@@ -1985,9 +1985,9 @@ export function updateEnemies(
       const dx = e.x - a.x;
       const dz = e.z - a.z;
       const d2 = dx * dx + dz * dz;
-      if (d2 < 20.25 && d2 > 0.0001) { // within 4.5 m
+      if (d2 < 42.25 && d2 > 0.0001) { // within 6.5 m — a hard no-cluster rule (never bunch up)
         const d = Math.sqrt(d2);
-        const w = (4.5 - d) / 4.5; // stronger the closer they are
+        const w = ((6.5 - d) / 6.5) * 1.6; // stronger + wider than before → distinct lanes, no grenade-bait
         sepX += (dx / d) * w;
         sepZ += (dz / d) * w;
       }
@@ -2110,15 +2110,26 @@ export function updateEnemies(
     if (tgt) {
       e.state = 'alert';
       const boosted = e.alarm > 0;
+      // COMBINED-ARMS MANOEUVRE — the Commander's order shapes each bot's job:
+      //  · ADVANCE = bounding: half the squad HOLDS a base-of-fire while the other half moves
+      //    (alternates every order via squad.push) → there's always covering fire.
+      //  · FLANK = the fast flankers swing WIDE to your side/rear while the base FIXES you.
+      //  · HOLD = the base-of-fire holds back and works you over from range.
+      const flankRole = e.cls === 'scout' || e.cls === 'breacher' || e.cls === 'elite' || e.cls === 'berserker';
+      let hold = false;
+      let flankWide = 0;
+      if (squad.order === 'hold') hold = !flankRole;
+      else if (squad.order === 'flank') { if (flankRole) flankWide = 11 * e.side; else hold = true; }
+      else if (squad.order === 'advance' && (slot[i] + (squad.push ?? 0)) % 2 !== 0) hold = true; // this bound's base-of-fire
       // LONG-RANGE NAV: when the target is far, route the battlefield via the nav
       // graph (around structures, up ladders, across ramps, out of trenches) and
       // hand off to the close-range standoff/orbit logic below once within reach.
       const distTgt = Math.hypot(tgt.x - e.x, tgt.z - e.z);
-      if (nav && distTgt > NAV_NEAR) {
+      if (nav && distTgt > NAV_NEAR && !hold) {
         const tgtY = player.y > e.y + 2 ? player.y : 0;
-        // Approach from a SPREAD bearing (per squad slot) so the team surrounds and
-        // corners the player from different sides instead of single-filing to one spot.
-        const off = ((slot[i] % 5) - 2) * 4; // −8..+8 m lateral offset on the goal
+        // Approach from a SPREAD bearing (per squad slot) + a wide FLANK offset when ordered,
+        // so the team surrounds/pincers instead of single-filing to one spot.
+        const off = ((slot[i] % 5) - 2) * 4 + flankWide; // −8..+8 m spread + wide flank
         const pl2 = Math.hypot(tgt.x - e.x, tgt.z - e.z) || 1;
         const gX = tgt.x + (-(tgt.z - e.z) / pl2) * off;
         const gZ = tgt.z + ((tgt.x - e.x) / pl2) * off;
@@ -2148,7 +2159,8 @@ export function updateEnemies(
       // Hit-and-run: while retreating after a melee strike, hold a much wider standoff
       // so the bot peels away, then closes back in for the next swing.
       if (e.retreatT) e.retreatT = Math.max(0, e.retreatT - dt);
-      const standRange = (e.retreatT ?? 0) > 0 ? role.range + 8 : role.range;
+      // Base-of-fire (holding) sits back a bit and works from range; retreating peels wider.
+      const standRange = (e.retreatT ?? 0) > 0 ? role.range + 8 : hold ? role.range + 7 : role.range;
       const standX = tgt.x + Math.cos(ang) * standRange;
       const standZ = tgt.z + Math.sin(ang) * standRange;
       let wx = standX - e.x;
