@@ -248,7 +248,16 @@ export interface Squad {
   lastAlive?: number; // alive bot count last frame (to detect losses)
   aggroUntil?: number; // hive-screech buff window: minions surge faster/aggressive
   buffUntil?: number; // Warlord Command Beacon: legion accuracy buff while it lives
+  // ── COMMANDER orchestration (a live, alert commander DICTATES the squad's manoeuvre) ──
+  cmdUntil?: number; // command aura active until this ms (commander alive + near allies)
+  order?: SquadOrder; // the play the commander has called
+  orderT?: number; // ms of the next order re-decision
+  focus?: { x: number; z: number } | null; // called target — the squad concentrates fire here
+  volleyT?: number; // ms of the next coordinated focus-fire volley
+  push?: number; // bounding phase toggle (0/1): which half moves vs. holds base-of-fire
+  axis?: number; // this squad's assigned approach BEARING (rad) for multi-squad pincers
 }
+export type SquadOrder = 'advance' | 'hold' | 'flank';
 
 /** Active smoke cloud — blocks the aliens' line of sight. */
 export interface Smoke {
@@ -957,6 +966,35 @@ export interface BossShot {
   gravity?: number; // >0 = arcing lob (grenades); omit for straight projectiles
 }
 
+/** COMMANDER BRAIN — a live, alert Commander DICTATES the squad each frame: it holds a command
+ *  aura (buffs allies' aim while it lives + is near them), CALLS a target (focus-fires the
+ *  player's last-known spot), and picks a PLAY (advance / hold / flank) on a cadence from the
+ *  situation. Kill the Commander → orders + aura stop and the squad fights loose (degrades). */
+function squadCommand(squad: Squad, enemies: Enemy[], pspeed: number, now: number): void {
+  const cmdr = enemies.find((e) => e.cls === 'commander' && e.health > 0 && !e.boss);
+  if (!cmdr || cmdr.state !== 'alert' || squad.lastKnown == null) {
+    // No commander (or not engaged) → no orders. The squad reverts to independent fighting.
+    squad.order = undefined;
+    squad.focus = null;
+    return;
+  }
+  // Command aura: live while the Commander is near at least one ally (so isolating/killing it drops it).
+  if (enemies.some((e) => e !== cmdr && e.health > 0 && !e.boss && Math.hypot(e.x - cmdr.x, e.z - cmdr.z) < 28)) {
+    squad.cmdUntil = now + 300;
+  }
+  // Call the target — the squad concentrates fire on the last-known player position.
+  squad.focus = squad.lastKnown;
+  // Pick the PLAY on a ~2.2 s cadence, from the squad's health + how the player is behaving.
+  if ((squad.orderT ?? 0) <= now) {
+    squad.orderT = now + 2000 + Math.random() * 800;
+    const alive = enemies.filter((e) => e.health > 0 && !e.boss);
+    const avgFrac = alive.reduce((a, e) => a + e.health / e.maxHealth, 0) / Math.max(1, alive.length);
+    const timid = pspeed < 1.5; // holed up / not pushing → dislodge them with a flank
+    squad.order = avgFrac < 0.45 || alive.length <= 2 ? 'hold' : timid ? 'flank' : 'advance';
+    squad.push = squad.push ? 0 : 1; // alternate the bounding element each order
+  }
+}
+
 /** Advance all bots with squad tactics: shared sight intel, role-based standoff
  *  + flanking, spacing, and LoS-gated fire. Returns player damage, tracers, and
  *  whether any bot can currently see the player (gates regen). */
@@ -1045,9 +1083,9 @@ export function updateEnemies(
   }
   const haveIntel = squad.lastKnown != null && now - squad.t < 5000; // lose track sooner
 
-  // CAPTAIN: while the squad's commander lives, they steady everyone's aim (reuses
-  // the Command-Beacon buff path in fireAt). Drops off the moment the captain falls.
-  if (enemies.some((e) => e.cls === 'commander' && e.health > 0 && !e.boss)) squad.buffUntil = now + 400;
+  // COMMANDER: dictate the squad — command aura, target-call, and the play (advance/hold/flank).
+  squadCommand(squad, enemies, pspeed, now);
+  const commanded = now < (squad.cmdUntil ?? 0); // the command aura is live this frame
 
   // LEARNING: build a heatmap of where the player spends time (their favourite
   // ground), model how aggressively they play, and count bots lost — all persisted
@@ -1156,8 +1194,9 @@ export function updateEnemies(
       if (e.weapon === 'mg') acc *= 0.7; // MG suppresses, it doesn't snipe
     }
     const diffMul = 0.85 + P.acc * 0.5; // normal ~0.97 · hard ~1.03 · nightmare ~1.10
-    const zero = 0.9 + 0.1 * Math.min(1, e.track / 1.4); // small zero-in on held LoS
-    const buff = now < (squad.buffUntil ?? 0) ? 1.12 : 1; // Warlord Command Beacon (toned down)
+    // A live COMMANDER sharpens the squad: faster zero-in (track/1.0 vs 1.4) + tighter aim.
+    const zero = 0.9 + (commanded ? 0.18 : 0.1) * Math.min(1, e.track / (commanded ? 1.0 : 1.4));
+    const buff = (now < (squad.buffUntil ?? 0) ? 1.12 : 1) * (commanded ? 1.08 : 1);
     const cap = isSniper ? 0.95 : e.weapon === 'mg' ? 0.6 : 0.85; // never near-perfect
     if (Math.random() < Math.min(cap, acc * diffMul * zero * buff)) damage += W.dmg * P.dmgMul;
   };
@@ -1311,7 +1350,10 @@ export function updateEnemies(
       const tgt = e.state === 'alert' && e.lastSeen ? e.lastSeen : haveIntel ? squad.lastKnown : null;
       if (tgt) {
         e.state = 'alert';
-        const aggro = now < (squad.aggroUntil ?? 0) ? 1.3 : 1; // hive-screech surge
+        // Base surge × the Commander's called PLAY: ADVANCE pushes harder, HOLD eases off the
+        // gas (hold the line + let the base-of-fire work), FLANK stays neutral (Phase B routes it).
+        const orderMul = squad.order === 'advance' ? 1.15 : squad.order === 'hold' ? 0.8 : 1;
+        const aggro = (now < (squad.aggroUntil ?? 0) ? 1.3 : 1) * orderMul;
         const dist = Math.hypot(player.x - e.x, player.z - e.z);
         e.fireCd -= dt;
         let tx = tgt.x - e.x;
