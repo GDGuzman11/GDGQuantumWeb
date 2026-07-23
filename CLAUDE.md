@@ -87,10 +87,12 @@ hashes are given for traceability.
    the Commander DICTATES the squad (command aura sharpens aim, target-calls, order FSM advance/hold/flank,
    degrades on death) (`0fb527b`); Phase B — order-driven manoeuvre (bounding advance / wide pincer flank / hold)
    + hardened anti-cluster dispersion (`84866c5`); Phase C — real Suppressor SUPPRESSION (screen debuff + HUD
-   vignette) + Berserker fear scream + Marksman reposition (`18fcbce`). REMAINING (paused for a Gabe playtest):
-   Phase C leftovers (elite/berserker leap-lunge, scout relay, engineer drone) + Phase D (utility "thinking"
-   movement + MULTI-SQUAD strategy + player-pattern LEARNING from L1, skipping boss/SD) + Phase E (tuning +
-   fairness tells). Plan: `C:\Users\User\.claude\plans\are-you-familiar-with-drifting-turing.md`.
+   vignette) + Berserker fear scream + Marksman reposition (`18fcbce`); Phase D — MULTI-SQUAD pincer (2+ squads
+   converge from distinct bearings) + Elite/Berserker LEAP-lunge gap-closers + ADAPT-from-L1 (the Commander
+   folds the learned player-aggression profile into its order) (`6205a99`). Both repos current through Phase D
+   (website + Starshell standalone `a2b1b8c`). REMAINING: engineer repair-shield drone, scout relay, deeper
+   utility "thinking" movement, Phase E (tuning + fairness tells). Plan:
+   `C:\Users\User\.claude\plans\are-you-familiar-with-drifting-turing.md`.
 ═════════════════════════════════════════════════════════════════════════════════════
 ═══════════════ STARSHELL — FIT-TO-SLOT PARTS + ARMOR OVERHAUL + DEAD-CODE CLEANUP (2026-07-09, Gabe-driven, main session) ═══════════════
 Three connected pieces of work shipped since the 2026-06-27 entry (each step QA-green: tsc 0, lint 0, `next build`
